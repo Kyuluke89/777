@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUBO & In-Sight 시스템 | 디지털 트윈 HMI (Gemini AI 탑재)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Chosen Palette: Industrial Calm (Slate, Blue, Emerald, Amber) + AI Violet -->
+    <!-- Application Structure Plan:
+         1. Header: HMI-style status bar (System State, Connection Status).
+         2. Main Layout: Two-column grid.
+            - Left: Interactive Simulation (Canvas) & Control Panel. Allows users to 'run' the logic described in the report.
+            - Right: Dynamic Information Panel. Tabs for 'System Overview', 'Logic Flow', 'Script Viewer', and 'Live Logs'.
+         3. AI Integration:
+            - Log Panel: Added 'Analyze Logs' button powered by Gemini.
+            - Script Tab: Added 'AI Assistant' chat interface for LUA coding help.
+         4. Simulation Update (User Request):
+            - Output Visualization: Added logic to render items in the 'Output' zone.
+            - Alignment Visual: Items in Output zone are drawn with 0-degree rotation (vertical line) to prove vision alignment worked.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F1F5F9; /* Slate 100 */
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            height: 250px;
+            max-height: 300px;
+        }
+
+        /* Custom Scrollbar for Logs */
+        .log-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .log-scroll::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .log-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .log-scroll::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .tab-active {
+            border-bottom: 2px solid #3B82F6;
+            color: #3B82F6;
+        }
+        
+        .robot-arm {
+            transition: all 0.5s ease-in-out;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #8b5cf6;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- HMI Header / Status Bar -->
+    <header class="bg-slate-900 text-white p-4 shadow-lg shrink-0 z-10">
+        <div class="container mx-auto max-w-7xl flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div class="h-10 w-10 bg-blue-600 rounded flex items-center justify-center font-bold text-xl">AU</div>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">AUBO & In-Sight 통합 시스템</h1>
+                    <p class="text-xs text-slate-400">디지털 트윈 & 공정 모니터 <span class="text-violet-400 font-bold ml-2">✨ AI 탑재</span></p>
+                </div>
+            </div>
+            
+            <div class="flex gap-6 text-sm font-mono">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-slate-300">시스템: 온라인</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="vision-status" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                    <span class="text-slate-300">비전: <span id="vision-text">대기 중</span></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="mode-indicator" class="px-2 py-0.5 rounded bg-blue-900 text-blue-200 border border-blue-700">모드: 대기</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 container mx-auto max-w-7xl p-4 overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN: Simulation & Control (7 cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-6 h-full overflow-y-auto pr-2 pb-4">
+            
+            <!-- Context Block -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold text-slate-800 mb-2">공정 시뮬레이션 제어</h2>
+                <p class="text-slate-600 text-sm mb-4">
+                    이 패널은 <strong>AUBO 로봇</strong>과 <strong>In-Sight 비전</strong>의 통합 로직을 시뮬레이션합니다. 
+                    <span class="text-blue-600 font-medium">프로세스 A</span>는 비전 없이 적재하며, 
+                    <span class="text-emerald-600 font-medium">프로세스 B</span>는 적재함이 가득 찼을 때 비전을 사용하여 정렬 배출합니다.
+                </p>
+
+                <!-- Control Buttons -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    <button id="btn-run-a" onclick="startProcessA()" class="p-3 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition flex flex-col items-center gap-1">
+                        <span class="text-2xl">📦</span>
+                        <span class="font-bold text-xs">프로세스 A 실행</span>
+                        <span class="text-[10px] opacity-70">블라인드 적재</span>
+                    </button>
+                    
+                    <button id="btn-force-full" onclick="forceFullPallet()" class="p-3 rounded-lg bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition flex flex-col items-center gap-1">
+                        <span class="text-2xl">⚡</span>
+                        <span class="font-bold text-xs">팔레트 채우기</span>
+                        <span class="text-[10px] opacity-70">시뮬레이션 치트</span>
+                    </button>
+
+                    <button id="btn-run-b" onclick="startProcessB()" class="p-3 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition flex flex-col items-center gap-1">
+                        <span class="text-2xl">📷</span>
+                        <span class="font-bold text-xs">프로세스 B 실행</span>
+                        <span class="text-[10px] opacity-70">비전 정렬</span>
+                    </button>
+
+                    <button onclick="resetSim()" class="p-3 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition flex flex-col items-center gap-1">
+                        <span class="text-2xl">↺</span>
+                        <span class="font-bold text-xs">시스템 리셋</span>
+                        <span class="text-[10px] opacity-70">전체 초기화</span>
+                    </button>
+                </div>
+
+                <!-- Simulation Canvas Wrapper -->
+                <div class="relative bg-slate-800 rounded-lg overflow-hidden border border-slate-700 aspect-video md:aspect-[2/1] shadow-inner">
+                    <!-- Overlay Info -->
+                    <div class="absolute top-2 left-2 text-[10px] text-slate-400 font-mono z-10">
+                        CAM_IP: 192.168.1.100<br>
+                        ROBOT_TCP: ACTIVE
+                    </div>
+                    
+                    <canvas id="simCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    
+                    <!-- Floating Badge for Vision Data -->
+                    <div id="vision-overlay" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-green-400 p-3 rounded border border-green-500 font-mono text-xs shadow-2xl z-20">
+                        <div class="border-b border-green-800 mb-1 pb-1 font-bold text-center">IN-SIGHT 2800 감지됨</div>
+                        <div>X: <span id="viz-x">0.0</span></div>
+                        <div>Y: <span id="viz-y">0.0</span></div>
+                        <div>Angle: <span id="viz-angle">0.0</span>°</div>
+                        <div class="mt-1 text-white animate-pulse text-center">로봇으로 데이터 전송 중...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-sm font-bold text-slate-700 mb-2">현재 팔레트 적재량</h3>
+                    <div class="flex items-center gap-4">
+                        <div class="text-4xl font-bold text-slate-800" id="pallet-count-display">0/9</div>
+                        <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="pallet-bar" class="h-full bg-blue-500 w-0 transition-all duration-500"></div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">팔레트가 가득 차면(9/9) 프로세스 B 실행 준비가 완료됩니다.</p>
+                </div>
+                
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                    <h3 class="text-sm font-bold text-slate-700 mb-1">로봇 손목 정렬 보정 (프로세스 B)</h3>
+                    <div class="flex-1 w-full min-h-[100px] chart-container">
+                         <canvas id="wristChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: Info & Logs (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-6 h-full overflow-hidden">
+            
+            <!-- Tabbed Information Panel -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden relative">
+                <!-- Tabs -->
+                <div class="flex border-b border-slate-100">
+                    <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn tab-active flex-1 py-3 text-sm font-medium text-center hover:bg-slate-50 transition">개요</button>
+                    <button onclick="switchTab('logic')" id="tab-logic" class="tab-btn flex-1 py-3 text-sm font-medium text-center hover:bg-slate-50 transition text-slate-500">로직 흐름</button>
+                    <button onclick="switchTab('script')" id="tab-script" class="tab-btn flex-1 py-3 text-sm font-medium text-center hover:bg-slate-50 transition text-slate-500 flex items-center justify-center gap-1">LUA 스크립트 <span class="text-[10px] bg-violet-100 text-violet-600 px-1 rounded">AI</span></button>
+                </div>
+
+                <!-- Content Area -->
+                <div class="flex-1 overflow-y-auto p-5 bg-slate-50" id="info-content">
+                    
+                    <!-- 1. System Overview -->
+                    <div id="view-overview" class="space-y-4">
+                        <h3 class="font-bold text-slate-800">시스템 구성</h3>
+                        <ul class="space-y-2 text-sm text-slate-600">
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-500 mt-0.5">▸</span>
+                                <div><strong class="text-slate-800">로봇:</strong> AUBO i3 (그리퍼 장착)</div>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-500 mt-0.5">▸</span>
+                                <div><strong class="text-slate-800">비전:</strong> Cognex In-Sight 2800 (상단 고정)</div>
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <span class="text-blue-500 mt-0.5">▸</span>
+                                <div><strong class="text-slate-800">환경:</strong> 컨베이어 입고 & 팔레트 매트릭스 출고</div>
+                            </li>
+                        </ul>
+
+                        <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <h4 class="text-xs font-bold text-amber-800 uppercase mb-1">핵심 설계 개념</h4>
+                            <p class="text-xs text-amber-700">
+                                단일 로봇을 사용하여 <strong>입고(프로세스 A)</strong>와 <strong>출고(프로세스 B)</strong>를 모두 수행합니다. 
+                                입고 시에는 "Blind(좌표 고정)" 방식을 사용하고, 출고 시에는 "Vision(가변 좌표)" 방식을 사용하여 
+                                비뚤어진 제품을 정렬하며 이송합니다.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 2. Logic Flow -->
+                    <div id="view-logic" class="hidden space-y-4">
+                         <div class="space-y-3">
+                            <div class="p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                <div class="text-xs font-bold text-blue-600 mb-1">메인 루프 (Main Loop)</div>
+                                <p class="text-sm text-slate-600">IF (수량 < 최대) → <span class="font-mono bg-slate-100 px-1 rounded">프로세스 A</span><br>ELSE → <span class="font-mono bg-slate-100 px-1 rounded">프로세스 B</span></p>
+                            </div>
+
+                            <div class="flex justify-center text-slate-400">↓</div>
+
+                            <div class="p-3 bg-white border-l-4 border-blue-500 rounded-lg shadow-sm">
+                                <div class="text-xs font-bold text-slate-800 mb-1">프로세스 A (블라인드 적재)</div>
+                                <ol class="list-decimal list-inside text-xs text-slate-600 space-y-1">
+                                    <li>픽업 위치 이동 (컨베이어)</li>
+                                    <li>그리퍼 ON (집기)</li>
+                                    <li>팔레트 위치 계산 (인덱스)</li>
+                                    <li>적재 (비전 미사용)</li>
+                                    <li>카운트 증가</li>
+                                </ol>
+                            </div>
+
+                            <div class="flex justify-center text-slate-400">↓</div>
+
+                            <div class="p-3 bg-white border-l-4 border-emerald-500 rounded-lg shadow-sm">
+                                <div class="text-xs font-bold text-slate-800 mb-1">프로세스 B (비전 정렬)</div>
+                                <ol class="list-decimal list-inside text-xs text-slate-600 space-y-1">
+                                    <li>카메라 촬영 위치로 이동</li>
+                                    <li>TCP 트리거 → 좌표 수신 (X, Y, Rz)</li>
+                                    <li>손목을 회전(Rz)하여 집기</li>
+                                    <li>배출 위치로 이동 (손목 0°)</li>
+                                    <li>카운트 초기화</li>
+                                </ol>
+                            </div>
+                         </div>
+                    </div>
+
+                    <!-- 3. LUA Script with AI Assistant -->
+                    <div id="view-script" class="hidden flex flex-col h-full">
+                        <div class="text-xs text-slate-500 mb-2">프로세스 B 서브 루틴 핵심 코드입니다.</div>
+                        <div class="relative group">
+                            <pre id="script-code" class="bg-slate-900 text-slate-50 p-3 rounded-lg text-[10px] font-mono overflow-x-auto log-scroll max-h-[200px]"><code>-- 통신 및 데이터 파싱 로직
+local vision_ip = "192.168.1.100"
+local tcp_client = tcp_connect(vision_ip, 3000)
+
+-- 촬영 요청
+tcp_send(tcp_client, "Trigger")
+sleep(0.5)
+
+-- 데이터 수신 "X,Y,Angle"
+local recv_str = tcp_recv(tcp_client)
+local data = string_split(recv_str, ",")
+
+-- 좌표 변환
+local v_x = tonumber(data[1])
+local v_y = tonumber(data[2])
+local v_rz_deg = tonumber(data[3])
+local v_rz_rad = v_rz_deg * 3.14 / 180
+
+-- 가변 웨이포인트 설정
+set_global_variable("V_X", v_x)
+set_global_variable("V_Y", v_y)
+set_global_variable("V_RZ", v_rz_rad)
+
+-- 모션 실행은 티칭 파일에서 MoveL(Variable)로 수행</code></pre>
+                        </div>
+                        
+                        <!-- AI Script Assistant -->
+                        <div class="mt-4 flex-1 flex flex-col bg-violet-50 rounded-lg border border-violet-100 p-3">
+                            <h4 class="text-xs font-bold text-violet-800 flex items-center gap-1 mb-2">
+                                <span>✨ AI 스크립트 어시스턴트</span>
+                            </h4>
+                            <div id="ai-script-response" class="flex-1 bg-white rounded border border-violet-100 p-2 text-[11px] text-slate-700 overflow-y-auto mb-2 log-scroll hidden"></div>
+                            <div class="flex gap-2 mt-auto">
+                                <input id="script-question" type="text" placeholder="예: 문자열 자르는 함수 짜줘" class="flex-1 text-xs border border-violet-200 rounded px-2 py-1 focus:outline-none focus:border-violet-400">
+                                <button onclick="askScriptAI()" class="bg-violet-600 text-white text-xs px-3 py-1 rounded hover:bg-violet-700 transition flex items-center gap-1">
+                                    <span id="script-btn-text">질문</span>
+                                    <div id="script-loader" class="loader hidden" style="width: 12px; height: 12px; border-width: 2px;"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Live Logs Terminal with AI Analysis -->
+            <div class="bg-slate-900 rounded-xl shadow-lg border border-slate-800 flex flex-col h-1/3 min-h-[200px] relative">
+                <div class="px-4 py-2 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-400 font-mono">시스템_로그 >_</span>
+                    <div class="flex items-center gap-2">
+                         <button onclick="analyzeLogs()" class="flex items-center gap-1 text-[10px] bg-violet-600/20 text-violet-300 px-2 py-0.5 rounded hover:bg-violet-600/40 transition border border-violet-500/30">
+                            <span>✨ 로그 분석</span>
+                            <div id="log-loader" class="loader hidden" style="width: 10px; height: 10px; border-width: 2px;"></div>
+                        </button>
+                        <button onclick="clearLogs()" class="text-[10px] text-slate-500 hover:text-white">지우기</button>
+                    </div>
+                </div>
+                <div id="system-logs" class="flex-1 p-3 overflow-y-auto font-mono text-[11px] space-y-1 log-scroll">
+                    <div class="text-slate-500">[시스템] 초기화 완료. 준비됨.</div>
+                </div>
+                
+                <!-- AI Log Analysis Result Overlay -->
+                <div id="log-analysis-result" class="hidden absolute inset-0 bg-slate-900/95 z-20 p-4 flex flex-col animate-fade-in">
+                    <div class="flex justify-between items-start mb-2 border-b border-slate-700 pb-2">
+                        <h4 class="text-violet-400 text-xs font-bold flex items-center gap-1">✨ AI 로그 분석 리포트</h4>
+                        <button onclick="closeLogAnalysis()" class="text-slate-400 hover:text-white text-xs">✕</button>
+                    </div>
+                    <div id="analysis-content" class="text-slate-300 text-[11px] font-mono whitespace-pre-wrap overflow-y-auto flex-1"></div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // --- GEMINI API CONFIGURATION ---
+        const apiKey = ""; // API Key provided by runtime environment
+
+        // --- GEMINI API HELPERS ---
+        async function callGemini(prompt) {
+            if (!apiKey) {
+                return "Error: API Key is missing. Cannot contact Gemini.";
+            }
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                return "AI 응답을 가져오는 중 오류가 발생했습니다. 나중에 다시 시도해 주세요.";
+            }
+        }
+
+        // --- FEATURE 1: AI LOG ANALYSIS ---
+        async function analyzeLogs() {
+            const logContainer = document.getElementById('system-logs');
+            const logText = logContainer.innerText;
+            
+            if (logText.trim().length < 50) {
+                alert("로그 데이터가 너무 적습니다. 시뮬레이션을 먼저 실행해 주세요.");
+                return;
+            }
+
+            // UI Update
+            document.getElementById('log-loader').classList.remove('hidden');
+            
+            const prompt = `
+                당신은 산업용 로봇 시스템 전문가입니다. 아래의 AUBO 로봇 및 In-Sight 비전 시스템 로그를 분석하여 한국어로 요약 리포트를 작성해 주세요.
+                
+                [로그 데이터]
+                ${logText}
+                
+                [요청 사항]
+                1. 현재 실행된 프로세스(Process A 또는 B)와 처리된 수량을 요약하세요.
+                2. 비전 시스템과의 통신 성공 여부 및 이상 징후가 있는지 확인하세요.
+                3. 전반적인 시스템 상태(정상/주의/오류)를 진단하세요.
+                4. 답변은 간결하고 전문적인 어조(하십시오체)로 작성하세요.
+            `;
+
+            const result = await callGemini(prompt);
+            
+            // UI Update
+            document.getElementById('log-loader').classList.add('hidden');
+            document.getElementById('log-analysis-result').classList.remove('hidden');
+            document.getElementById('analysis-content').innerText = result;
+        }
+
+        function closeLogAnalysis() {
+            document.getElementById('log-analysis-result').classList.add('hidden');
+        }
+
+        // --- FEATURE 2: AI SCRIPT ASSISTANT ---
+        async function askScriptAI() {
+            const questionInput = document.getElementById('script-question');
+            const question = questionInput.value;
+            const currentCode = document.getElementById('script-code').innerText;
+            
+            if (!question.trim()) return;
+
+            // UI Update
+            document.getElementById('script-loader').classList.remove('hidden');
+            document.getElementById('script-btn-text').innerText = "";
+            document.getElementById('ai-script-response').classList.remove('hidden');
+            document.getElementById('ai-script-response').innerHTML = '<span class="text-slate-400">AI가 생각 중입니다...</span>';
+
+            const prompt = `
+                당신은 AUBO 로봇 LUA 스크립팅 전문가입니다. 
+                사용자가 아래의 현재 코드 컨텍스트를 바탕으로 질문을 했습니다. 질문에 대한 답변이나 코드를 한국어로 작성해 주세요.
+                
+                [현재 코드]
+                ${currentCode}
+                
+                [사용자 질문]
+                ${question}
+                
+                [요청 사항]
+                1. 코드를 작성해야 한다면 AUBO LUA 문법에 맞게 작성하세요.
+                2. 설명은 친절하고 이해하기 쉽게 작성하세요.
+            `;
+
+            const result = await callGemini(prompt);
+
+            // UI Update
+            document.getElementById('script-loader').classList.add('hidden');
+            document.getElementById('script-btn-text').innerText = "질문";
+            // Simple markdown-like formatter for code blocks
+            const formattedResult = result.replace(/```lua([\s\S]*?)```/g, '<pre class="bg-slate-100 p-2 rounded mt-1 text-slate-800 font-mono text-[10px]">$1</pre>')
+                                          .replace(/```([\s\S]*?)```/g, '<pre class="bg-slate-100 p-2 rounded mt-1 text-slate-800 font-mono text-[10px]">$1</pre>');
+            
+            document.getElementById('ai-script-response').innerHTML = formattedResult;
+        }
+
+        // --- CONSTANTS & STATE ---
+        const PALLET_SIZE = 9; // 3x3 Grid
+        const PALLET_ROWS = 3;
+        const PALLET_COLS = 3;
+        
+        let state = {
+            mode: 'IDLE', // 'IDLE', 'A', 'B'
+            palletItems: [], // Array of objects {x, y, angle}
+            outputItems: [], // Visual stack of sorted items at output
+            robotPos: {x: 100, y: 150},
+            isBusy: false,
+            count: 0
+        };
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+
+        // Chart Data
+        let chartInstance;
+        const wristData = {
+            labels: [],
+            datasets: [{
+                label: '손목 보정 각도 (°)',
+                data: [],
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        };
+
+        // --- INIT ---
+        window.onload = function() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            initChart();
+            renderLoop();
+        };
+
+        function resizeCanvas() {
+            const parent = canvas.parentElement;
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+        }
+
+        function initChart() {
+            const ctxChart = document.getElementById('wristChart').getContext('2d');
+            chartInstance = new Chart(ctxChart, {
+                type: 'line',
+                data: wristData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: '각도 (Deg)' } },
+                        x: { display: false } // Hide time steps for cleanliness
+                    }
+                }
+            });
+        }
+
+        // --- LOGIC: PROCESS A (Blind Load) ---
+        async function startProcessA() {
+            if (state.isBusy) return log("시스템 작업 중", "warn");
+            if (state.palletItems.length >= PALLET_SIZE) return log("팔레트가 가득 찼습니다! 프로세스 A를 실행할 수 없습니다.", "error");
+
+            state.mode = 'A';
+            updateStatus();
+            log("[프로세스 A] 시작됨. 블라인드 적재 중...", "info");
+            state.isBusy = true;
+
+            // 1. Pick from Conveyor (Source)
+            log("컨베이어 픽업 위치로 이동 중...", "default");
+            await moveRobotTo(50, canvas.height / 2); // Left side
+            await wait(300);
+            log("그리퍼 ON. 물체 집음.", "success");
+
+            // 2. Calculate Pallet Position (Blind)
+            const index = state.palletItems.length;
+            const row = Math.floor(index / PALLET_COLS);
+            const col = index % PALLET_COLS;
+            
+            // Grid Logic on Canvas (Center Area)
+            const gridStartX = canvas.width / 2 - 60;
+            const gridStartY = canvas.height / 2 - 60;
+            const gap = 60;
+            const targetX = gridStartX + (col * gap);
+            const targetY = gridStartY + (row * gap);
+
+            // 3. Move to Pallet
+            log(`인덱스 계산 중 [${index}]: 행 ${row}, 열 ${col}`, "default");
+            await moveRobotTo(targetX, targetY);
+            
+            // 4. Place
+            // Random angle to simulate messy input that vision will fix later
+            const randomAngle = (Math.random() * 90 - 45).toFixed(1); 
+            
+            state.palletItems.push({
+                x: targetX,
+                y: targetY,
+                angle: parseFloat(randomAngle), // Store actual angle for visual
+                gridIndex: index
+            });
+            
+            log(`그리드[${index}]에 물체 적재됨. 실제 각도: ${randomAngle}°`, "default");
+            state.count++;
+            updateUI();
+
+            // Return to Home
+            await moveRobotTo(canvas.width / 2, canvas.height - 50);
+            state.isBusy = false;
+            state.mode = 'IDLE';
+            updateStatus();
+
+            // Check triggers
+            if (state.palletItems.length >= PALLET_SIZE) {
+                log("팔레트 가득 참. 프로세스 B 준비 완료.", "warn");
+            }
+        }
+
+        // --- LOGIC: PROCESS B (Vision Sort) ---
+        async function startProcessB() {
+            if (state.isBusy) return log("시스템 작업 중", "warn");
+            if (state.palletItems.length === 0) return log("팔레트가 비었습니다! 정렬할 물체가 없습니다.", "error");
+
+            state.mode = 'B';
+            updateStatus();
+            log("[프로세스 B] 시작됨. 비전 정렬 시퀀스...", "info");
+            state.isBusy = true;
+
+            // Loop until empty
+            while (state.palletItems.length > 0) {
+                const item = state.palletItems[state.palletItems.length - 1]; // Pick last item (LIFO for simplicity)
+                
+                // 1. Trigger Vision
+                document.getElementById('vision-status').classList.remove('bg-slate-500');
+                document.getElementById('vision-status').classList.add('bg-green-500', 'animate-pulse');
+                document.getElementById('vision-text').innerText = "처리 중";
+                
+                log("TCP_전송('Trigger') -> In-Sight 2800", "purple");
+                await wait(800); // Simulate processing time
+                
+                // Show Overlay
+                const overlay = document.getElementById('vision-overlay');
+                document.getElementById('viz-x').innerText = (Math.random()*100 + 100).toFixed(1); // Fake mm coords
+                document.getElementById('viz-y').innerText = (Math.random()*100 - 50).toFixed(1);
+                document.getElementById('viz-angle').innerText = item.angle;
+                overlay.classList.remove('hidden');
+                
+                log(`TCP_수신: "${(Math.random()*200).toFixed(1)},${(Math.random()*200).toFixed(1)},${item.angle}"`, "purple");
+                
+                // Update Chart
+                updateChart(item.angle);
+
+                await wait(1000);
+                overlay.classList.add('hidden');
+                document.getElementById('vision-status').classList.remove('bg-green-500', 'animate-pulse');
+                document.getElementById('vision-status').classList.add('bg-slate-500');
+                document.getElementById('vision-text').innerText = "대기 중";
+
+                // 2. Pick (Wrist Compensation)
+                log(`물체로 이동 중. 손목 Rz 조정: ${item.angle}°`, "default");
+                await moveRobotTo(item.x, item.y);
+                await wait(300);
+                
+                // Remove from internal array (visual pick)
+                state.palletItems.pop();
+                updateUI();
+                log("물체 집음.", "success");
+
+                // 3. Move to Output (Align)
+                const outX = canvas.width - 60;
+                const outY = canvas.height / 2;
+                log("배출 위치로 이동 중. 손목 0°로 보간...", "blue");
+                await moveRobotTo(outX, outY);
+                log("물체 적재됨. 정렬 확인.", "default");
+                
+                // --- VISUALIZATION UPDATE ---
+                // Add item to Output Stack with FORCED 0 Angle to show successful alignment
+                state.outputItems.push({
+                    x: outX,
+                    // Slight vertical offset for visual stacking effect
+                    y: outY + (state.outputItems.length * 6) - 40, 
+                    angle: 0 // <--- THIS IS KEY: Vision logic corrected the angle to 0
+                });
+
+                state.count--;
+                updateUI();
+                await wait(200);
+            }
+
+            state.isBusy = false;
+            state.mode = 'IDLE';
+            log("[프로세스 B] 완료. 팔레트 비움.", "success");
+            updateStatus();
+        }
+
+        // --- HELPER: Robot Motion ---
+        function moveRobotTo(targetX, targetY) {
+            return new Promise(resolve => {
+                const startX = state.robotPos.x;
+                const startY = state.robotPos.y;
+                const dist = Math.sqrt(Math.pow(targetX - startX, 2) + Math.pow(targetY - startY, 2));
+                const duration = Math.min(1000, Math.max(500, dist * 2)); // Dynamic speed
+                const startTime = performance.now();
+
+                function animate(time) {
+                    const elapsed = time - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease = 1 - Math.pow(1 - progress, 3); // Cubic ease out
+
+                    state.robotPos.x = startX + (targetX - startX) * ease;
+                    state.robotPos.y = startY + (targetY - startY) * ease;
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        resolve();
+                    }
+                }
+                requestAnimationFrame(animate);
+            });
+        }
+
+        // --- RENDER LOOP ---
+        function renderLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Zones
+            // Conveyor (Left)
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, canvas.height/2 - 40, 80, 80);
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px monospace';
+            ctx.fillText("컨베이어", 10, canvas.height/2 - 50);
+
+            // Output (Right)
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(canvas.width - 80, canvas.height/2 - 40, 80, 80);
+            ctx.fillStyle = '#64748b';
+            ctx.fillText("출고 존", canvas.width - 60, canvas.height/2 - 50);
+
+            // Pallet (Center)
+            const centerX = canvas.width/2;
+            const centerY = canvas.height/2;
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(centerX - 100, centerY - 100, 200, 200);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText("팔레트 존", centerX - 40, centerY - 110);
+
+            // Grid Slots
+            const gridStartX = centerX - 60;
+            const gridStartY = centerY - 60;
+            const gap = 60;
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';
+            for(let r=0; r<3; r++) {
+                for(let c=0; c<3; c++) {
+                    ctx.beginPath();
+                    ctx.arc(gridStartX + c*gap, gridStartY + r*gap, 20, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+
+            // 2. Draw Items (On Pallet - Random Angles)
+            state.palletItems.forEach(item => {
+                drawItem(item.x, item.y, item.angle, '#f59e0b', '#78350f'); // Amber for un-sorted
+            });
+
+            // 3. Draw Items (On Output - Aligned 0°)
+            state.outputItems.forEach(item => {
+                drawItem(item.x, item.y, item.angle, '#10b981', '#064e3b'); // Emerald for sorted
+            });
+
+            // 4. Draw Robot Arm
+            // Base
+            const baseX = canvas.width / 2;
+            const baseY = canvas.height - 20;
+            
+            // Arm Link
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(baseX, baseY);
+            ctx.lineTo(state.robotPos.x, state.robotPos.y);
+            ctx.stroke();
+
+            // End Effector (Gripper)
+            ctx.fillStyle = state.isBusy ? '#ef4444' : '#10b981'; // Red if busy, Green if idle
+            ctx.beginPath();
+            ctx.arc(state.robotPos.x, state.robotPos.y, 10, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(state.robotPos.x, state.robotPos.y, 4, 0, Math.PI*2);
+            ctx.fill();
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        // Helper to draw item
+        function drawItem(x, y, angle, bodyColor, lineColor) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle * Math.PI / 180);
+            
+            // Item Body
+            ctx.fillStyle = bodyColor;
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, 0, Math.PI*2);
+            ctx.fill();
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Direction Indicator (Line)
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -15); // "Up" relative to item rotation
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // --- UTILS & UI UPDATES ---
+        function updateStatus() {
+            const el = document.getElementById('mode-indicator');
+            el.innerText = `모드: ${state.mode}`;
+            if(state.mode === 'A') el.className = "px-2 py-0.5 rounded bg-blue-900 text-blue-200 border border-blue-700 animate-pulse";
+            else if(state.mode === 'B') el.className = "px-2 py-0.5 rounded bg-emerald-900 text-emerald-200 border border-emerald-700 animate-pulse";
+            else el.className = "px-2 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600";
+        }
+
+        function updateUI() {
+            // Update Bar
+            const pct = (state.palletItems.length / PALLET_SIZE) * 100;
+            document.getElementById('pallet-bar').style.width = `${pct}%`;
+            document.getElementById('pallet-count-display').innerText = `${state.palletItems.length}/${PALLET_SIZE}`;
+            
+            // Color change
+            const bar = document.getElementById('pallet-bar');
+            if (pct >= 100) bar.className = "h-full w-full transition-all duration-500 bg-red-500";
+            else bar.className = "h-full w-full transition-all duration-500 bg-blue-500";
+        }
+
+        function forceFullPallet() {
+            resetSim();
+            const centerX = canvas.width/2;
+            const centerY = canvas.height/2;
+            const gridStartX = centerX - 60;
+            const gridStartY = centerY - 60;
+            const gap = 60;
+
+            for(let i=0; i<9; i++) {
+                const r = Math.floor(i/3);
+                const c = i%3;
+                const angle = (Math.random() * 180 - 90).toFixed(1);
+                state.palletItems.push({
+                    x: gridStartX + c*gap,
+                    y: gridStartY + r*gap,
+                    angle: parseFloat(angle),
+                    gridIndex: i
+                });
+            }
+            updateUI();
+            log("시뮬레이션: 팔레트 강제 채움.", "warn");
+        }
+
+        function resetSim() {
+            state.palletItems = [];
+            state.outputItems = []; // Clear output stack
+            state.isBusy = false;
+            state.mode = 'IDLE';
+            state.count = 0;
+            updateUI();
+            updateStatus();
+            log("시스템 리셋됨.", "default");
+            
+            // Reset Chart
+            wristData.labels = [];
+            wristData.datasets[0].data = [];
+            chartInstance.update();
+        }
+
+        function log(msg, type='default') {
+            const container = document.getElementById('system-logs');
+            const entry = document.createElement('div');
+            const timestamp = new Date().toLocaleTimeString('ko-KR', {hour12:false});
+            
+            let colorClass = "text-slate-400";
+            if (type === 'success') colorClass = "text-emerald-400";
+            if (type === 'error') colorClass = "text-red-400";
+            if (type === 'warn') colorClass = "text-amber-400";
+            if (type === 'info') colorClass = "text-blue-400";
+            if (type === 'purple') colorClass = "text-purple-400";
+
+            entry.className = `font-mono text-[11px] ${colorClass}`;
+            entry.innerText = `[${timestamp}] ${msg}`;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('system-logs').innerHTML = '';
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function switchTab(tabId) {
+            // Hide all views
+            ['overview', 'logic', 'script'].forEach(id => {
+                document.getElementById(`view-${id}`).classList.add('hidden');
+                document.getElementById(`tab-${id}`).classList.remove('tab-active', 'text-blue-600');
+                document.getElementById(`tab-${id}`).classList.add('text-slate-500');
+            });
+
+            // Show selected
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabId}`).classList.add('tab-active', 'text-blue-600');
+            document.getElementById(`tab-${tabId}`).classList.remove('text-slate-500');
+        }
+
+        function updateChart(angle) {
+            if (wristData.labels.length > 20) {
+                wristData.labels.shift();
+                wristData.datasets[0].data.shift();
+            }
+            wristData.labels.push('');
+            wristData.datasets[0].data.push(angle);
+            chartInstance.update();
+        }
+
+    </script>
+</body>
+</html>
