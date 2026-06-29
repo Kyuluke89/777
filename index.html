@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>제어반 전장 배치 · 배선 설계 (MVP)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
+  <script src="vendor/fflate.min.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
+    .toolbtn { font-size: 12px; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
+    .toolbtn:hover { border-color: #93c5fd; }
+    /* 핵심 레이아웃 폴백 — Tailwind CDN 미로딩(오프라인) 시에도 구조 유지 */
+    .h-screen { height: 100vh; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .flex-1 { flex: 1 1 auto; }
+    .min-h-0 { min-height: 0; }
+    .min-w-0 { min-width: 0; }
+    .relative { position: relative; }
+    .w-60 { width: 15rem; }
+    .w-56 { width: 14rem; }
+    .overflow-y-auto { overflow-y: auto; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 select-none">
+  <div class="flex flex-col h-screen">
+
+    <!-- 상단 툴바 -->
+    <header class="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-200 flex-wrap no-canvas">
+      <h1 class="text-sm font-bold text-slate-700 mr-2">⚡ 제어반 배치설계</h1>
+
+      <div class="flex items-center gap-1 mr-2">
+        <button id="tool-select" class="toolbtn bg-white text-slate-700" title="선택/이동 (V)">↖ 선택</button>
+        <button id="tool-duct-h" class="toolbtn bg-white text-slate-700" title="가로 덕트">덕트 ─</button>
+        <button id="tool-duct-v" class="toolbtn bg-white text-slate-700" title="세로 덕트">덕트 │</button>
+        <button id="tool-rail-h" class="toolbtn bg-white text-slate-700" title="가로 레일">레일 ─</button>
+        <button id="tool-rail-v" class="toolbtn bg-white text-slate-700" title="세로 레일">레일 │</button>
+      </div>
+
+      <label class="text-xs text-slate-500 flex items-center gap-1 mr-2">덕트폭
+        <select id="duct-width" class="border border-slate-300 rounded px-1 py-0.5 text-xs">
+          <option value="40">40</option>
+          <option value="60" selected>60</option>
+          <option value="80">80</option>
+          <option value="100">100</option>
+        </select>mm
+      </label>
+
+      <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+      <button id="act-rotate" class="toolbtn bg-white text-slate-700" title="회전 (R)">⟳ 회전</button>
+      <button id="act-delete" class="toolbtn bg-white text-slate-700" title="삭제 (Del)">🗑 삭제</button>
+      <button id="act-undo" class="toolbtn bg-white text-slate-700" title="실행취소 (Ctrl+Z)">↶</button>
+      <button id="act-redo" class="toolbtn bg-white text-slate-700" title="다시실행 (Ctrl+Shift+Z)">↷</button>
+
+      <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+      <button id="act-new" class="toolbtn bg-white text-slate-700">새로</button>
+      <button id="act-save" class="toolbtn bg-emerald-600 text-white border-emerald-600">💾 저장(JSON)</button>
+      <button id="act-load" class="toolbtn bg-white text-slate-700">📂 불러오기</button>
+      <button id="act-edz" class="toolbtn bg-violet-600 text-white border-violet-600">＋ EDZ 가져오기</button>
+      <input id="edz-file" type="file" accept=".edz,.zip" class="hidden" />
+
+      <div class="ml-auto flex items-center gap-2">
+        <span id="autosave-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500"></span>
+        <span id="status-msg" class="text-xs text-blue-600 opacity-0 transition-opacity"></span>
+      </div>
+    </header>
+
+    <div class="flex flex-1 min-h-0">
+      <!-- 좌측: 부품 라이브러리 -->
+      <aside class="w-60 bg-white border-r border-slate-200 flex flex-col no-canvas">
+        <div class="px-3 py-2 border-b border-slate-100">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-slate-600">부품 라이브러리</span>
+            <span id="palette-count" class="text-[10px] text-slate-400">0 / 0</span>
+          </div>
+          <input id="palette-search" type="text" placeholder="검색 (예: MCCB, MC, PLC)"
+            class="w-full px-2 py-1 text-xs border border-slate-300 rounded" />
+        </div>
+        <div id="palette-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+        <div class="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400 leading-relaxed">
+          부품 클릭 → 캔버스 클릭으로 배치.<br>Shift+클릭: 연속 배치.
+        </div>
+      </aside>
+
+      <!-- 중앙: 캔버스 -->
+      <main class="flex-1 relative min-w-0">
+        <svg id="canvas"></svg>
+        <div class="absolute bottom-2 left-2 text-[10px] text-slate-400 bg-white/80 px-2 py-1 rounded no-canvas">
+          휠: 줌 · 빈공간 드래그/스페이스+드래그: 이동 · 격자 스냅
+        </div>
+      </main>
+
+      <!-- 우측: 전장 설정 + 인스펙터 -->
+      <aside class="w-56 bg-white border-l border-slate-200 flex flex-col no-canvas">
+        <div class="px-3 py-2 border-b border-slate-100">
+          <div class="text-xs font-bold text-slate-600 mb-2">전장(플레이트) 설정</div>
+          <label class="flex items-center justify-between py-0.5">
+            <span class="text-xs text-slate-500">가로(mm)</span>
+            <input id="panel-w" type="number" class="w-20 px-2 py-1 text-xs border border-slate-300 rounded text-right" />
+          </label>
+          <label class="flex items-center justify-between py-0.5">
+            <span class="text-xs text-slate-500">세로(mm)</span>
+            <input id="panel-h" type="number" class="w-20 px-2 py-1 text-xs border border-slate-300 rounded text-right" />
+          </label>
+          <label class="flex items-center justify-between py-0.5">
+            <span class="text-xs text-slate-500">격자(mm)</span>
+            <input id="panel-grid" type="number" class="w-20 px-2 py-1 text-xs border border-slate-300 rounded text-right" />
+          </label>
+          <button id="panel-fit" class="mt-2 w-full toolbtn bg-slate-100 text-slate-700">화면 맞춤</button>
+        </div>
+        <div class="px-3 py-2 border-b border-slate-100">
+          <div class="text-xs font-bold text-slate-600 mb-1">속성</div>
+          <div id="inspector"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- 모듈 로드 (순서 중요) -->
+  <script src="src/store.js"></script>
+  <script src="src/geom.js"></script>
+  <script src="src/viewport.js"></script>
+  <script src="src/render.js"></script>
+  <script src="src/persistence.js"></script>
+  <script src="src/library/seed.js"></script>
+  <script src="src/library/edz.js"></script>
+  <script src="src/library/palette.js"></script>
+  <script src="src/interact.js"></script>
+  <script src="src/ui/toolbar.js"></script>
+  <script src="src/ui/inspector.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
