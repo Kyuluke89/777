@@ -19,13 +19,19 @@
     return { x: p.x, y: p.y + (p.side === 'top' ? -STUB : STUB) };
   }
 
-  // 기본 꺾임점 (Z자) — midY 는 wire.midY 또는 중앙
+  // 기본 꺾임점 (Z자). stub 점도 꼭짓점으로 포함 → 단자에서 나오는 수직선도
+  // 좌우로 움직일 수 있게 됨(편집 가능한 세그먼트가 됨).
   function defaultCorners(state, wire) {
     const a = term(state, wire, 'from'), b = term(state, wire, 'to');
     if (!a || !b) return [];
     const sa = stub(a), sb = stub(b);
     const midY = (wire.midY != null) ? wire.midY : Math.round((sa.y + sb.y) / 2);
-    return [{ x: sa.x, y: midY }, { x: sb.x, y: midY }];
+    return [
+      { x: sa.x, y: sa.y },   // A 단자 스터브
+      { x: sa.x, y: midY },   // 좌 수직선 ↔ 좌우 이동
+      { x: sb.x, y: midY },   // 수평선 ↔ 상하 이동
+      { x: sb.x, y: sb.y }    // B 단자 스터브
+    ];
   }
 
   // 현재 편집용 꺾임점 (편집된 corners 우선)
@@ -60,13 +66,12 @@
     return out;
   }
 
-  // 와이어의 월드 경로 점 배열
+  // 와이어의 월드 경로 점 배열 (corners 에 stub 포함됨)
   W.route = function (state, wire) {
     const a = term(state, wire, 'from'), b = term(state, wire, 'to');
     if (!a || !b) return null;
-    const sa = stub(a), sb = stub(b);
     const corners = W.corners(state, wire);
-    const anchors = [{ x: a.x, y: a.y }, sa].concat(corners, [sb, { x: b.x, y: b.y }]);
+    const anchors = [{ x: a.x, y: a.y }].concat(corners, [{ x: b.x, y: b.y }]);
     return dedup(ortho(anchors));
   };
 

@@ -102,8 +102,17 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const w = s.wires[0];
     const segs = App.wires.editSegments(s, w);
     const hseg = segs.find(x => x.orient === 'H');
+    const vsegs = segs.filter(x => x.orient === 'V');
     if (!w.corners) w.corners = JSON.parse(JSON.stringify(App.wires.corners(s, w)));
-    w.corners[hseg.k].y -= 30; w.corners[hseg.k + 1].y -= 30; // 위로 이동
+    // 수평선 위로 이동
+    w.corners[hseg.k].y -= 30; w.corners[hseg.k + 1].y -= 30;
+    // 수직선 좌우 이동 (첫 V 세그먼트)
+    let vMoved = false;
+    if (vsegs.length) {
+      const vk = vsegs[0].k, ox = w.corners[vk].x;
+      w.corners[vk].x = ox - 15; w.corners[vk + 1].x = ox - 15;
+      vMoved = w.corners[vk].x !== ox;
+    }
     const after = App.wires.route(s, w);
     const ortho = pts => pts.every((p, i) => i === 0 || pts[i - 1].x === p.x || pts[i - 1].y === p.y);
     const before2 = w.corners.length;
@@ -112,13 +121,15 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     App.ui.selected.clear(); App.ui.selected.add(w.id);
     App.render.all();
     return {
-      hseg: !!hseg, orthoAfter: ortho(after), added: after2 - before2,
+      hseg: !!hseg, vCount: vsegs.length, vMoved, orthoAfter: ortho(after), added: after2 - before2,
       endLabels: !!App.wires.endLabels(s, w),
       handles: document.querySelectorAll('[data-seg]').length,
       endTexts: Array.from(document.querySelectorAll('#layer-wires text')).filter(t => t.textContent === 'W1').length
     };
   });
   assert(wireEdit.hseg, '수평 세그먼트(올리고내리기) 존재');
+  assert(wireEdit.vCount >= 2, '수직 세그먼트(좌우이동) 존재 (' + wireEdit.vCount + ')');
+  assert(wireEdit.vMoved, '수직선 좌우 이동 동작');
   assert(wireEdit.orthoAfter, '이동 후에도 경로 직각 유지');
   assert(wireEdit.added === 3, '꺾임 추가 시 corners +3 (' + wireEdit.added + ')');
   assert(wireEdit.endLabels, '양끝 라벨 위치 계산');
@@ -179,7 +190,8 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   const feat = await page.evaluate(() => {
     const get = () => App.store.get();
     const c0 = get().components[0];
-    const autoTag = /^[A-Z]\d+$/.test(c0.label || '');
+    // 라벨은 품명(파트명)으로 표시 — 자동 Q1 형식이 아님
+    const isPartName = !!c0.label && !/^[A-Z]\d+$/.test(c0.label);
     App.ui.selected.clear(); App.ui.selected.add(c0.id);
     const bx = c0.x;
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
@@ -193,12 +205,12 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     App.render.all();
     const red = Array.from(document.querySelectorAll('#layer-components rect'))
       .some(r => r.getAttribute('stroke') === '#dc2626');
-    return { autoTag, nudged, dup: after - before, diffLabel, overlapRed: red };
+    return { isPartName, nudged, dup: after - before, sameLabel: pasted.label === c0.label, overlapRed: red };
   });
-  assert(feat.autoTag, '자동 호기번호 부여 (' + feat.autoTag + ')');
+  assert(feat.isPartName, '라벨이 품명으로 표시됨');
   assert(feat.nudged, '방향키 미세이동');
   assert(feat.dup === 1, '복제 +1 (' + feat.dup + ')');
-  assert(feat.diffLabel, '복제 시 새 호기번호');
+  assert(feat.sameLabel, '복제 시 품명 유지');
   assert(feat.overlapRed, '겹침 경고 표시');
 
   // --- 영역(마퀴) 선택: 빈 공간 드래그로 다중 선택 ---

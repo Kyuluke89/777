@@ -114,21 +114,31 @@
         'stroke-width': isSelected(c.id) || over ? 2 : 1.2,
         'stroke-dasharray': over ? '4 2' : null
       }, grp);
+      // 호기번호(tag) — 입력 시 상단에 작게
+      if (c.tag) {
+        const tg = App.el('text', {
+          x: cx, y: c.y + Math.min(8, c.heightMM * 0.12), 'text-anchor': 'middle',
+          'font-size': Math.min(8, c.heightMM * 0.14), fill: '#111827',
+          'font-weight': 'bold', 'pointer-events': 'none'
+        }, grp);
+        tg.textContent = c.tag;
+      }
       // 타입 배지
       const badge = App.el('text', {
         x: cx, y: cy - 2, 'text-anchor': 'middle',
-        'font-size': Math.min(14, c.heightMM * 0.28), fill: color,
+        'font-size': Math.min(12, c.heightMM * 0.22), fill: color,
         'font-weight': 'bold', 'pointer-events': 'none'
       }, grp);
       badge.textContent = c.type || '';
-      // 라벨 (참조명/부품번호)
+      // 품명 (폭에 맞게 자동 축소)
+      const txt = c.label || c.partName || c.partNo || '';
+      const fit = Math.max(2.2, Math.min(c.heightMM * 0.16, 9, (c.widthMM - 2) / (0.56 * Math.max(4, txt.length))));
       const lab = App.el('text', {
-        x: cx, y: cy + Math.min(14, c.heightMM * 0.28),
-        'text-anchor': 'middle',
-        'font-size': Math.min(11, c.heightMM * 0.22), fill: '#334155',
+        x: cx, y: cy + Math.min(14, c.heightMM * 0.26),
+        'text-anchor': 'middle', 'font-size': fit, fill: '#334155',
         'pointer-events': 'none'
       }, grp);
-      lab.textContent = c.label || c.partNo || '';
+      lab.textContent = txt;
       // 단자 점 (로컬 좌표 — 그룹 회전 적용됨) + 단자 번호
       App.terminals.local(c).forEach(function (t) {
         App.el('circle', {

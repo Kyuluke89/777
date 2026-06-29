@@ -19,7 +19,7 @@
     App.store.commit(function (s) {
       const f = App.store.findById(id);
       if (!f) return;
-      if (field === 'label' || field === 'color') f.item[field] = value;
+      if (field === 'label' || field === 'color' || field === 'tag') f.item[field] = value;
       else f.item[field] = parseFloat(value);
     });
     App.render.all();
@@ -70,10 +70,11 @@
       html += row('가로', numInput('widthMM', it.widthMM));
       html += row('세로', numInput('heightMM', it.heightMM));
       html += row('회전', numInput('rotation', it.rotation || 0));
-      html += row('호기번호', '<input data-field="label" type="text" value="' + (it.label || '') +
+      html += row('품명', '<input data-field="label" type="text" value="' + (it.label || '').replace(/"/g, '&quot;') +
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
-      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.type || '') + ' · ' + (it.partNo || '') +
-        (it.partName ? '<br>' + it.partName : '') + '</div>';
+      html += row('호기번호', '<input data-field="tag" type="text" placeholder="예: Q1" value="' + (it.tag || '').replace(/"/g, '&quot;') +
+        '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.type || '') + ' · ' + (it.partNo || '') + '</div>';
     } else {
       html += row('길이', numInput('lengthMM', it.lengthMM));
       html += row('폭', numInput('widthMM', it.widthMM));

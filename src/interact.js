@@ -50,7 +50,8 @@
       x: x, y: y,
       widthMM: part.w, heightMM: part.h,
       rotation: 0,
-      label: nextRef(state, part.type || 'ETC'), // 자동 호기번호 (Q1, K1, …)
+      label: part.name || part.partNo,  // 기본 표시 = 품명
+      tag: '',                          // 호기번호(선택) — 인스펙터에서 입력
       partName: part.name || '',
       terminals: part.terminals || App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null
@@ -379,8 +380,7 @@
         const nc = App.clone(c);
         nc.id = App.uid('cmp');
         nc.x += g; nc.y += g;
-        nc.label = nextRef(s, nc.type || 'ETC');
-        s.components.push(nc);
+        s.components.push(nc); // 품명 라벨 유지 (호기번호는 인스펙터에서 부여)
         newIds.push(nc.id);
       });
     });
