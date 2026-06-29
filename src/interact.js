@@ -105,26 +105,30 @@
     selectOnly(id);
   }
 
-  // 와이어 세그먼트 드래그 — 수평선은 y만, 수직선은 x만 이동
-  function startWireSeg(wireId, k, orient, sp) {
+  // 와이어 세그먼트 드래그 — 수평선은 상하(y), 수직선은 좌우(x). 단자 옆 구간도 가능.
+  function startWireSeg(wireId, i, orient, sp) {
     const snap = App.store.snapshot();
     const wf = App.store.findById(wireId);
     if (!wf) return;
     const wire = wf.item;
-    if (!wire.corners) wire.corners = App.clone(App.wires.corners(App.store.get(), wire));
-    gesture = { type: 'wireseg', snap: snap, sp: sp, wireId: wireId, k: k, orient: orient,
-      orig: App.clone(wire.corners), moved: false };
+    // 전체 경로를 꼭짓점으로 실체화 + 단자 옆이면 스터브/꺾임 삽입
+    const map = App.wires.beginSegmentDrag(App.store.get(), wire, i, orient);
+    gesture = {
+      type: 'wireseg', snap: snap, sp: sp, wireId: wireId, orient: orient,
+      cP: map.cP, cQ: map.cQ, orig: App.clone(wire.corners), moved: false
+    };
   }
 
   function updateWireSeg(cp) {
     const wire = App.store.findById(gesture.wireId).item;
-    const c = wire.corners, k = gesture.k, o = gesture.orig;
+    const c = wire.corners, o = gesture.orig;
+    const cP = gesture.cP, cQ = gesture.cQ;
     if (gesture.orient === 'H') {
-      const ny = snapV(o[k].y + (cp.y - gesture.sp.y));
-      c[k].y = ny; c[k + 1].y = ny;
+      const ny = snapV(o[cP].y + (cp.y - gesture.sp.y));
+      c[cP].y = ny; c[cQ].y = ny;
     } else {
-      const nx = snapV(o[k].x + (cp.x - gesture.sp.x));
-      c[k].x = nx; c[k + 1].x = nx;
+      const nx = snapV(o[cP].x + (cp.x - gesture.sp.x));
+      c[cP].x = nx; c[cQ].x = nx;
     }
     gesture.moved = true;
     App.store.touch();
@@ -136,15 +140,18 @@
     const state = App.store.get();
     const wire = wf.item;
     App.store.commit(function () {
-      if (!wire.corners) wire.corners = App.clone(App.wires.corners(state, wire));
-      // 클릭에 가장 가까운 세그먼트 찾기
-      const segs = App.wires.editSegments(state, wire);
-      let best = null, bd = Infinity;
-      segs.forEach(function (s) {
-        const d = (s.mid.x - cp.x) * (s.mid.x - cp.x) + (s.mid.y - cp.y) * (s.mid.y - cp.y);
-        if (d < bd) { bd = d; best = s; }
-      });
-      if (best) App.wires.addBend(wire.corners, best.k, cp.x, cp.y);
+      // 전체 경로를 꼭짓점으로 실체화 후, 클릭에 가장 가까운 내부 세그먼트에 꺾임 추가
+      const R = App.wires.route(state, wire);
+      wire.corners = R.slice(1, R.length - 1);
+      let best = -1, bd = Infinity;
+      for (let k = 0; k < wire.corners.length - 1; k++) {
+        const p = wire.corners[k], q = wire.corners[k + 1];
+        const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+        const d = (mx - cp.x) * (mx - cp.x) + (my - cp.y) * (my - cp.y);
+        if (d < bd) { bd = d; best = k; }
+      }
+      if (best >= 0) App.wires.addBend(wire.corners, best, cp.x, cp.y);
+      wire.corners = App.wires.cleanCorners(wire.corners);
     });
   }
 
@@ -239,6 +246,7 @@
         parseInt(segEl.getAttribute('data-seg'), 10),
         segEl.getAttribute('data-orient'), sp);
       svg.setPointerCapture(e.pointerId);
+      App.render.all(); // 핸들 위치 갱신
       return;
     }
 
@@ -323,7 +331,12 @@
     try { svg.releasePointerCapture(e.pointerId); } catch (x) {}
     if (gesture.type === 'draw') finishDraw();
     else if (gesture.type === 'move') finishMove();
-    else if (gesture.type === 'wireseg') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'wireseg') {
+      const wf = App.store.findById(gesture.wireId);
+      if (wf) wf.item.corners = App.wires.cleanCorners(wf.item.corners); // 0길이/일직선 정리
+      if (gesture.moved) App.store.pushUndo(gesture.snap);
+      App.store.touch();
+    }
     else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
   }

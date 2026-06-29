@@ -197,7 +197,8 @@
             x: s.mid.x - hs, y: s.mid.y - hs, width: hs * 2, height: hs * 2,
             rx: hs * 0.4,
             fill: '#fff', stroke: '#2563eb', 'stroke-width': App.viewport.pxToMM(1.5),
-            'data-wire': w.id, 'data-seg': s.k, 'data-orient': s.orient,
+            'data-wire': w.id, 'data-seg': s.i, 'data-orient': s.orient,
+            'data-pterm': s.pTerm ? '1' : '0', 'data-qterm': s.qTerm ? '1' : '0',
             style: 'cursor:' + (s.orient === 'H' ? 'ns-resize' : 'ew-resize')
           }, grp);
         });
