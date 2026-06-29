@@ -40,11 +40,15 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const lib = App.palette.getLibrary();
     const mccb = lib.find(p => p.partNo === 'ABS32Fb-3A');
     const elcb = lib.find(p => p.partNo === 'EBS32Fb-30A/30mA');
-    return { count: lib.length, mccb, elcb };
+    const plc = lib.find(p => p.partNo === 'XBM-DN16S');
+    return { count: lib.length, mccb, elcb, plc, hasFake: !!lib.find(p => p.partNo === 'ABN53c') };
   });
-  assert(ls.count === 20, '카탈로그 실데이터 20종만 (' + ls.count + ')');
+  assert(ls.count >= 21, '카탈로그 실데이터 라이브러리 (' + ls.count + ')');
+  assert(!ls.hasFake, '가짜 시드 부품(ABN53c) 제거됨');
   assert(ls.mccb && ls.mccb.w === 50 && ls.mccb.h === 96 && ls.mccb.type === 'MCCB', 'ABS32Fb-3A 실측 50×96 MCCB');
   assert(ls.elcb && ls.elcb.type === 'ELCB', 'EBS32Fb-30A/30mA ELCB 존재');
+  assert(ls.plc && ls.plc.type === 'PLC' && ls.plc.w === 32 && ls.plc.h === 91, 'XBM-DN16S PLC 실측 32×91');
+  assert(ls.plc.term && ls.plc.term.length >= 16, 'PLC 단자 16+ (' + (ls.plc.term && ls.plc.term.length) + ')');
   // DXF 추출 단자(1,2,3,4) 좌표 확인
   assert(ls.mccb.term && ls.mccb.term.length === 4 && ls.mccb.term[0].name === '1', 'ABS32Fb 단자 4개(1~4)');
 

@@ -45,7 +45,7 @@
         '<span class="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:' + color + '"></span>' +
         '<span class="flex-1 min-w-0">' +
         '<span class="block text-xs font-semibold text-slate-700 truncate">' + p.partNo + '</span>' +
-        '<span class="block text-[10px] text-slate-400 truncate">' + (p.name || '') + ' · ' + p.w + '×' + p.h + 'mm</span>' +
+        '<span class="block text-[10px] text-slate-400 truncate">' + (p.name || '') + ' · ' + (p.est ? '≈' : '') + p.w + '×' + p.h + 'mm' + (p.est ? ' (추정)' : '') + '</span>' +
         '</span>' +
         '<span class="text-[10px] font-bold flex-shrink-0" style="color:' + color + '">' + p.type + '</span>';
       item.onclick = function () {
