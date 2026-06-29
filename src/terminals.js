@@ -16,6 +16,17 @@
 
   // 로컬(회전 미적용) 단자 좌표 — 컴포넌트 그룹 안에서 점을 찍을 때 사용
   T.local = function (comp) {
+    // 1) 부품이 실제 단자 좌표(term: [{name,rx,ry}])를 가지면 그대로 사용 (DXF/EDZ 유래)
+    if (comp.term && comp.term.length) {
+      return comp.term.map(function (t, i) {
+        return {
+          index: i, name: t.name,
+          x: comp.x + t.rx, y: comp.y + t.ry,
+          side: (t.ry <= comp.heightMM / 2) ? 'top' : 'bottom'
+        };
+      });
+    }
+    // 2) 없으면 단자 수 기준 자동 배치(상/하단 균등)
     const n = count(comp);
     const w = comp.widthMM, h = comp.heightMM;
     const top = Math.ceil(n / 2);
@@ -23,10 +34,10 @@
     const pts = [];
     let idx = 0;
     for (let i = 0; i < top; i++) {
-      pts.push({ index: idx++, side: 'top', x: comp.x + (w * (i + 1)) / (top + 1), y: comp.y });
+      pts.push({ index: idx++, name: String(idx), side: 'top', x: comp.x + (w * (i + 1)) / (top + 1), y: comp.y });
     }
     for (let i = 0; i < bottom; i++) {
-      pts.push({ index: idx++, side: 'bottom', x: comp.x + (w * (i + 1)) / (bottom + 1), y: comp.y + h });
+      pts.push({ index: idx++, name: String(idx), side: 'bottom', x: comp.x + (w * (i + 1)) / (bottom + 1), y: comp.y + h });
     }
     return pts;
   };
@@ -42,7 +53,7 @@
     return local.map(function (p) {
       const dx = p.x - cx, dy = p.y - cy;
       return {
-        index: p.index, side: p.side,
+        index: p.index, side: p.side, name: p.name,
         x: cx + dx * cos - dy * sin,
         y: cy + dx * sin + dy * cos
       };

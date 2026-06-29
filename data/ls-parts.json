@@ -10,7 +10,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.MCCB_ABS32Fb_3A"
     },
@@ -22,7 +44,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.MCCB_ABS32Fb_5A"
     },
@@ -34,7 +78,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.MCCB_ABS32Fb_10A"
     },
@@ -46,7 +112,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.MCCB_ABS32Fb_15A"
     },
@@ -58,7 +146,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.MCCB_ABS32Fb_20A"
     },
@@ -70,7 +180,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.MCCB_ABS32Fb_30A"
     },
@@ -82,7 +214,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBE32Fb_3A_50mA"
     },
@@ -94,7 +248,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBE32Fb_5A_30mA"
     },
@@ -106,7 +282,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_3A_15mA"
     },
@@ -118,7 +316,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_3A_30mA"
     },
@@ -130,7 +350,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_5A_15mA"
     },
@@ -142,7 +384,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_5A_30mA"
     },
@@ -154,7 +418,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_10A_15mA"
     },
@@ -166,7 +452,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_10A_30mA"
     },
@@ -178,7 +486,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_15A_15mA"
     },
@@ -190,7 +520,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_15A_30mA"
     },
@@ -202,7 +554,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_20A_15mA"
     },
@@ -214,7 +588,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_20A_30mA"
     },
@@ -226,7 +622,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_30A_15mA"
     },
@@ -238,7 +656,29 @@
       "w": 50,
       "h": 96,
       "d": 60,
-      "terminals": 6,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_30A_30mA"
     }

@@ -39,8 +39,12 @@ function parseCSV(s) {
   return rows;
 }
 
-// DXF 헤더의 $EXTMIN/$EXTMAX → 경계 박스
-function dxfBounds(file) {
+// DXF → { w, h, terminals:[{name,rx,ry}] }
+//  - w/h: $EXTMIN/$EXTMAX 경계 박스
+//  - terminals: ENTITIES 의 TEXT(단자 번호/명칭)를 좌상단 기준 좌표로 (DXF는 y가 위로
+//    증가하므로 앱 좌표계(y 아래로)로 뒤집음)
+const TERM_RE = /^([0-9]{1,2}|[LNT][0-9]?|PE|A[12]|R|S|T|U|V|W)$/i;
+function dxfParse(file) {
   const lines = readText(file).split(/\r?\n/);
   function vec(name) {
     for (let i = 0; i < lines.length; i++) {
@@ -58,7 +62,37 @@ function dxfBounds(file) {
   }
   const mn = vec('$EXTMIN'), mx = vec('$EXTMAX');
   if (!mn || !mx) return null;
-  return { w: Math.round((mx.x - mn.x) * 10) / 10, h: Math.round((mx.y - mn.y) * 10) / 10 };
+  const w = Math.round((mx.x - mn.x) * 10) / 10;
+  const h = Math.round((mx.y - mn.y) * 10) / 10;
+
+  // ENTITIES 섹션에서 TEXT 추출
+  let i = 0;
+  while (i < lines.length && !(lines[i].trim() === '2' && (lines[i + 1] || '').trim() === 'ENTITIES')) i++;
+  const terms = [];
+  for (; i < lines.length; i++) {
+    if (lines[i].trim() !== '0') continue;
+    const type = (lines[i + 1] || '').trim();
+    if (type === 'ENDSEC') break;
+    if (type !== 'TEXT' && type !== 'MTEXT') continue;
+    let x = null, y = null, txt = null;
+    for (let j = i + 2; j < lines.length; j += 2) {
+      const code = lines[j].trim();
+      if (code === '0') break;
+      const v = lines[j + 1];
+      if (code === '10') x = parseFloat(v);
+      if (code === '20') y = parseFloat(v);
+      if (code === '1') txt = (v || '').trim();
+    }
+    if (txt && x != null && y != null && TERM_RE.test(txt)) {
+      terms.push({
+        name: txt,
+        rx: Math.round((x - mn.x) * 10) / 10,
+        ry: Math.round((mx.y - y) * 10) / 10  // y 뒤집기
+      });
+    }
+  }
+  terms.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), undefined, { numeric: true }); });
+  return { w: w, h: h, terminals: terms };
 }
 
 // dxf 트리에서 "Panel layout" DXF 들을 찾아 매크로명→풋프린트 맵 구성
@@ -78,7 +112,7 @@ function collectFootprints(srcDir) {
     const dir = path.join(macroDir, panel);
     const dxf = fs.readdirSync(dir).find(function (f) { return /\.dxf$/i.test(f); });
     if (!dxf) return;
-    const b = dxfBounds(path.join(dir, dxf));
+    const b = dxfParse(path.join(dir, dxf));
     if (b) map[macro] = b;
   });
   return map;
@@ -149,6 +183,7 @@ function main() {
 
     const partNo = frame + (amp ? '-' + amp + 'A' : '') + (ma ? '/' + ma + 'mA' : '');
     const name = (TYPE_MAP[tcode] || tcode) + (amp ? ' ' + amp + 'A' : '') + (ma ? ' ' + ma + 'mA감도' : '');
+    const term = (fp && fp.terminals && fp.terminals.length) ? fp.terminals : null;
 
     parts.push({
       partNo: partNo,
@@ -158,7 +193,8 @@ function main() {
       w: fp ? Math.round(fp.w) : 50,
       h: fp ? Math.round(fp.h) : 80,
       d: 60,
-      terminals: TERM_DEFAULT[tcode] || 4,
+      terminals: term ? term.length : (TERM_DEFAULT[tcode] || 4),
+      term: term,
       source: 'EPLAN Data Portal',
       raw: rawPart
     });
@@ -173,9 +209,10 @@ function main() {
 
   // src/library/parts-ls.js (앱 임베드)
   const lib = parts.map(function (p) {
+    const termStr = p.term ? ', term: ' + JSON.stringify(p.term) : '';
     return '  { partNo: ' + JSON.stringify(p.partNo) + ', manufacturer: "LS", type: ' + JSON.stringify(p.type) +
       ', name: ' + JSON.stringify(p.name) + ', w: ' + p.w + ', h: ' + p.h + ', d: ' + p.d +
-      ', terminals: ' + p.terminals + ', source: "EDZ" }';
+      ', terminals: ' + p.terminals + termStr + ', source: "EDZ" }';
   }).join(',\n');
   const js = '/* 자동 생성됨 — tools/edz-portal-to-parts.js (EPLAN Data Portal DXF+CSV)\n' +
     '   원본: edz-source/commercialdata.csv + Panel layout DXF 풋프린트.\n' +
@@ -186,7 +223,10 @@ function main() {
   fs.writeFileSync(path.join(ROOT, 'src', 'library', 'parts-ls.js'), js);
 
   console.log('생성: ' + parts.length + '개 부품 (풋프린트 매칭 실패 ' + noFp + '개)');
-  parts.forEach(function (p) { console.log('  ' + p.partNo + '  ' + p.w + '×' + p.h + 'mm  [' + p.type + ']  ' + p.name); });
+  parts.forEach(function (p) {
+    const tn = p.term ? (p.term.length + '단자[' + p.term.map(function (t) { return t.name; }).join(',') + ']') : (p.terminals + '단자(자동)');
+    console.log('  ' + p.partNo + '  ' + p.w + '×' + p.h + 'mm  [' + p.type + ']  ' + tn);
+  });
 }
 
 main();

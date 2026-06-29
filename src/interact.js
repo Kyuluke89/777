@@ -33,7 +33,8 @@
       widthMM: part.w, heightMM: part.h,
       rotation: 0,
       label: part.partNo,
-      terminals: part.terminals || App.terminals.defaultCount(part.type)
+      terminals: part.terminals || App.terminals.defaultCount(part.type),
+      term: part.term ? App.clone(part.term) : null
     };
     App.store.commit(function (s) { s.components.push(comp); });
     selectOnly(comp.id);

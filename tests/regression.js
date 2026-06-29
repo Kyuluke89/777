@@ -45,6 +45,26 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(ls.count >= 36, 'LS 부품 포함 라이브러리 (' + ls.count + ')');
   assert(ls.mccb && ls.mccb.w === 50 && ls.mccb.h === 96 && ls.mccb.type === 'MCCB', 'ABS32Fb-3A 실측 50×96 MCCB');
   assert(ls.elcb && ls.elcb.type === 'ELCB', 'EBS32Fb-30A/30mA ELCB 존재');
+  // DXF 추출 단자(1,2,3,4) 좌표 확인
+  assert(ls.mccb.term && ls.mccb.term.length === 4 && ls.mccb.term[0].name === '1', 'ABS32Fb 단자 4개(1~4)');
+
+  // 실데이터 부품을 배치 → 단자가 부품에 복사되고 월드 좌표로 계산되는지
+  const realTerm = await page.evaluate(() => {
+    const part = App.palette.getLibrary().find(p => p.partNo === 'ABS32Fb-3A');
+    App.ui.placing = part;
+    App.store.commit(s => s.components.push({
+      id: 'real1', partNo: part.partNo, type: part.type, x: 100, y: 100,
+      widthMM: part.w, heightMM: part.h, rotation: 0, label: part.partNo,
+      terminals: part.terminals, term: JSON.parse(JSON.stringify(part.term))
+    }));
+    App.ui.placing = null;
+    const pts = App.terminals.world(App.store.get().components.find(c => c.id === 'real1'));
+    return { n: pts.length, names: pts.map(p => p.name), first: pts[0] };
+  });
+  assert(realTerm.n === 4 && realTerm.names.join('') === '1234', '배치 부품 단자 4개 복사 (' + realTerm.names + ')');
+  assert(Math.abs(realTerm.first.x - 111.6) < 0.1 && Math.abs(realTerm.first.y - 120.6) < 0.1, '단자1 월드좌표 정확');
+  // 정리
+  await page.evaluate(() => { App.store.commit(s => s.components = s.components.filter(c => c.id !== 'real1')); App.ui.selected.clear(); });
 
   // --- 와이어로 단자 연결 (실제 클릭) ---
   await page.click('#tool-wire');
