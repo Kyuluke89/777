@@ -1,0 +1,129 @@
+/* 툴바 — 도구 선택, 전장 설정, 저장/불러오기, EDZ 가져오기, 줌 */
+(function (global) {
+  'use strict';
+  const App = (global.App = global.App || {});
+  const Toolbar = (App.toolbar = {});
+
+  const TOOLS = ['select', 'duct-h', 'duct-v', 'rail-h', 'rail-v'];
+
+  function $(id) { return document.getElementById(id); }
+
+  Toolbar.syncTool = function () {
+    TOOLS.forEach(function (t) {
+      const btn = $('tool-' + t);
+      if (!btn) return;
+      if (App.ui.tool === t && !App.ui.placing) {
+        btn.classList.add('bg-blue-600', 'text-white');
+        btn.classList.remove('bg-white', 'text-slate-700');
+      } else {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-white', 'text-slate-700');
+      }
+    });
+  };
+
+  function setTool(t) {
+    App.ui.tool = t;
+    App.ui.placing = null;
+    if (App.palette) App.palette.refresh();
+    Toolbar.syncTool();
+  }
+
+  function flash(msg) {
+    const el = $('status-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('opacity-0');
+    clearTimeout(flash._t);
+    flash._t = setTimeout(function () { el.classList.add('opacity-0'); }, 2500);
+  }
+  Toolbar.flash = flash;
+
+  Toolbar.init = function () {
+    TOOLS.forEach(function (t) {
+      const btn = $('tool-' + t);
+      if (btn) btn.onclick = function () { setTool(t); };
+    });
+
+    // 전장 설정
+    function applyPanel() {
+      const w = Math.max(50, parseInt($('panel-w').value, 10) || 600);
+      const h = Math.max(50, parseInt($('panel-h').value, 10) || 800);
+      const g = Math.max(1, parseInt($('panel-grid').value, 10) || 10);
+      App.store.commit(function (s) {
+        s.panel.widthMM = w; s.panel.heightMM = h; s.panel.gridMM = g;
+      });
+      App.render.all();
+    }
+    ['panel-w', 'panel-h', 'panel-grid'].forEach(function (id) {
+      const el = $(id);
+      if (el) el.addEventListener('change', applyPanel);
+    });
+    $('panel-fit').onclick = function () {
+      const p = App.store.get().panel;
+      App.viewport.fitTo(p.widthMM, p.heightMM);
+      App.render.all();
+    };
+
+    // 덕트 폭
+    $('duct-width').addEventListener('change', function () {
+      App.ui.ductWidth = parseInt(this.value, 10) || 60;
+    });
+
+    // 액션
+    $('act-new').onclick = function () {
+      if (!confirm('새 프로젝트를 시작할까요? 저장하지 않은 변경은 사라집니다.')) return;
+      App.store.replace(App.createEmptyProject());
+      App.ui.selected.clear();
+      const p = App.store.get().panel;
+      App.viewport.fitTo(p.widthMM, p.heightMM);
+      App.render.all();
+      App.inspector.update();
+      flash('새 프로젝트');
+    };
+    $('act-save').onclick = function () { App.persistence.saveToFile(App.store.get()); flash('JSON 저장됨'); };
+    $('act-load').onclick = function () {
+      App.persistence.loadFromFile(function (data) {
+        App.store.replace(data);
+        App.ui.selected.clear();
+        const p = data.panel;
+        App.viewport.fitTo(p.widthMM, p.heightMM);
+        App.render.all();
+        App.inspector.update();
+        Toolbar.syncFromState();
+        flash('불러왔습니다');
+      });
+    };
+    $('act-undo').onclick = function () { App.store.undo(); App.ui.selected.clear(); App.render.all(); App.inspector.update(); };
+    $('act-redo').onclick = function () { App.store.redo(); App.render.all(); };
+    $('act-delete').onclick = function () { App.interact.deleteSelected(); };
+    $('act-rotate').onclick = function () { App.interact.rotateSelected(); };
+
+    // EDZ 가져오기
+    $('act-edz').onclick = function () { $('edz-file').click(); };
+    $('edz-file').onchange = function () {
+      const file = this.files && this.files[0];
+      if (!file) return;
+      flash('EDZ 분석 중…');
+      App.edz.importFile(file).then(function (parts) {
+        App.palette.addParts(parts);
+        flash(parts.length + '개 부품 추가됨');
+      }).catch(function (e) {
+        alert('EDZ 가져오기 실패\n\n' + e.message);
+        flash('EDZ 실패');
+      });
+      this.value = '';
+    };
+
+    Toolbar.syncTool();
+    Toolbar.syncFromState();
+  };
+
+  // 상태값을 입력 필드에 반영
+  Toolbar.syncFromState = function () {
+    const p = App.store.get().panel;
+    if ($('panel-w')) $('panel-w').value = p.widthMM;
+    if ($('panel-h')) $('panel-h').value = p.heightMM;
+    if ($('panel-grid')) $('panel-grid').value = p.gridMM;
+  };
+})(window);

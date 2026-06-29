@@ -1,0 +1,18 @@
+{
+  "_note": "참조용 시드 부품 목록. 실제 앱은 src/library/seed.js의 임베드 데이터를 사용하며, EDZ 가져오기로 부품을 추가/대체합니다.",
+  "schema": {
+    "partNo": "부품번호",
+    "manufacturer": "제조사",
+    "type": "MCCB|MCB|ELCB|MC|CP|SMPS|PLC|RELAY|TB|ETC",
+    "w": "가로(mm)",
+    "h": "세로(mm)",
+    "d": "깊이(mm)",
+    "terminals": "단자 수(다음 단계에서 좌표화)"
+  },
+  "parts": [
+    { "partNo": "ABN53c", "manufacturer": "LS", "type": "MCCB", "name": "배선용차단기 3P 50A", "w": 75, "h": 130, "d": 68, "terminals": 6 },
+    { "partNo": "MC-9b", "manufacturer": "LS", "type": "MC", "name": "전자접촉기 9A", "w": 45, "h": 78, "d": 86, "terminals": 8 },
+    { "partNo": "SPB-024-100", "manufacturer": "LS", "type": "SMPS", "name": "SMPS 24V 100W", "w": 52, "h": 90, "d": 110, "terminals": 6 },
+    { "partNo": "XBC-DR32H", "manufacturer": "LS", "type": "PLC", "name": "XGB PLC 32점", "w": 122, "h": 90, "d": 70, "terminals": 40 }
+  ]
+}
