@@ -1,0 +1,6 @@
+Quantity,"Description from basket","Part number","Manufacturer (abbreviation)","Manufacturer (full name)","Type number","Order number","Product group","Description 1","Description 2","Description 3","Long description","Link to graphic file","Link to external document 1","Link to external document 2","Link to external document 3","Relative path of the DXF file"
+#
+#
+1,,LSE.XBM-DN32H,LSE,"LS Electric",XBM-DN32H,XBM-DN32H,,"PLC XBM",,,,,https://sol.ls-electric.com/kr/ko/product/document/6081,,,
+1,,LSE.XBM-DN16S,LSE,"LS Electric",XBM-DN16S,XBM-DN16S,,PLC,,,"DC24V Power supply, DC24V Input 8 point, Transistor output 8 point",,"LS Electric\PLC\XBM-DR16S_T11_Manual_V2.2_202006_KR.pdf","LS Electric\PLC\XBM-DR16S_T12_Manual_V2.0_202006_EN.pdf","LS Electric\PLC\Manual_XGB Built-in Position_ENG_V1.7.pdf",dxf/
+1,,LSE.XBM-DN32H2,LSE,"LS Electric",XBM-DN32H2,XBM-DN32H2,,"PLC XBM",,,,,https://sol.ls-electric.com/kr/ko/product/document/6081,,,
