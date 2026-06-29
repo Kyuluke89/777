@@ -24,7 +24,31 @@
     if (kind === 'components') {
       return { x: item.x, y: item.y, w: item.widthMM, h: item.heightMM };
     }
+    if (kind === 'wires') {
+      const pts = App.wires ? App.wires.route(App.store.get(), item) : null;
+      if (pts && pts.length) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        pts.forEach(function (p) {
+          minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+          maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+        });
+        return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+      }
+    }
     return { x: 0, y: 0, w: 0, h: 0 };
+  };
+
+  // 점에서 가장 가까운 단자 (월드 좌표), tolMM 이내
+  Geom.nearestTerminal = function (state, x, y, tolMM) {
+    let best = null, bestD = (tolMM || 12) * (tolMM || 12);
+    state.components.forEach(function (c) {
+      App.terminals.world(c).forEach(function (t) {
+        const dx = t.x - x, dy = t.y - y;
+        const d = dx * dx + dy * dy;
+        if (d <= bestD) { bestD = d; best = { compId: c.id, index: t.index, x: t.x, y: t.y }; }
+      });
+    });
+    return best;
   };
 
   // 점이 박스 안에 있는지

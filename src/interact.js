@@ -32,7 +32,8 @@
       x: x, y: y,
       widthMM: part.w, heightMM: part.h,
       rotation: 0,
-      label: part.partNo
+      label: part.partNo,
+      terminals: part.terminals || App.terminals.defaultCount(part.type)
     };
     App.store.commit(function (s) { s.components.push(comp); });
     selectOnly(comp.id);
@@ -136,6 +137,32 @@
     }
 
     const tool = App.ui.tool;
+
+    // 와이어 도구: 단자 클릭 → 단자 클릭
+    if (tool === 'wire') {
+      const term = e.target.closest && e.target.closest('[data-term]');
+      let pick = null;
+      if (term) {
+        pick = { compId: term.getAttribute('data-comp'), index: parseInt(term.getAttribute('data-term'), 10) };
+      } else {
+        const near = App.geom.nearestTerminal(App.store.get(), sp.x, sp.y, 12);
+        if (near) pick = { compId: near.compId, index: near.index };
+      }
+      if (!pick) { App.ui.wireStart = null; App.render.wirePreview(null); return; }
+      if (!App.ui.wireStart) {
+        App.ui.wireStart = pick;
+      } else {
+        if (App.ui.wireStart.compId === pick.compId && App.ui.wireStart.index === pick.index) {
+          App.ui.wireStart = null; App.render.wirePreview(null); return;
+        }
+        const from = App.ui.wireStart, to = pick;
+        App.store.commit(function (s) { s.wires.push(App.wires.create(s, from, to)); });
+        App.ui.wireStart = null;
+        App.render.wirePreview(null);
+      }
+      return;
+    }
+
     if (tool === 'duct-h') { startDraw('h', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'duct-v') { startDraw('v', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'rail-h') { startDraw('h', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
@@ -163,6 +190,16 @@
   }
 
   function onPointerMove(e) {
+    // 와이어 미리보기 (버튼 안 눌러도 동작)
+    if (App.ui.tool === 'wire' && App.ui.wireStart) {
+      const cp = App.viewport.clientToWorld(e.clientX, e.clientY);
+      const a = App.terminals.point(App.store.get(), App.ui.wireStart.compId, App.ui.wireStart.index);
+      if (a) {
+        const near = App.geom.nearestTerminal(App.store.get(), cp.x, cp.y, 12);
+        const end = near ? { x: near.x, y: near.y } : cp;
+        App.render.wirePreview([{ x: a.x, y: a.y }, end]);
+      }
+    }
     if (!gesture) return;
     if (gesture.type === 'pan') {
       const dxPx = e.clientX - gesture.last.x;
@@ -190,8 +227,12 @@
     if (!App.ui.selected.size) return;
     const ids = Array.from(App.ui.selected);
     App.store.commit(function (s) {
-      ['ducts', 'rails', 'components'].forEach(function (k) {
+      ['ducts', 'rails', 'components', 'wires'].forEach(function (k) {
         s[k] = s[k].filter(function (it) { return ids.indexOf(it.id) < 0; });
+      });
+      // 삭제된 부품에 연결된 와이어도 제거
+      s.wires = s.wires.filter(function (w) {
+        return ids.indexOf(w.fromComp) < 0 && ids.indexOf(w.toComp) < 0;
       });
     });
     App.ui.selected.clear();
@@ -229,6 +270,8 @@
     if (e.key === 'r' || e.key === 'R') { rotateSelected(); return; }
     if (e.key === 'Escape') {
       App.ui.placing = null;
+      App.ui.wireStart = null;
+      App.render.wirePreview(null);
       App.ui.selected.clear();
       if (App.palette) App.palette.refresh();
       App.render.all();

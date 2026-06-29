@@ -24,6 +24,12 @@
     .w-56 { width: 14rem; }
     .overflow-y-auto { overflow-y: auto; }
     .hidden { display: none; }
+    /* 인쇄 / PDF 저장 — 캔버스만 출력 */
+    @media print {
+      header, aside, .no-canvas { display: none !important; }
+      main { width: 100% !important; }
+      #canvas { height: 100vh !important; }
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 select-none">
@@ -39,6 +45,7 @@
         <button id="tool-duct-v" class="toolbtn bg-white text-slate-700" title="세로 덕트">덕트 │</button>
         <button id="tool-rail-h" class="toolbtn bg-white text-slate-700" title="가로 레일">레일 ─</button>
         <button id="tool-rail-v" class="toolbtn bg-white text-slate-700" title="세로 레일">레일 │</button>
+        <button id="tool-wire" class="toolbtn bg-white text-slate-700" title="단자 연결(와이어): 단자 클릭 → 단자 클릭">⚯ 배선</button>
       </div>
 
       <label class="text-xs text-slate-500 flex items-center gap-1 mr-2">덕트폭
@@ -64,6 +71,13 @@
       <button id="act-load" class="toolbtn bg-white text-slate-700">📂 불러오기</button>
       <button id="act-edz" class="toolbtn bg-violet-600 text-white border-violet-600">＋ EDZ 가져오기</button>
       <input id="edz-file" type="file" accept=".edz,.zip" class="hidden" />
+
+      <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+      <button id="act-bom" class="toolbtn bg-white text-slate-700" title="부품 BOM CSV">BOM</button>
+      <button id="act-wlist" class="toolbtn bg-white text-slate-700" title="배선표 CSV">배선표</button>
+      <button id="act-png" class="toolbtn bg-white text-slate-700" title="도면 PNG">🖼 PNG</button>
+      <button id="act-print" class="toolbtn bg-white text-slate-700" title="인쇄 / PDF 저장">🖨 인쇄</button>
 
       <div class="ml-auto flex items-center gap-2">
         <span id="autosave-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500"></span>
@@ -92,7 +106,7 @@
       <main class="flex-1 relative min-w-0">
         <svg id="canvas"></svg>
         <div class="absolute bottom-2 left-2 text-[10px] text-slate-400 bg-white/80 px-2 py-1 rounded no-canvas">
-          휠: 줌 · 빈공간 드래그/스페이스+드래그: 이동 · 격자 스냅
+          휠: 줌 · 빈공간 드래그/스페이스+드래그: 이동 · 배선: 단자→단자 클릭 · <span id="counts" class="text-slate-500 font-semibold"></span>
         </div>
       </main>
 
@@ -124,10 +138,13 @@
 
   <!-- 모듈 로드 (순서 중요) -->
   <script src="src/store.js"></script>
+  <script src="src/terminals.js"></script>
+  <script src="src/wires.js"></script>
   <script src="src/geom.js"></script>
   <script src="src/viewport.js"></script>
   <script src="src/render.js"></script>
   <script src="src/persistence.js"></script>
+  <script src="src/export.js"></script>
   <script src="src/library/seed.js"></script>
   <script src="src/library/edz.js"></script>
   <script src="src/library/palette.js"></script>

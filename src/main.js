@@ -24,9 +24,18 @@
     App.inspector.init(document.getElementById('inspector'));
     App.toolbar.init();
 
-    // 상태 변경 → 자동저장 예약
+    // 상태 변경 → 자동 재렌더 (반응형)
+    App.store.subscribe(function () { App.render.all(); });
+
+    // 상태 변경 → 자동저장 예약 + 카운트 갱신
+    const countsEl = document.getElementById('counts');
     App.store.subscribe(function (state) {
       App.persistence.scheduleAutosave(state);
+      if (countsEl) {
+        countsEl.textContent = '부품 ' + state.components.length +
+          ' · 덕트 ' + state.ducts.length + ' · 레일 ' + state.rails.length +
+          ' · 배선 ' + state.wires.length;
+      }
     });
 
     function start(state) {

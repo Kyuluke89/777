@@ -108,7 +108,7 @@
   // --- 엔티티 헬퍼 ---
   Store.findById = function (id) {
     if (!id) return null;
-    const groups = ['ducts', 'rails', 'components'];
+    const groups = ['ducts', 'rails', 'components', 'wires'];
     for (let i = 0; i < groups.length; i++) {
       const arr = state[groups[i]];
       for (let j = 0; j < arr.length; j++) {

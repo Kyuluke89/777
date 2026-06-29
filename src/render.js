@@ -110,6 +110,45 @@
         'pointer-events': 'none'
       }, grp);
       lab.textContent = c.label || c.partNo || '';
+      // 단자 점 (로컬 좌표 — 그룹 회전 적용됨)
+      App.terminals.local(c).forEach(function (t) {
+        App.el('circle', {
+          cx: t.x, cy: t.y, r: 1.8,
+          fill: '#ffffff', stroke: color, 'stroke-width': 0.8,
+          'data-comp': c.id, 'data-term': t.index
+        }, grp);
+      });
+    });
+  }
+
+  function renderWires(state) {
+    const g = App.viewport.layers().wires;
+    clear(g);
+    state.wires.forEach(function (w) {
+      const pts = App.wires.route(state, w);
+      if (!pts) return;
+      const grp = App.el('g', { 'data-id': w.id, 'data-kind': 'wires' }, g);
+      // 클릭 영역 (투명 굵은 선)
+      App.el('polyline', {
+        points: App.wires.pointsStr(pts), fill: 'none',
+        stroke: 'transparent', 'stroke-width': 6
+      }, grp);
+      App.el('polyline', {
+        points: App.wires.pointsStr(pts), fill: 'none',
+        stroke: isSelected(w.id) ? '#111827' : (w.color || '#dc2626'),
+        'stroke-width': isSelected(w.id) ? 2 : 1.2,
+        'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+        'pointer-events': 'none'
+      }, grp);
+      // 라인 라벨
+      const mid = App.wires.midPoint(pts);
+      if (mid && w.label) {
+        const t = App.el('text', {
+          x: mid.x + 3, y: mid.y - 2, 'font-size': 9,
+          fill: '#b91c1c', 'pointer-events': 'none', 'font-weight': 'bold'
+        }, grp);
+        t.textContent = w.label;
+      }
     });
   }
 
@@ -137,6 +176,7 @@
     renderDucts(state);
     renderRails(state);
     renderComponents(state);
+    renderWires(state);
     renderOverlay(state);
   };
 
@@ -154,5 +194,18 @@
     pv.setAttribute('fill-opacity', '0.2');
     pv.setAttribute('stroke', '#2563eb');
     pv.setAttribute('stroke-width', App.viewport.pxToMM(1.2));
+  };
+
+  // 와이어 그리는 중 미리보기 (고무줄)
+  Render.wirePreview = function (pts) {
+    const g = App.viewport.layers().overlay;
+    let pv = g.querySelector('#wire-preview');
+    if (!pts) { if (pv) pv.remove(); return; }
+    if (!pv) { pv = App.el('polyline', { id: 'wire-preview' }, g); }
+    pv.setAttribute('points', pts.map(function (p) { return p.x + ',' + p.y; }).join(' '));
+    pv.setAttribute('fill', 'none');
+    pv.setAttribute('stroke', '#dc2626');
+    pv.setAttribute('stroke-width', App.viewport.pxToMM(1.5));
+    pv.setAttribute('stroke-dasharray', App.viewport.pxToMM(4) + ' ' + App.viewport.pxToMM(3));
   };
 })(window);

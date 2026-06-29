@@ -3,3 +3,4 @@ package-lock.json
 package.json
 *.tgz
 .DS_Store
+tests/*-shot.png

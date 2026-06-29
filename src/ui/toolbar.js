@@ -4,7 +4,7 @@
   const App = (global.App = global.App || {});
   const Toolbar = (App.toolbar = {});
 
-  const TOOLS = ['select', 'duct-h', 'duct-v', 'rail-h', 'rail-v'];
+  const TOOLS = ['select', 'duct-h', 'duct-v', 'rail-h', 'rail-v', 'wire'];
 
   function $(id) { return document.getElementById(id); }
 
@@ -114,6 +114,12 @@
       });
       this.value = '';
     };
+
+    // 내보내기
+    $('act-bom').onclick = function () { const n = App.exporter.bom(); flash('BOM ' + n + '행 저장'); };
+    $('act-wlist').onclick = function () { const n = App.exporter.wiringList(); flash('배선표 ' + n + '행 저장'); };
+    $('act-png').onclick = function () { App.exporter.png(2); flash('PNG 내보내기'); };
+    $('act-print').onclick = function () { App.exporter.print(); };
 
     Toolbar.syncTool();
     Toolbar.syncFromState();

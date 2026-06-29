@@ -19,7 +19,7 @@
     App.store.commit(function (s) {
       const f = App.store.findById(id);
       if (!f) return;
-      if (field === 'label') f.item.label = value;
+      if (field === 'label' || field === 'color') f.item[field] = value;
       else f.item[field] = parseFloat(value);
     });
     App.render.all();
@@ -42,7 +42,26 @@
     if (!f) { root.innerHTML = ''; return; }
     const it = f.item;
     let html = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">' +
-      ({ ducts: '덕트', rails: '채널/레일', components: '부품' }[f.kind]) + '</div>';
+      ({ ducts: '덕트', rails: '채널/레일', components: '부품', wires: '와이어(라인)' }[f.kind]) + '</div>';
+
+    if (f.kind === 'wires') {
+      html += row('라인번호', '<input data-field="label" type="text" value="' + (it.label || '') +
+        '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
+      html += row('색상', '<input data-field="color" type="color" value="' + (it.color || '#dc2626') +
+        '" class="w-12 h-7 border border-slate-300 rounded" />');
+      const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
+      const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +
+        ((fromC && fromC.label) || '?') + ' #' + it.fromTerm + ' → ' +
+        ((toC && toC.label) || '?') + ' #' + it.toTerm + '</div>';
+      root.innerHTML = html;
+      root.querySelectorAll('[data-field]').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+          commitField(id, inp.getAttribute('data-field'), inp.value);
+        });
+      });
+      return;
+    }
 
     html += row('X (mm)', numInput('x', it.x));
     html += row('Y (mm)', numInput('y', it.y));
