@@ -175,6 +175,42 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   const undo = await page.evaluate(() => { App.store.undo(); return { comps: App.store.get().components.length, wires: App.store.get().wires.length }; });
   assert(undo.comps === 2 && undo.wires === 1, 'undo 로 복원');
 
+  // --- 신규 편집 기능: 자동 호기번호 / 미세이동 / 복제 / 겹침경고 ---
+  const feat = await page.evaluate(() => {
+    const get = () => App.store.get();
+    const c0 = get().components[0];
+    const autoTag = /^[A-Z]\d+$/.test(c0.label || '');
+    App.ui.selected.clear(); App.ui.selected.add(c0.id);
+    const bx = c0.x;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    const nudged = get().components.find(c => c.id === c0.id).x !== bx;
+    const before = get().components.length;
+    App.interact.duplicateSelected();
+    const after = get().components.length;
+    const pasted = get().components[after - 1];
+    const diffLabel = pasted.label !== c0.label;
+    App.store.commit(() => { pasted.x = c0.x; pasted.y = c0.y; });
+    App.render.all();
+    const red = Array.from(document.querySelectorAll('#layer-components rect'))
+      .some(r => r.getAttribute('stroke') === '#dc2626');
+    return { autoTag, nudged, dup: after - before, diffLabel, overlapRed: red };
+  });
+  assert(feat.autoTag, '자동 호기번호 부여 (' + feat.autoTag + ')');
+  assert(feat.nudged, '방향키 미세이동');
+  assert(feat.dup === 1, '복제 +1 (' + feat.dup + ')');
+  assert(feat.diffLabel, '복제 시 새 호기번호');
+  assert(feat.overlapRed, '겹침 경고 표시');
+
+  // --- 영역(마퀴) 선택: 빈 공간 드래그로 다중 선택 ---
+  await page.click('#tool-select');
+  await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
+  await page.mouse.move(cx - 270, cy - 210);
+  await page.mouse.down();
+  await page.mouse.move(cx + 270, cy + 230, { steps: 6 });
+  await page.mouse.up();
+  const selN = await page.evaluate(() => App.ui.selected.size);
+  assert(selN >= 2, '영역선택 다중 (' + selN + ')');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

@@ -7,6 +7,7 @@
     tool: 'select',
     placing: null,
     selected: new Set(),
+    clipboard: [],
     ductWidth: 60,
     railWidth: 35,
     spaceDown: false

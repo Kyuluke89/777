@@ -17,6 +17,24 @@
     App.render.all();
     if (App.inspector) App.inspector.update();
   }
+  function selectMany(ids) {
+    App.ui.selected.clear();
+    ids.forEach(function (id) { App.ui.selected.add(id); });
+    App.render.all();
+    if (App.inspector) App.inspector.update();
+  }
+
+  // 타입별 호기번호 접두 (IEC 표준 참고)
+  const REF_PREFIX = { MCCB: 'Q', ELCB: 'Q', MCB: 'F', CP: 'F', MC: 'K', RELAY: 'K', SMPS: 'G', PLC: 'A', TB: 'X', ETC: 'A' };
+  function nextRef(state, type) {
+    const pfx = REF_PREFIX[type] || 'A';
+    let max = 0;
+    state.components.forEach(function (c) {
+      const m = new RegExp('^' + pfx + '(\\d+)$').exec(c.label || '');
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    });
+    return pfx + (max + 1);
+  }
 
   function placeComponent(part, wx, wy) {
     const state = App.store.get();
@@ -32,7 +50,8 @@
       x: x, y: y,
       widthMM: part.w, heightMM: part.h,
       rotation: 0,
-      label: part.partNo,
+      label: nextRef(state, part.type || 'ETC'), // 자동 호기번호 (Q1, K1, …)
+      partName: part.name || '',
       terminals: part.terminals || App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null
     };
@@ -236,11 +255,38 @@
       startMove(sp);
       svg.setPointerCapture(e.pointerId);
     } else {
-      // 빈 공간 → 선택 해제 + 패닝
-      if (App.ui.selected.size) selectOnly(null);
-      gesture = { type: 'pan', last: { x: e.clientX, y: e.clientY } };
+      // 빈 공간 → 영역(마퀴) 선택. (이동은 Space/휠클릭/우클릭)
+      if (App.ui.selected.size && !e.shiftKey) selectOnly(null);
+      gesture = { type: 'marquee', sp: sp, add: e.shiftKey };
       svg.setPointerCapture(e.pointerId);
     }
+  }
+
+  function rectFrom(a, b) {
+    return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+  }
+  function rectsIntersect(a, b) {
+    return !(b.x > a.x + a.w || b.x + b.w < a.x || b.y > a.y + a.h || b.y + b.h < a.y);
+  }
+  function updateMarquee(cp) {
+    gesture.rect = rectFrom(gesture.sp, cp);
+    App.render.marquee(gesture.rect);
+  }
+  function finishMarquee() {
+    App.render.marquee(null);
+    const r = gesture.rect;
+    if (!r || (r.w < 1 && r.h < 1)) return;
+    const state = App.store.get();
+    const hit = [];
+    ['components', 'ducts', 'rails', 'wires'].forEach(function (k) {
+      state[k].forEach(function (it) {
+        if (rectsIntersect(r, App.geom.bounds(k, it))) hit.push(it.id);
+      });
+    });
+    if (gesture.add) hit.forEach(function (id) { App.ui.selected.add(id); });
+    else selectMany(hit);
+    App.render.all();
+    if (App.inspector) App.inspector.update();
   }
 
   function onPointerMove(e) {
@@ -268,6 +314,7 @@
     if (gesture.type === 'draw') updateDraw(cp);
     else if (gesture.type === 'move') updateMove(cp);
     else if (gesture.type === 'wireseg') updateWireSeg(cp);
+    else if (gesture.type === 'marquee') updateMarquee(cp);
   }
 
   function onPointerUp(e) {
@@ -276,6 +323,7 @@
     if (gesture.type === 'draw') finishDraw();
     else if (gesture.type === 'move') finishMove();
     else if (gesture.type === 'wireseg') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
   }
 
@@ -315,10 +363,57 @@
     App.render.all();
   }
 
+  // 선택 부품 복사 → 클립보드 (부품만; 와이어는 단자 종속이라 제외)
+  function copySelected() {
+    const ids = Array.from(App.ui.selected);
+    const comps = App.store.get().components.filter(function (c) { return ids.indexOf(c.id) >= 0; });
+    if (comps.length) App.ui.clipboard = App.clone(comps);
+  }
+  // 붙여넣기 (격자 2칸 오프셋, 호기번호 재발급)
+  function paste() {
+    if (!App.ui.clipboard || !App.ui.clipboard.length) return;
+    const g = App.store.get().panel.gridMM * 2;
+    const newIds = [];
+    App.store.commit(function (s) {
+      App.ui.clipboard.forEach(function (c) {
+        const nc = App.clone(c);
+        nc.id = App.uid('cmp');
+        nc.x += g; nc.y += g;
+        nc.label = nextRef(s, nc.type || 'ETC');
+        s.components.push(nc);
+        newIds.push(nc.id);
+      });
+    });
+    selectMany(newIds);
+  }
+  function duplicateSelected() { copySelected(); paste(); }
+
+  // 방향키 미세 이동 (격자 단위, Shift=10배)
+  function nudge(dx, dy, big) {
+    if (!App.ui.selected.size) return;
+    const g = App.store.get().panel.gridMM * (big ? 10 : 1);
+    const ids = Array.from(App.ui.selected);
+    App.store.commit(function (s) {
+      ['components', 'ducts', 'rails'].forEach(function (k) {
+        s[k].forEach(function (it) {
+          if (ids.indexOf(it.id) >= 0) { it.x += dx * g; it.y += dy * g; }
+        });
+      });
+    });
+    if (App.inspector) App.inspector.update();
+  }
+
   function onKeyDown(e) {
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.key === ' ') { App.ui.spaceDown = true; return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelected(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); paste(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); nudge(-1, 0, e.shiftKey); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); nudge(1, 0, e.shiftKey); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); nudge(0, -1, e.shiftKey); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); nudge(0, 1, e.shiftKey); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       if (e.shiftKey) App.store.redo(); else App.store.undo();
@@ -349,6 +444,9 @@
 
   Interact.deleteSelected = deleteSelected;
   Interact.rotateSelected = rotateSelected;
+  Interact.copySelected = copySelected;
+  Interact.paste = paste;
+  Interact.duplicateSelected = duplicateSelected;
 
   Interact.init = function (svgEl) {
     svg = svgEl;

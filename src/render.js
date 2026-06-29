@@ -78,12 +78,30 @@
     });
   }
 
+  // 겹치는 부품 id 집합 (배치 실수 경고용)
+  function overlappingIds(state) {
+    const set = new Set();
+    const cs = state.components;
+    for (let i = 0; i < cs.length; i++) {
+      for (let j = i + 1; j < cs.length; j++) {
+        const a = cs[i], b = cs[j];
+        if (a.x < b.x + b.widthMM && a.x + a.widthMM > b.x &&
+            a.y < b.y + b.heightMM && a.y + a.heightMM > b.y) {
+          set.add(a.id); set.add(b.id);
+        }
+      }
+    }
+    return set;
+  }
+
   function renderComponents(state) {
     const g = App.viewport.layers().components;
     clear(g);
+    const overlaps = overlappingIds(state);
     state.components.forEach(function (c) {
       const cx = c.x + c.widthMM / 2;
       const cy = c.y + c.heightMM / 2;
+      const over = overlaps.has(c.id);
       const grp = App.el('g', {
         'data-id': c.id, 'data-kind': 'components',
         transform: c.rotation ? ('rotate(' + c.rotation + ' ' + cx + ' ' + cy + ')') : null
@@ -91,9 +109,10 @@
       const color = App.typeColor(c.type);
       App.el('rect', {
         x: c.x, y: c.y, width: c.widthMM, height: c.heightMM,
-        rx: 2, fill: color, 'fill-opacity': 0.16,
-        stroke: isSelected(c.id) ? '#111827' : color,
-        'stroke-width': isSelected(c.id) ? 2 : 1.2
+        rx: 2, fill: over ? '#ef4444' : color, 'fill-opacity': over ? 0.18 : 0.16,
+        stroke: over ? '#dc2626' : (isSelected(c.id) ? '#111827' : color),
+        'stroke-width': isSelected(c.id) || over ? 2 : 1.2,
+        'stroke-dasharray': over ? '4 2' : null
       }, grp);
       // 타입 배지
       const badge = App.el('text', {
@@ -231,5 +250,22 @@
     pv.setAttribute('stroke', '#dc2626');
     pv.setAttribute('stroke-width', App.viewport.pxToMM(1.5));
     pv.setAttribute('stroke-dasharray', App.viewport.pxToMM(4) + ' ' + App.viewport.pxToMM(3));
+  };
+
+  // 영역(마퀴) 선택 박스
+  Render.marquee = function (rectMM) {
+    const g = App.viewport.layers().overlay;
+    let m = g.querySelector('#marquee');
+    if (!rectMM) { if (m) m.remove(); return; }
+    if (!m) { m = App.el('rect', { id: 'marquee' }, g); }
+    m.setAttribute('x', rectMM.x);
+    m.setAttribute('y', rectMM.y);
+    m.setAttribute('width', Math.max(0, rectMM.w));
+    m.setAttribute('height', Math.max(0, rectMM.h));
+    m.setAttribute('fill', '#3b82f6');
+    m.setAttribute('fill-opacity', '0.08');
+    m.setAttribute('stroke', '#3b82f6');
+    m.setAttribute('stroke-width', App.viewport.pxToMM(1));
+    m.setAttribute('stroke-dasharray', App.viewport.pxToMM(3) + ' ' + App.viewport.pxToMM(2));
   };
 })(window);
