@@ -85,6 +85,49 @@
     selectOnly(id);
   }
 
+  // 와이어 세그먼트 드래그 — 수평선은 y만, 수직선은 x만 이동
+  function startWireSeg(wireId, k, orient, sp) {
+    const snap = App.store.snapshot();
+    const wf = App.store.findById(wireId);
+    if (!wf) return;
+    const wire = wf.item;
+    if (!wire.corners) wire.corners = App.clone(App.wires.corners(App.store.get(), wire));
+    gesture = { type: 'wireseg', snap: snap, sp: sp, wireId: wireId, k: k, orient: orient,
+      orig: App.clone(wire.corners), moved: false };
+  }
+
+  function updateWireSeg(cp) {
+    const wire = App.store.findById(gesture.wireId).item;
+    const c = wire.corners, k = gesture.k, o = gesture.orig;
+    if (gesture.orient === 'H') {
+      const ny = snapV(o[k].y + (cp.y - gesture.sp.y));
+      c[k].y = ny; c[k + 1].y = ny;
+    } else {
+      const nx = snapV(o[k].x + (cp.x - gesture.sp.x));
+      c[k].x = nx; c[k + 1].x = nx;
+    }
+    gesture.moved = true;
+    App.store.touch();
+  }
+
+  function addBendAt(wireId, cp) {
+    const wf = App.store.findById(wireId);
+    if (!wf) return;
+    const state = App.store.get();
+    const wire = wf.item;
+    App.store.commit(function () {
+      if (!wire.corners) wire.corners = App.clone(App.wires.corners(state, wire));
+      // 클릭에 가장 가까운 세그먼트 찾기
+      const segs = App.wires.editSegments(state, wire);
+      let best = null, bd = Infinity;
+      segs.forEach(function (s) {
+        const d = (s.mid.x - cp.x) * (s.mid.x - cp.x) + (s.mid.y - cp.y) * (s.mid.y - cp.y);
+        if (d < bd) { bd = d; best = s; }
+      });
+      if (best) App.wires.addBend(wire.corners, best.k, cp.x, cp.y);
+    });
+  }
+
   function startMove(sp) {
     const snap = App.store.snapshot();
     const origPos = {};
@@ -169,6 +212,16 @@
     if (tool === 'rail-h') { startDraw('h', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'rail-v') { startDraw('v', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
 
+    // 와이어 세그먼트 핸들 드래그 (선택된 와이어 편집)
+    const segEl = e.target.closest && e.target.closest('[data-seg]');
+    if (segEl) {
+      startWireSeg(segEl.getAttribute('data-wire'),
+        parseInt(segEl.getAttribute('data-seg'), 10),
+        segEl.getAttribute('data-orient'), sp);
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
+
     // 선택 도구
     const node = e.target.closest && e.target.closest('[data-id]');
     if (node) {
@@ -214,6 +267,7 @@
     const cp = App.viewport.clientToWorld(e.clientX, e.clientY);
     if (gesture.type === 'draw') updateDraw(cp);
     else if (gesture.type === 'move') updateMove(cp);
+    else if (gesture.type === 'wireseg') updateWireSeg(cp);
   }
 
   function onPointerUp(e) {
@@ -221,7 +275,16 @@
     try { svg.releasePointerCapture(e.pointerId); } catch (x) {}
     if (gesture.type === 'draw') finishDraw();
     else if (gesture.type === 'move') finishMove();
+    else if (gesture.type === 'wireseg') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     gesture = null;
+  }
+
+  function onDblClick(e) {
+    const wireGrp = e.target.closest && e.target.closest('[data-kind="wires"]');
+    if (!wireGrp) return;
+    const id = wireGrp.getAttribute('data-id');
+    selectOnly(id);
+    addBendAt(id, App.viewport.clientToWorld(e.clientX, e.clientY));
   }
 
   function deleteSelected() {
@@ -292,6 +355,7 @@
     svg.addEventListener('pointerdown', onPointerDown);
     svg.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    svg.addEventListener('dblclick', onDblClick);
     svg.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);

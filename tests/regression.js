@@ -42,7 +42,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const elcb = lib.find(p => p.partNo === 'EBS32Fb-30A/30mA');
     return { count: lib.length, mccb, elcb };
   });
-  assert(ls.count >= 36, 'LS 부품 포함 라이브러리 (' + ls.count + ')');
+  assert(ls.count === 20, '카탈로그 실데이터 20종만 (' + ls.count + ')');
   assert(ls.mccb && ls.mccb.w === 50 && ls.mccb.h === 96 && ls.mccb.type === 'MCCB', 'ABS32Fb-3A 실측 50×96 MCCB');
   assert(ls.elcb && ls.elcb.type === 'ELCB', 'EBS32Fb-30A/30mA ELCB 존재');
   // DXF 추출 단자(1,2,3,4) 좌표 확인
@@ -91,6 +91,36 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wireInfo.label === 'W1', '자동 라벨 W1 (' + wireInfo.label + ')');
   assert(wireInfo.els === 1, '와이어 렌더 (' + wireInfo.els + ')');
   assert(wireInfo.route >= 2, '와이어 경로점');
+
+  // --- 배선 편집: 세그먼트 이동 / 직각 유지 / 꺾임 추가 / 양끝 라벨 ---
+  const wireEdit = await page.evaluate(() => {
+    const s = App.store.get();
+    const w = s.wires[0];
+    const segs = App.wires.editSegments(s, w);
+    const hseg = segs.find(x => x.orient === 'H');
+    if (!w.corners) w.corners = JSON.parse(JSON.stringify(App.wires.corners(s, w)));
+    w.corners[hseg.k].y -= 30; w.corners[hseg.k + 1].y -= 30; // 위로 이동
+    const after = App.wires.route(s, w);
+    const ortho = pts => pts.every((p, i) => i === 0 || pts[i - 1].x === p.x || pts[i - 1].y === p.y);
+    const before2 = w.corners.length;
+    App.wires.addBend(w.corners, hseg.k, w.corners[hseg.k].x + 5, w.corners[hseg.k].y);
+    const after2 = w.corners.length;
+    App.ui.selected.clear(); App.ui.selected.add(w.id);
+    App.render.all();
+    return {
+      hseg: !!hseg, orthoAfter: ortho(after), added: after2 - before2,
+      endLabels: !!App.wires.endLabels(s, w),
+      handles: document.querySelectorAll('[data-seg]').length,
+      endTexts: Array.from(document.querySelectorAll('#layer-wires text')).filter(t => t.textContent === 'W1').length
+    };
+  });
+  assert(wireEdit.hseg, '수평 세그먼트(올리고내리기) 존재');
+  assert(wireEdit.orthoAfter, '이동 후에도 경로 직각 유지');
+  assert(wireEdit.added === 3, '꺾임 추가 시 corners +3 (' + wireEdit.added + ')');
+  assert(wireEdit.endLabels, '양끝 라벨 위치 계산');
+  assert(wireEdit.handles >= 1, '선택 시 세그먼트 핸들 렌더 (' + wireEdit.handles + ')');
+  assert(wireEdit.endTexts === 2, '양끝에 라인번호 텍스트 2개 (' + wireEdit.endTexts + ')');
+  await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
 
   // --- 부품 이동 시 와이어 추종 ---
   const follow = await page.evaluate(() => {

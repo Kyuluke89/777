@@ -135,6 +135,7 @@
     state.wires.forEach(function (w) {
       const pts = App.wires.route(state, w);
       if (!pts) return;
+      const sel = isSelected(w.id);
       const grp = App.el('g', { 'data-id': w.id, 'data-kind': 'wires' }, g);
       // 클릭 영역 (투명 굵은 선)
       App.el('polyline', {
@@ -143,19 +144,34 @@
       }, grp);
       App.el('polyline', {
         points: App.wires.pointsStr(pts), fill: 'none',
-        stroke: isSelected(w.id) ? '#111827' : (w.color || '#dc2626'),
-        'stroke-width': isSelected(w.id) ? 2 : 1.2,
+        stroke: sel ? '#111827' : (w.color || '#dc2626'),
+        'stroke-width': sel ? 2 : 1.2,
         'stroke-linejoin': 'round', 'stroke-linecap': 'round',
         'pointer-events': 'none'
       }, grp);
-      // 라인 라벨
-      const mid = App.wires.midPoint(pts);
-      if (mid && w.label) {
-        const t = App.el('text', {
-          x: mid.x + 3, y: mid.y - 2, 'font-size': 9,
-          fill: '#b91c1c', 'pointer-events': 'none', 'font-weight': 'bold'
-        }, grp);
-        t.textContent = w.label;
+      // 양 끝 라인번호 텍스트
+      const ends = App.wires.endLabels(state, w);
+      if (ends && w.label) {
+        [ends.a, ends.b].forEach(function (e) {
+          const t = App.el('text', {
+            x: e.x, y: e.y, 'font-size': 8,
+            fill: '#b91c1c', 'pointer-events': 'none', 'font-weight': 'bold'
+          }, grp);
+          t.textContent = w.label;
+        });
+      }
+      // 선택 시: 세그먼트 이동 핸들 (수평=상하, 수직=좌우)
+      if (sel) {
+        const hs = App.viewport.pxToMM(5);
+        App.wires.editSegments(state, w).forEach(function (s) {
+          App.el('rect', {
+            x: s.mid.x - hs, y: s.mid.y - hs, width: hs * 2, height: hs * 2,
+            rx: hs * 0.4,
+            fill: '#fff', stroke: '#2563eb', 'stroke-width': App.viewport.pxToMM(1.5),
+            'data-wire': w.id, 'data-seg': s.k, 'data-orient': s.orient,
+            style: 'cursor:' + (s.orient === 'H' ? 'ns-resize' : 'ew-resize')
+          }, grp);
+        });
       }
     });
   }
