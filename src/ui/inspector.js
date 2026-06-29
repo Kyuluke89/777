@@ -70,9 +70,10 @@
       html += row('가로', numInput('widthMM', it.widthMM));
       html += row('세로', numInput('heightMM', it.heightMM));
       html += row('회전', numInput('rotation', it.rotation || 0));
-      html += row('라벨', '<input data-field="label" type="text" value="' + (it.label || '') +
+      html += row('호기번호', '<input data-field="label" type="text" value="' + (it.label || '') +
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
-      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.type || '') + ' · ' + (it.partNo || '') + '</div>';
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.type || '') + ' · ' + (it.partNo || '') +
+        (it.partName ? '<br>' + it.partName : '') + '</div>';
     } else {
       html += row('길이', numInput('lengthMM', it.lengthMM));
       html += row('폭', numInput('widthMM', it.widthMM));

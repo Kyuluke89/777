@@ -95,25 +95,31 @@ function dxfParse(file) {
   return { w: w, h: h, terminals: terms };
 }
 
-// dxf 트리에서 "Panel layout" DXF 들을 찾아 매크로명→풋프린트 맵 구성
+// 재귀적으로 파일/폴더 수집
+function walk(dir, onFile) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+  entries.forEach(function (e) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) walk(full, onFile);
+    else onFile(full);
+  });
+}
+
+// 패널 레이아웃 표현형식 폴더명 (영/독): "Panel layout" / "Schaltschrankaufbau"
+const PANEL_RE = /panel\s*layout|schaltschrankaufbau/i;
+
+// 모든 하위폴더의 DXF 트리에서 패널레이아웃 DXF → 매크로명→풋프린트 맵
 function collectFootprints(srcDir) {
-  const dxfRoot = path.join(srcDir, 'dxf');
   const map = {};
-  if (!fs.existsSync(dxfRoot)) return map;
-  fs.readdirSync(dxfRoot).forEach(function (macro) {
-    const macroDir = path.join(dxfRoot, macro);
-    if (!fs.statSync(macroDir).isDirectory()) return;
-    // 표현형식 폴더들 중 panel layout 우선
-    const reps = fs.readdirSync(macroDir).filter(function (d) {
-      try { return fs.statSync(path.join(macroDir, d)).isDirectory(); } catch (e) { return false; }
-    });
-    const panel = reps.find(function (d) { return /panel\s*layout/i.test(d); }) || reps[0];
-    if (!panel) return;
-    const dir = path.join(macroDir, panel);
-    const dxf = fs.readdirSync(dir).find(function (f) { return /\.dxf$/i.test(f); });
-    if (!dxf) return;
-    const b = dxfParse(path.join(dir, dxf));
-    if (b) map[macro] = b;
+  walk(srcDir, function (file) {
+    if (!/\.dxf$/i.test(file)) return;
+    const parts = file.split(path.sep);
+    const repIdx = parts.findIndex(function (p) { return PANEL_RE.test(p); });
+    if (repIdx < 1) return;               // 패널레이아웃 폴더 아래의 DXF만
+    const macro = parts[repIdx - 1];      // 표현형식 폴더의 부모 = 매크로명
+    const b = dxfParse(file);
+    if (b && !map[macro]) map[macro] = b;
   });
   return map;
 }
@@ -140,67 +146,97 @@ function classify(desc1, type) {
   if (/ELCB|RCD/.test(s)) return 'ELCB';
   if (/\bMC\b|CONTACTOR/.test(s)) return 'MC';
   if (/SMPS|POWER SUPPLY/.test(s)) return 'SMPS';
-  if (/PLC|XGB|XGI/.test(s)) return 'PLC';
-  if (/RELAY/.test(s)) return 'RELAY';
+  if (/PLC|XGB|XGI|XGK|XGF|XBM|XBC|XBE|XBF/.test(s)) return 'PLC';
+  if (/RELAY|릴레이/.test(s)) return 'RELAY';
+  if (/TERMINAL|단자|\bTB\b|블록/.test(s)) return 'TB';
   if (/MCB|MINIATURE/.test(s)) return 'MCB';
   return 'ETC';
 }
 
+// 같은 위치 단자 중복 제거
+function dedupeTerms(terms) {
+  if (!terms) return null;
+  const out = [], seen = new Set();
+  terms.forEach(function (t) {
+    const k = Math.round(t.rx) + ',' + Math.round(t.ry);
+    if (seen.has(k)) return;
+    seen.add(k); out.push(t);
+  });
+  return out.length ? out : null;
+}
+
 function main() {
-  const csv = path.join(SRC, 'commercialdata.csv');
-  if (!fs.existsSync(csv)) { console.error('commercialdata.csv 없음:', csv); process.exit(1); }
+  // 모든 하위폴더의 commercialdata.csv 수집
+  const csvFiles = [];
+  walk(SRC, function (f) { if (/commercialdata\.csv$/i.test(f)) csvFiles.push(f); });
+  if (!csvFiles.length) { console.error('commercialdata.csv 없음:', SRC); process.exit(1); }
+  console.log('CSV 파일:', csvFiles.length + '개');
+
   const footprints = collectFootprints(SRC);
-  console.log('풋프린트(매크로):', JSON.stringify(footprints));
+  console.log('풋프린트(매크로):', Object.keys(footprints).map(function (k) {
+    return k + '(' + footprints[k].w + '×' + footprints[k].h + ',단자' + (footprints[k].terminals ? footprints[k].terminals.length : 0) + ')';
+  }).join(', '));
 
-  const rows = parseCSV(readText(csv));
-  const header = rows[0];
-  const col = function (name) { return header.indexOf(name); };
-  const cPart = col('Part number'), cType = col('Type number'), cDesc = col('Description 1');
-
-  const data = rows.slice(1).filter(function (r) { return r[cPart] && r[cPart] !== '#' && r[cPart].trim(); });
   const seen = new Set();
   const parts = [];
   let noFp = 0;
 
-  data.forEach(function (r) {
-    const rawPart = r[cPart].trim();
-    if (seen.has(rawPart)) return;
-    seen.add(rawPart);
-    const type = (r[cType] || '').trim();
-    const desc1 = (r[cDesc] || '').trim();
-    const tcode = classify(desc1, type);
+  csvFiles.forEach(function (csv) {
+    const rows = parseCSV(readText(csv));
+    const header = rows[0];
+    const col = function (name) { return header.indexOf(name); };
+    const cPart = col('Part number'), cType = col('Type number');
+    const cDesc = col('Description 1'), cDesc3 = col('Description 3');
+    if (cPart < 0) return;
 
-    // 프레임 + 정격 추출
-    const frameM = type.match(/(?:MCCB|ELCB|MCB|MC|SMPS|PLC)_([A-Za-z0-9]+)/);
-    const frame = frameM ? frameM[1] : type;
-    const ampM = type.match(/_(\d+)A(?:_|$)/);
-    const maM = type.match(/_(\d+)mA/);
-    const amp = ampM ? ampM[1] : null;
-    const ma = maM ? maM[1] : null;
+    rows.slice(1).filter(function (r) { return r[cPart] && r[cPart] !== '#' && r[cPart].trim(); })
+      .forEach(function (r) {
+        const rawPart = r[cPart].trim();
+        if (seen.has(rawPart)) return;
+        seen.add(rawPart);
+        const type = (r[cType] || '').trim();
+        const desc1 = (r[cDesc] || '').trim();
+        const desc3 = (cDesc3 >= 0 ? (r[cDesc3] || '') : '').trim();
+        const tcode = classify(desc1 + ' ' + desc3, type);
 
-    const fp = matchFootprint(footprints, type) || matchFootprint(footprints, rawPart);
-    if (!fp) noFp++;
+        // 프레임 + 정격 추출
+        const frameM = type.match(/(?:MCCB|ELCB|MCB|MC|SMPS|PLC)_([A-Za-z0-9]+)/);
+        const frame = frameM ? frameM[1] : type.replace(/^LSE\./, '');
+        const ampM = type.match(/_(\d+)A(?:_|$)/);
+        const maM = type.match(/_(\d+)mA/);
+        const amp = ampM ? ampM[1] : null;
+        const ma = maM ? maM[1] : null;
 
-    const partNo = frame + (amp ? '-' + amp + 'A' : '') + (ma ? '/' + ma + 'mA' : '');
-    const name = (TYPE_MAP[tcode] || tcode) + (amp ? ' ' + amp + 'A' : '') + (ma ? ' ' + ma + 'mA감도' : '');
-    const term = (fp && fp.terminals && fp.terminals.length) ? fp.terminals : null;
+        const fp = matchFootprint(footprints, type) || matchFootprint(footprints, rawPart);
+        if (!fp) noFp++;
 
-    parts.push({
-      partNo: partNo,
-      manufacturer: 'LS',
-      type: tcode,
-      name: name,
-      w: fp ? Math.round(fp.w) : 50,
-      h: fp ? Math.round(fp.h) : 80,
-      d: 60,
-      terminals: term ? term.length : (TERM_DEFAULT[tcode] || 4),
-      term: term,
-      source: 'EPLAN Data Portal',
-      raw: rawPart
-    });
+        const partNo = amp ? (frame + '-' + amp + 'A' + (ma ? '/' + ma + 'mA' : '')) : frame;
+        let name;
+        if (amp) name = (TYPE_MAP[tcode] || tcode) + ' ' + amp + 'A' + (ma ? ' ' + ma + 'mA감도' : '');
+        else name = desc1 && desc1.toUpperCase() !== type.toUpperCase() ? desc1 : (TYPE_MAP[tcode] || tcode);
+        const term = dedupeTerms(fp && fp.terminals && fp.terminals.length ? fp.terminals : null);
+
+        parts.push({
+          partNo: partNo,
+          manufacturer: 'LS',
+          type: tcode,
+          name: name,
+          w: fp ? Math.round(fp.w) : 50,
+          h: fp ? Math.round(fp.h) : 80,
+          d: 60,
+          terminals: term ? term.length : (TERM_DEFAULT[tcode] || 4),
+          term: term,
+          hasDxf: !!fp,
+          source: 'EPLAN Data Portal',
+          raw: rawPart
+        });
+      });
   });
 
-  parts.sort(function (a, b) { return a.partNo.localeCompare(b.partNo, undefined, { numeric: true }); });
+  parts.sort(function (a, b) {
+    if (a.type !== b.type) return a.type.localeCompare(b.type);
+    return a.partNo.localeCompare(b.partNo, undefined, { numeric: true });
+  });
 
   // data/ls-parts.json
   fs.mkdirSync(path.join(ROOT, 'data'), { recursive: true });
@@ -210,9 +246,10 @@ function main() {
   // src/library/parts-ls.js (앱 임베드)
   const lib = parts.map(function (p) {
     const termStr = p.term ? ', term: ' + JSON.stringify(p.term) : '';
+    const estStr = p.hasDxf ? '' : ', est: true';
     return '  { partNo: ' + JSON.stringify(p.partNo) + ', manufacturer: "LS", type: ' + JSON.stringify(p.type) +
       ', name: ' + JSON.stringify(p.name) + ', w: ' + p.w + ', h: ' + p.h + ', d: ' + p.d +
-      ', terminals: ' + p.terminals + termStr + ', source: "EDZ" }';
+      ', terminals: ' + p.terminals + termStr + estStr + ', source: "EDZ" }';
   }).join(',\n');
   const js = '/* 자동 생성됨 — tools/edz-portal-to-parts.js (EPLAN Data Portal DXF+CSV)\n' +
     '   원본: edz-source/commercialdata.csv + Panel layout DXF 풋프린트.\n' +

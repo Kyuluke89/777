@@ -40,11 +40,15 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const lib = App.palette.getLibrary();
     const mccb = lib.find(p => p.partNo === 'ABS32Fb-3A');
     const elcb = lib.find(p => p.partNo === 'EBS32Fb-30A/30mA');
-    return { count: lib.length, mccb, elcb };
+    const plc = lib.find(p => p.partNo === 'XBM-DN16S');
+    return { count: lib.length, mccb, elcb, plc, hasFake: !!lib.find(p => p.partNo === 'ABN53c') };
   });
-  assert(ls.count >= 36, 'LS 부품 포함 라이브러리 (' + ls.count + ')');
+  assert(ls.count >= 21, '카탈로그 실데이터 라이브러리 (' + ls.count + ')');
+  assert(!ls.hasFake, '가짜 시드 부품(ABN53c) 제거됨');
   assert(ls.mccb && ls.mccb.w === 50 && ls.mccb.h === 96 && ls.mccb.type === 'MCCB', 'ABS32Fb-3A 실측 50×96 MCCB');
   assert(ls.elcb && ls.elcb.type === 'ELCB', 'EBS32Fb-30A/30mA ELCB 존재');
+  assert(ls.plc && ls.plc.type === 'PLC' && ls.plc.w === 32 && ls.plc.h === 91, 'XBM-DN16S PLC 실측 32×91');
+  assert(ls.plc.term && ls.plc.term.length >= 16, 'PLC 단자 16+ (' + (ls.plc.term && ls.plc.term.length) + ')');
   // DXF 추출 단자(1,2,3,4) 좌표 확인
   assert(ls.mccb.term && ls.mccb.term.length === 4 && ls.mccb.term[0].name === '1', 'ABS32Fb 단자 4개(1~4)');
 
@@ -91,6 +95,36 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wireInfo.label === 'W1', '자동 라벨 W1 (' + wireInfo.label + ')');
   assert(wireInfo.els === 1, '와이어 렌더 (' + wireInfo.els + ')');
   assert(wireInfo.route >= 2, '와이어 경로점');
+
+  // --- 배선 편집: 세그먼트 이동 / 직각 유지 / 꺾임 추가 / 양끝 라벨 ---
+  const wireEdit = await page.evaluate(() => {
+    const s = App.store.get();
+    const w = s.wires[0];
+    const segs = App.wires.editSegments(s, w);
+    const hseg = segs.find(x => x.orient === 'H');
+    if (!w.corners) w.corners = JSON.parse(JSON.stringify(App.wires.corners(s, w)));
+    w.corners[hseg.k].y -= 30; w.corners[hseg.k + 1].y -= 30; // 위로 이동
+    const after = App.wires.route(s, w);
+    const ortho = pts => pts.every((p, i) => i === 0 || pts[i - 1].x === p.x || pts[i - 1].y === p.y);
+    const before2 = w.corners.length;
+    App.wires.addBend(w.corners, hseg.k, w.corners[hseg.k].x + 5, w.corners[hseg.k].y);
+    const after2 = w.corners.length;
+    App.ui.selected.clear(); App.ui.selected.add(w.id);
+    App.render.all();
+    return {
+      hseg: !!hseg, orthoAfter: ortho(after), added: after2 - before2,
+      endLabels: !!App.wires.endLabels(s, w),
+      handles: document.querySelectorAll('[data-seg]').length,
+      endTexts: Array.from(document.querySelectorAll('#layer-wires text')).filter(t => t.textContent === 'W1').length
+    };
+  });
+  assert(wireEdit.hseg, '수평 세그먼트(올리고내리기) 존재');
+  assert(wireEdit.orthoAfter, '이동 후에도 경로 직각 유지');
+  assert(wireEdit.added === 3, '꺾임 추가 시 corners +3 (' + wireEdit.added + ')');
+  assert(wireEdit.endLabels, '양끝 라벨 위치 계산');
+  assert(wireEdit.handles >= 1, '선택 시 세그먼트 핸들 렌더 (' + wireEdit.handles + ')');
+  assert(wireEdit.endTexts === 2, '양끝에 라인번호 텍스트 2개 (' + wireEdit.endTexts + ')');
+  await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
 
   // --- 부품 이동 시 와이어 추종 ---
   const follow = await page.evaluate(() => {
@@ -140,6 +174,42 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   // --- undo 복원 ---
   const undo = await page.evaluate(() => { App.store.undo(); return { comps: App.store.get().components.length, wires: App.store.get().wires.length }; });
   assert(undo.comps === 2 && undo.wires === 1, 'undo 로 복원');
+
+  // --- 신규 편집 기능: 자동 호기번호 / 미세이동 / 복제 / 겹침경고 ---
+  const feat = await page.evaluate(() => {
+    const get = () => App.store.get();
+    const c0 = get().components[0];
+    const autoTag = /^[A-Z]\d+$/.test(c0.label || '');
+    App.ui.selected.clear(); App.ui.selected.add(c0.id);
+    const bx = c0.x;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    const nudged = get().components.find(c => c.id === c0.id).x !== bx;
+    const before = get().components.length;
+    App.interact.duplicateSelected();
+    const after = get().components.length;
+    const pasted = get().components[after - 1];
+    const diffLabel = pasted.label !== c0.label;
+    App.store.commit(() => { pasted.x = c0.x; pasted.y = c0.y; });
+    App.render.all();
+    const red = Array.from(document.querySelectorAll('#layer-components rect'))
+      .some(r => r.getAttribute('stroke') === '#dc2626');
+    return { autoTag, nudged, dup: after - before, diffLabel, overlapRed: red };
+  });
+  assert(feat.autoTag, '자동 호기번호 부여 (' + feat.autoTag + ')');
+  assert(feat.nudged, '방향키 미세이동');
+  assert(feat.dup === 1, '복제 +1 (' + feat.dup + ')');
+  assert(feat.diffLabel, '복제 시 새 호기번호');
+  assert(feat.overlapRed, '겹침 경고 표시');
+
+  // --- 영역(마퀴) 선택: 빈 공간 드래그로 다중 선택 ---
+  await page.click('#tool-select');
+  await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
+  await page.mouse.move(cx - 270, cy - 210);
+  await page.mouse.down();
+  await page.mouse.move(cx + 270, cy + 230, { steps: 6 });
+  await page.mouse.up();
+  const selN = await page.evaluate(() => App.ui.selected.size);
+  assert(selN >= 2, '영역선택 다중 (' + selN + ')');
 
   await page.screenshot({ path: SHOT });
   await browser.close();

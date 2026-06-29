@@ -98,6 +98,7 @@
     $('act-redo').onclick = function () { App.store.redo(); App.render.all(); };
     $('act-delete').onclick = function () { App.interact.deleteSelected(); };
     $('act-rotate').onclick = function () { App.interact.rotateSelected(); };
+    $('act-dup').onclick = function () { App.interact.duplicateSelected(); };
 
     // EDZ 가져오기
     $('act-edz').onclick = function () { $('edz-file').click(); };

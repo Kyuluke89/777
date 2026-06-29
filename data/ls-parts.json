@@ -1,211 +1,7 @@
 {
   "generatedFrom": "edz-source (EPLAN Data Portal)",
-  "count": 20,
+  "count": 23,
   "parts": [
-    {
-      "partNo": "ABS32Fb-3A",
-      "manufacturer": "LS",
-      "type": "MCCB",
-      "name": "배선용차단기 3A",
-      "w": 50,
-      "h": 96,
-      "d": 60,
-      "terminals": 4,
-      "term": [
-        {
-          "name": "1",
-          "rx": 11.6,
-          "ry": 20.6
-        },
-        {
-          "name": "2",
-          "rx": 11.6,
-          "ry": 77.1
-        },
-        {
-          "name": "3",
-          "rx": 36.6,
-          "ry": 20.6
-        },
-        {
-          "name": "4",
-          "rx": 36.6,
-          "ry": 77.1
-        }
-      ],
-      "source": "EPLAN Data Portal",
-      "raw": "LSE.MCCB_ABS32Fb_3A"
-    },
-    {
-      "partNo": "ABS32Fb-5A",
-      "manufacturer": "LS",
-      "type": "MCCB",
-      "name": "배선용차단기 5A",
-      "w": 50,
-      "h": 96,
-      "d": 60,
-      "terminals": 4,
-      "term": [
-        {
-          "name": "1",
-          "rx": 11.6,
-          "ry": 20.6
-        },
-        {
-          "name": "2",
-          "rx": 11.6,
-          "ry": 77.1
-        },
-        {
-          "name": "3",
-          "rx": 36.6,
-          "ry": 20.6
-        },
-        {
-          "name": "4",
-          "rx": 36.6,
-          "ry": 77.1
-        }
-      ],
-      "source": "EPLAN Data Portal",
-      "raw": "LSE.MCCB_ABS32Fb_5A"
-    },
-    {
-      "partNo": "ABS32Fb-10A",
-      "manufacturer": "LS",
-      "type": "MCCB",
-      "name": "배선용차단기 10A",
-      "w": 50,
-      "h": 96,
-      "d": 60,
-      "terminals": 4,
-      "term": [
-        {
-          "name": "1",
-          "rx": 11.6,
-          "ry": 20.6
-        },
-        {
-          "name": "2",
-          "rx": 11.6,
-          "ry": 77.1
-        },
-        {
-          "name": "3",
-          "rx": 36.6,
-          "ry": 20.6
-        },
-        {
-          "name": "4",
-          "rx": 36.6,
-          "ry": 77.1
-        }
-      ],
-      "source": "EPLAN Data Portal",
-      "raw": "LSE.MCCB_ABS32Fb_10A"
-    },
-    {
-      "partNo": "ABS32Fb-15A",
-      "manufacturer": "LS",
-      "type": "MCCB",
-      "name": "배선용차단기 15A",
-      "w": 50,
-      "h": 96,
-      "d": 60,
-      "terminals": 4,
-      "term": [
-        {
-          "name": "1",
-          "rx": 11.6,
-          "ry": 20.6
-        },
-        {
-          "name": "2",
-          "rx": 11.6,
-          "ry": 77.1
-        },
-        {
-          "name": "3",
-          "rx": 36.6,
-          "ry": 20.6
-        },
-        {
-          "name": "4",
-          "rx": 36.6,
-          "ry": 77.1
-        }
-      ],
-      "source": "EPLAN Data Portal",
-      "raw": "LSE.MCCB_ABS32Fb_15A"
-    },
-    {
-      "partNo": "ABS32Fb-20A",
-      "manufacturer": "LS",
-      "type": "MCCB",
-      "name": "배선용차단기 20A",
-      "w": 50,
-      "h": 96,
-      "d": 60,
-      "terminals": 4,
-      "term": [
-        {
-          "name": "1",
-          "rx": 11.6,
-          "ry": 20.6
-        },
-        {
-          "name": "2",
-          "rx": 11.6,
-          "ry": 77.1
-        },
-        {
-          "name": "3",
-          "rx": 36.6,
-          "ry": 20.6
-        },
-        {
-          "name": "4",
-          "rx": 36.6,
-          "ry": 77.1
-        }
-      ],
-      "source": "EPLAN Data Portal",
-      "raw": "LSE.MCCB_ABS32Fb_20A"
-    },
-    {
-      "partNo": "ABS32Fb-30A",
-      "manufacturer": "LS",
-      "type": "MCCB",
-      "name": "배선용차단기 30A",
-      "w": 50,
-      "h": 96,
-      "d": 60,
-      "terminals": 4,
-      "term": [
-        {
-          "name": "1",
-          "rx": 11.6,
-          "ry": 20.6
-        },
-        {
-          "name": "2",
-          "rx": 11.6,
-          "ry": 77.1
-        },
-        {
-          "name": "3",
-          "rx": 36.6,
-          "ry": 20.6
-        },
-        {
-          "name": "4",
-          "rx": 36.6,
-          "ry": 77.1
-        }
-      ],
-      "source": "EPLAN Data Portal",
-      "raw": "LSE.MCCB_ABS32Fb_30A"
-    },
     {
       "partNo": "EBE32Fb-3A/50mA",
       "manufacturer": "LS",
@@ -237,6 +33,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBE32Fb_3A_50mA"
     },
@@ -271,6 +68,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBE32Fb_5A_30mA"
     },
@@ -305,6 +103,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_3A_15mA"
     },
@@ -339,6 +138,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_3A_30mA"
     },
@@ -373,6 +173,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_5A_15mA"
     },
@@ -407,6 +208,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_5A_30mA"
     },
@@ -441,6 +243,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_10A_15mA"
     },
@@ -475,6 +278,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_10A_30mA"
     },
@@ -509,6 +313,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_15A_15mA"
     },
@@ -543,6 +348,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_15A_30mA"
     },
@@ -577,6 +383,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_20A_15mA"
     },
@@ -611,6 +418,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_20A_30mA"
     },
@@ -645,6 +453,7 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_30A_15mA"
     },
@@ -679,8 +488,352 @@
           "ry": 77.1
         }
       ],
+      "hasDxf": true,
       "source": "EPLAN Data Portal",
       "raw": "LSE.ELCB_EBS32Fb_30A_30mA"
+    },
+    {
+      "partNo": "ABS32Fb-3A",
+      "manufacturer": "LS",
+      "type": "MCCB",
+      "name": "배선용차단기 3A",
+      "w": 50,
+      "h": 96,
+      "d": 60,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
+      "hasDxf": true,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.MCCB_ABS32Fb_3A"
+    },
+    {
+      "partNo": "ABS32Fb-5A",
+      "manufacturer": "LS",
+      "type": "MCCB",
+      "name": "배선용차단기 5A",
+      "w": 50,
+      "h": 96,
+      "d": 60,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
+      "hasDxf": true,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.MCCB_ABS32Fb_5A"
+    },
+    {
+      "partNo": "ABS32Fb-10A",
+      "manufacturer": "LS",
+      "type": "MCCB",
+      "name": "배선용차단기 10A",
+      "w": 50,
+      "h": 96,
+      "d": 60,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
+      "hasDxf": true,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.MCCB_ABS32Fb_10A"
+    },
+    {
+      "partNo": "ABS32Fb-15A",
+      "manufacturer": "LS",
+      "type": "MCCB",
+      "name": "배선용차단기 15A",
+      "w": 50,
+      "h": 96,
+      "d": 60,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
+      "hasDxf": true,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.MCCB_ABS32Fb_15A"
+    },
+    {
+      "partNo": "ABS32Fb-20A",
+      "manufacturer": "LS",
+      "type": "MCCB",
+      "name": "배선용차단기 20A",
+      "w": 50,
+      "h": 96,
+      "d": 60,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
+      "hasDxf": true,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.MCCB_ABS32Fb_20A"
+    },
+    {
+      "partNo": "ABS32Fb-30A",
+      "manufacturer": "LS",
+      "type": "MCCB",
+      "name": "배선용차단기 30A",
+      "w": 50,
+      "h": 96,
+      "d": 60,
+      "terminals": 4,
+      "term": [
+        {
+          "name": "1",
+          "rx": 11.6,
+          "ry": 20.6
+        },
+        {
+          "name": "2",
+          "rx": 11.6,
+          "ry": 77.1
+        },
+        {
+          "name": "3",
+          "rx": 36.6,
+          "ry": 20.6
+        },
+        {
+          "name": "4",
+          "rx": 36.6,
+          "ry": 77.1
+        }
+      ],
+      "hasDxf": true,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.MCCB_ABS32Fb_30A"
+    },
+    {
+      "partNo": "XBM-DN16S",
+      "manufacturer": "LS",
+      "type": "PLC",
+      "name": "PLC",
+      "w": 32,
+      "h": 91,
+      "d": 60,
+      "terminals": 18,
+      "term": [
+        {
+          "name": "0",
+          "rx": 3.3,
+          "ry": 49.4
+        },
+        {
+          "name": "0",
+          "rx": 28.7,
+          "ry": 49.4
+        },
+        {
+          "name": "0",
+          "rx": 3.4,
+          "ry": 5.9
+        },
+        {
+          "name": "1",
+          "rx": 3.2,
+          "ry": 53.1
+        },
+        {
+          "name": "1",
+          "rx": 28.6,
+          "ry": 53.1
+        },
+        {
+          "name": "2",
+          "rx": 3.3,
+          "ry": 56.4
+        },
+        {
+          "name": "2",
+          "rx": 28.7,
+          "ry": 56.4
+        },
+        {
+          "name": "2",
+          "rx": 29.9,
+          "ry": 5.9
+        },
+        {
+          "name": "3",
+          "rx": 3.3,
+          "ry": 60.1
+        },
+        {
+          "name": "3",
+          "rx": 28.7,
+          "ry": 60.1
+        },
+        {
+          "name": "4",
+          "rx": 3.3,
+          "ry": 63.4
+        },
+        {
+          "name": "4",
+          "rx": 28.7,
+          "ry": 63.4
+        },
+        {
+          "name": "5",
+          "rx": 3.3,
+          "ry": 67.1
+        },
+        {
+          "name": "5",
+          "rx": 28.7,
+          "ry": 67.1
+        },
+        {
+          "name": "6",
+          "rx": 3.3,
+          "ry": 70.4
+        },
+        {
+          "name": "6",
+          "rx": 28.7,
+          "ry": 70.4
+        },
+        {
+          "name": "7",
+          "rx": 3.3,
+          "ry": 74.1
+        },
+        {
+          "name": "7",
+          "rx": 28.7,
+          "ry": 74.1
+        }
+      ],
+      "hasDxf": true,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.XBM-DN16S"
+    },
+    {
+      "partNo": "XBM-DN32H",
+      "manufacturer": "LS",
+      "type": "PLC",
+      "name": "PLC XBM",
+      "w": 50,
+      "h": 80,
+      "d": 60,
+      "terminals": 20,
+      "term": null,
+      "hasDxf": false,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.XBM-DN32H"
+    },
+    {
+      "partNo": "XBM-DN32H2",
+      "manufacturer": "LS",
+      "type": "PLC",
+      "name": "PLC XBM",
+      "w": 50,
+      "h": 80,
+      "d": 60,
+      "terminals": 20,
+      "term": null,
+      "hasDxf": false,
+      "source": "EPLAN Data Portal",
+      "raw": "LSE.XBM-DN32H2"
     }
   ]
 }
