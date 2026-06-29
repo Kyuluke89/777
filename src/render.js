@@ -110,13 +110,21 @@
         'pointer-events': 'none'
       }, grp);
       lab.textContent = c.label || c.partNo || '';
-      // 단자 점 (로컬 좌표 — 그룹 회전 적용됨)
+      // 단자 점 (로컬 좌표 — 그룹 회전 적용됨) + 단자 번호
       App.terminals.local(c).forEach(function (t) {
         App.el('circle', {
           cx: t.x, cy: t.y, r: 1.8,
           fill: '#ffffff', stroke: color, 'stroke-width': 0.8,
           'data-comp': c.id, 'data-term': t.index
         }, grp);
+        if (t.name) {
+          const ty = (t.side === 'top') ? (t.y - 2.6) : (t.y + 4.6);
+          const tn = App.el('text', {
+            x: t.x, y: ty, 'text-anchor': 'middle',
+            'font-size': 3.4, fill: '#475569', 'pointer-events': 'none'
+          }, grp);
+          tn.textContent = t.name;
+        }
       });
     });
   }

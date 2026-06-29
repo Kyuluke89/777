@@ -76,9 +76,12 @@ node tools/edz-portal-to-parts.js 다른폴더경로   # 경로 지정도 가능
 ```
 
 - `commercialdata.csv` 에서 부품번호·타입·설명을 읽고,
-  `dxf/<매크로>/Panel layout/*.dxf` 의 `$EXTMIN/$EXTMAX` 로 정확한
-  풋프린트(가로×세로 mm)를 계산합니다.
+  `dxf/<매크로>/Panel layout/*.dxf` 에서:
+  - `$EXTMIN/$EXTMAX` 로 정확한 풋프린트(가로×세로 mm) 계산
+  - **TEXT 엔티티(단자 번호 1·2·3·4, L/T/N/PE 등)를 읽어 단자 위치·명칭 추출**
+    (DXF는 y가 위로 증가 → 앱 좌표계로 뒤집어 저장)
 - 출력: `src/library/parts-ls.js`(앱 자동 로드) + `data/ls-parts.json`(참조).
+- 배치하면 해당 단자가 부품에 그대로 찍히고, 그 단자끼리 배선할 수 있습니다.
 - **EDZ 가져오기**: `＋ EDZ 가져오기` 로 LS ELECTRIC EDZ(ZIP) 파일을 올리면
   내부 `part.xml`을 파싱해 부품(부품번호·치수)을 라이브러리에 추가합니다.
   - EDZ가 **7z 압축**인 경우 EPLAN/7-Zip에서 **ZIP으로 다시 저장** 후 올려주세요.
