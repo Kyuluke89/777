@@ -147,7 +147,8 @@ function classify(desc1, type) {
   if (/\bMC\b|CONTACTOR/.test(s)) return 'MC';
   if (/SMPS|POWER SUPPLY/.test(s)) return 'SMPS';
   if (/PLC|XGB|XGI|XGK|XGF|XBM|XBC|XBE|XBF/.test(s)) return 'PLC';
-  if (/RELAY/.test(s)) return 'RELAY';
+  if (/RELAY|릴레이/.test(s)) return 'RELAY';
+  if (/TERMINAL|단자|\bTB\b|블록/.test(s)) return 'TB';
   if (/MCB|MINIATURE/.test(s)) return 'MCB';
   return 'ETC';
 }
