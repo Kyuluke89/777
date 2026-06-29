@@ -35,6 +35,17 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   let st = await page.evaluate(() => ({ comps: App.store.get().components.length }));
   assert(st.comps === 2, '부품 2개 배치 (' + st.comps + ')');
 
+  // --- LS 실데이터(EPLAN Data Portal) 라이브러리 탑재 확인 ---
+  const ls = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const mccb = lib.find(p => p.partNo === 'ABS32Fb-3A');
+    const elcb = lib.find(p => p.partNo === 'EBS32Fb-30A/30mA');
+    return { count: lib.length, mccb, elcb };
+  });
+  assert(ls.count >= 36, 'LS 부품 포함 라이브러리 (' + ls.count + ')');
+  assert(ls.mccb && ls.mccb.w === 50 && ls.mccb.h === 96 && ls.mccb.type === 'MCCB', 'ABS32Fb-3A 실측 50×96 MCCB');
+  assert(ls.elcb && ls.elcb.type === 'ELCB', 'EBS32Fb-30A/30mA ELCB 존재');
+
   // --- 와이어로 단자 연결 (실제 클릭) ---
   await page.click('#tool-wire');
   // 각 부품의 첫 단자(top) 화면 좌표

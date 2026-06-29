@@ -60,6 +60,25 @@ python -m http.server 8000
 
 - 기본 제공: 자주 쓰는 LS ELECTRIC 부품 시드(MCCB/MC/CP/SMPS/PLC 등).
   치수는 대표값이며 EDZ 가져오기로 정확한 값으로 대체됩니다.
+- **실데이터 탑재**: EPLAN Data Portal에서 받은 LS 미니 차단기 20종
+  (MCCB `ABS32Fb`, ELCB `EBS32Fb`/`EBE32Fb`)이 **DXF 실측 치수(50×96mm)**로
+  기본 포함되어 있습니다(`src/library/parts-ls.js`).
+
+### EPLAN Data Portal 다운로드 → 라이브러리 변환 (DXF + CSV)
+
+EPLAN Data Portal에서 EDZ 대신 **DXF + commercialdata.csv** 로 받은 경우,
+변환기로 부품 라이브러리를 자동 생성할 수 있습니다.
+
+```bash
+# 받은 폴더(dxf/, commercialdata.csv)를 edz-source/ 에 두고:
+node tools/edz-portal-to-parts.js              # 기본 경로 edz-source
+node tools/edz-portal-to-parts.js 다른폴더경로   # 경로 지정도 가능
+```
+
+- `commercialdata.csv` 에서 부품번호·타입·설명을 읽고,
+  `dxf/<매크로>/Panel layout/*.dxf` 의 `$EXTMIN/$EXTMAX` 로 정확한
+  풋프린트(가로×세로 mm)를 계산합니다.
+- 출력: `src/library/parts-ls.js`(앱 자동 로드) + `data/ls-parts.json`(참조).
 - **EDZ 가져오기**: `＋ EDZ 가져오기` 로 LS ELECTRIC EDZ(ZIP) 파일을 올리면
   내부 `part.xml`을 파싱해 부품(부품번호·치수)을 라이브러리에 추가합니다.
   - EDZ가 **7z 압축**인 경우 EPLAN/7-Zip에서 **ZIP으로 다시 저장** 후 올려주세요.
