@@ -41,9 +41,13 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const mccb = lib.find(p => p.partNo === 'ABS32Fb-3A');
     const elcb = lib.find(p => p.partNo === 'EBS32Fb-30A/30mA');
     const plc = lib.find(p => p.partNo === 'XBM-DN16S');
-    return { count: lib.length, mccb, elcb, plc, hasFake: !!lib.find(p => p.partNo === 'ABN53c') };
+    const tb = lib.find(p => p.partNo === 'XTB-40H');
+    const relay = lib.find(p => p.partNo === 'R4T-16P-S');
+    return { count: lib.length, mccb, elcb, plc, tb, relay, hasFake: !!lib.find(p => p.partNo === 'ABN53c') };
   });
-  assert(ls.count >= 21, '카탈로그 실데이터 라이브러리 (' + ls.count + ')');
+  assert(ls.count >= 30, '카탈로그 실데이터 라이브러리 (' + ls.count + ')');
+  assert(ls.tb && ls.tb.type === 'TB' && ls.tb.est, '단자대 XTB-40H(추정) 존재');
+  assert(ls.relay && ls.relay.type === 'RELAY', '릴레이 R4T-16P-S 존재');
   assert(!ls.hasFake, '가짜 시드 부품(ABN53c) 제거됨');
   assert(ls.mccb && ls.mccb.w === 50 && ls.mccb.h === 96 && ls.mccb.type === 'MCCB', 'ABS32Fb-3A 실측 50×96 MCCB');
   assert(ls.elcb && ls.elcb.type === 'ELCB', 'EBS32Fb-30A/30mA ELCB 존재');
