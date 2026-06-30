@@ -206,7 +206,7 @@
       App.el('polyline', {
         points: App.wires.pointsStr(pts), fill: 'none',
         stroke: sel ? '#111827' : (w.color || '#dc2626'),
-        'stroke-width': sel ? 2 : 1.2,
+        'stroke-width': (w.width || 1.2) + (sel ? 0.8 : 0),
         'stroke-linejoin': 'round', 'stroke-linecap': 'round',
         'pointer-events': 'none'
       }, grp);

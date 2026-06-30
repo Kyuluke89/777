@@ -239,6 +239,13 @@
         App.store.commit(function (s) {
           const w = App.wires.create(s, from, to);
           if (App.ui.nextWireLabel) w.label = App.ui.nextWireLabel; // 사용자 지정 라인번호
+          const wd = App.ui.wireDefaults; // 활성 프리셋(색/두께/규격)
+          if (wd) {
+            if (wd.color) w.color = wd.color;
+            if (wd.width != null) w.width = wd.width;
+            if (wd.sq != null) w.sq = wd.sq;
+            if (wd.awg != null) w.awg = wd.awg;
+          }
           s.wires.push(w);
         });
         // 지정 번호면 자동 증가 후 입력칸 갱신

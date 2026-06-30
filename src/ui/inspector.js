@@ -82,6 +82,8 @@
       html += row('규격(SQ)', '<select data-field="sq" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + sqOpts + '</select>');
       html += row('AWG', '<input data-field="awg" type="text" value="' + (it.awg || '') +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" placeholder="자동" />');
+      html += row('두께(mm)', '<input data-field="width" type="number" step="0.2" min="0.2" value="' + (it.width || 1.2) +
+        '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +

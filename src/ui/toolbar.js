@@ -96,6 +96,52 @@
       App.render.all();
     });
 
+    // 배선 프리셋(색상·두께·규격) 드롭다운
+    Toolbar.refreshPresets();
+    const ps = $('wire-preset');
+    if (ps) ps.addEventListener('change', function () {
+      const p = (App.userlib.presets() || []).find(function (x) { return x.name === ps.value; });
+      if (!p) { App.ui.wireDefaults = null; return; }
+      App.ui.wireDefaults = { color: p.color, width: p.width, sq: p.sq, awg: p.awg };
+      // 선택된 배선이 있으면 즉시 적용
+      const sel = App.ui.selected;
+      let n = 0;
+      if (sel && sel.size) {
+        App.store.commit(function (s) {
+          s.wires.forEach(function (w) {
+            if (!sel.has(w.id)) return;
+            w.color = p.color; w.width = p.width; w.sq = p.sq; w.awg = p.awg; n++;
+          });
+        });
+        App.render.all(); App.inspector.update();
+      }
+      flash('프리셋 "' + p.name + '"' + (n ? ' → ' + n + '개 적용' : ' 적용(다음 배선부터)'));
+    });
+    const pSave = $('wire-preset-save');
+    if (pSave) pSave.onclick = function () {
+      // 선택된 배선이 있으면 그 값, 없으면 현재 기본값
+      let base = App.ui.wireDefaults || { color: '#e11d2a', width: 1.2, sq: '', awg: '' };
+      const sel = App.ui.selected;
+      if (sel && sel.size) {
+        const w = App.store.get().wires.find(function (x) { return sel.has(x.id); });
+        if (w) base = { color: w.color, width: w.width, sq: w.sq, awg: w.awg };
+      }
+      const name = prompt('프리셋 이름', base.sq ? base.sq + 'SQ' : '새 프리셋');
+      if (!name) return;
+      App.userlib.addPreset({ name: name, color: base.color, width: base.width != null ? base.width : 1.2, sq: base.sq || '', awg: base.awg || '' });
+      Toolbar.refreshPresets(name);
+      App.ui.wireDefaults = { color: base.color, width: base.width, sq: base.sq, awg: base.awg };
+      flash('프리셋 "' + name + '" 저장');
+    };
+    const pDel = $('wire-preset-del');
+    if (pDel) pDel.onclick = function () {
+      const ps2 = $('wire-preset');
+      if (!ps2 || !ps2.value) return;
+      if (!confirm('프리셋 "' + ps2.value + '" 삭제할까요?')) return;
+      App.userlib.removePreset(ps2.value);
+      Toolbar.refreshPresets();
+    };
+
     // 액션
     $('act-new').onclick = function () {
       if (!confirm('새 프로젝트를 시작할까요? 저장하지 않은 변경은 사라집니다.')) return;
@@ -158,6 +204,18 @@
 
     Toolbar.syncTool();
     Toolbar.syncFromState();
+  };
+
+  // 배선 프리셋 드롭다운 채우기
+  Toolbar.refreshPresets = function (selectName) {
+    const ps = $('wire-preset');
+    if (!ps || !App.userlib) return;
+    const list = App.userlib.presets() || [];
+    let html = '<option value="">기본</option>';
+    list.forEach(function (p) {
+      html += '<option value="' + p.name + '"' + (p.name === selectName ? ' selected' : '') + '>' + p.name + '</option>';
+    });
+    ps.innerHTML = html;
   };
 
   // 상태값을 입력 필드에 반영

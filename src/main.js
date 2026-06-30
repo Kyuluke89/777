@@ -11,6 +11,7 @@
     dim: { stage: 0 },
     nextWireLabel: '',
     spreadWires: true,
+    wireDefaults: null,
     ductWidth: 60,
     railWidth: 35,
     spaceDown: false

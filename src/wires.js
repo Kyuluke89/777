@@ -198,7 +198,7 @@
       fromComp: from.compId, fromTerm: from.index,
       toComp: to.compId, toTerm: to.index,
       label: W.nextLabel(state),
-      color: '#e11d2a', sq: '', awg: '',
+      color: '#e11d2a', width: 1.2, sq: '', awg: '',
       corners: null, midY: null
     };
   };

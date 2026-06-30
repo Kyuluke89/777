@@ -24,7 +24,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
 
   // --- 부품 2개 배치 (실제 클릭) ---
   async function placeFirstPart(px, py) {
-    await page.locator('#palette-list > div').first().click();
+    await page.locator('#palette-list .pal-item').first().click();
     await page.mouse.click(px, py);
   }
   await page.click('#tool-select');
@@ -255,6 +255,59 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(colors.applied === '#1d4ed8', '스와치 클릭으로 색상 적용 (' + colors.applied + ')');
   await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
 
+  // 선 두께 조절: width 변경 시 렌더 stroke-width 반영
+  const thick = await page.evaluate(() => {
+    const w0 = App.store.get().wires[0];
+    App.store.commit(() => { w0.width = 3; });
+    App.render.all();
+    const grp = document.querySelector('#layer-wires [data-id="' + w0.id + '"]');
+    const lines = Array.from(grp.querySelectorAll('polyline'));
+    const colored = lines.find(l => l.getAttribute('stroke') !== 'transparent');
+    return { sw: colored ? parseFloat(colored.getAttribute('stroke-width')) : 0 };
+  });
+  assert(thick.sw === 3, '선 두께 반영 (' + thick.sw + ')');
+
+  // 배선 프리셋: 저장/적용(드롭다운 change → 선택 배선에 즉시 적용)
+  const preset = await page.evaluate(() => {
+    const before = App.userlib.presets().length;
+    App.userlib.addPreset({ name: 'TEST프리셋', color: '#16a34a', width: 2.5, sq: '2.5', awg: '14' });
+    App.toolbar.refreshPresets('TEST프리셋');
+    const after = App.userlib.presets().length;
+    const w0 = App.store.get().wires[0];
+    App.ui.selected = new Set([w0.id]);
+    const sel = document.getElementById('wire-preset');
+    sel.value = 'TEST프리셋';
+    sel.dispatchEvent(new Event('change'));
+    const w = App.store.get().wires.find(x => x.id === w0.id);
+    const applied = (w.color === '#16a34a' && w.width === 2.5 && w.sq === '2.5');
+    const defOK = App.ui.wireDefaults && App.ui.wireDefaults.width === 2.5;
+    App.userlib.removePreset('TEST프리셋');
+    App.toolbar.refreshPresets();
+    App.ui.selected.clear(); App.ui.wireDefaults = null; App.render.all();
+    return { added: after === before + 1, applied, defOK };
+  });
+  assert(preset.added, '배선 프리셋 저장');
+  assert(preset.applied, '프리셋 선택 시 선택 배선에 적용');
+  assert(preset.defOK, '프리셋 선택 시 다음 배선 기본값 설정');
+
+  // 라이브러리: 카테고리 그룹 + 기본부품 숨김/복원
+  const lib = await page.evaluate(() => {
+    App.palette.reloadUser();
+    const heads = document.querySelectorAll('#palette-list .sticky').length; // 카테고리 헤더
+    const target = App.palette.getLibrary().find(p => !p.custom);
+    const pn = target.partNo;
+    App.userlib.hide(pn);
+    App.palette.reloadUser();
+    const gone = !App.palette.getLibrary().some(p => p.partNo === pn);
+    App.userlib.unhideAll();
+    App.palette.reloadUser();
+    const back = App.palette.getLibrary().some(p => p.partNo === pn);
+    return { heads, gone, back };
+  });
+  assert(lib.heads >= 2, '팔레트 카테고리 그룹 헤더 (' + lib.heads + ')');
+  assert(lib.gone, '기본 부품 숨김(삭제) 동작');
+  assert(lib.back, '숨긴 기본 부품 복원 동작');
+
   // 글씨 크기 배율: 부품 라벨 폰트가 배율 따라 커짐
   const fontScale = await page.evaluate(() => {
     const c0 = App.store.get().components[0];
@@ -393,9 +446,12 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   // --- 영역(마퀴) 선택: 빈 공간 드래그로 다중 선택 ---
   await page.click('#tool-select');
   await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
-  await page.mouse.move(cx - 270, cy - 210);
+  // 캔버스 영역 안으로 클램프(툴바 높이에 따라 캔버스가 작아질 수 있음)
+  const mL = Math.max(box.x + 5, cx - 270), mT = Math.max(box.y + 5, cy - 150);
+  const mR = Math.min(box.x + box.w - 5, cx + 270), mB = Math.min(box.y + box.h - 5, cy + 120);
+  await page.mouse.move(mL, mT);
   await page.mouse.down();
-  await page.mouse.move(cx + 270, cy + 230, { steps: 6 });
+  await page.mouse.move(mR, mB, { steps: 6 });
   await page.mouse.up();
   const selN = await page.evaluate(() => App.ui.selected.size);
   assert(selN >= 2, '영역선택 다중 (' + selN + ')');
