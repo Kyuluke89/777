@@ -99,8 +99,14 @@
             class="w-full px-2 py-1 text-xs border border-slate-300 rounded" />
         </div>
         <div id="palette-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
-        <div class="px-3 py-2 border-t border-slate-100 text-[10px] text-slate-400 leading-relaxed">
-          부품 클릭 → 캔버스 클릭으로 배치.<br>Shift+클릭: 연속 배치.
+        <div class="px-3 py-2 border-t border-slate-100">
+          <div class="flex gap-1 mb-1">
+            <button id="lib-export" class="toolbtn bg-white text-slate-600 flex-1">내 부품 내보내기</button>
+            <button id="lib-import" class="toolbtn bg-white text-slate-600 flex-1">가져오기</button>
+          </div>
+          <div class="text-[10px] text-slate-400 leading-relaxed">
+            부품 클릭 → 캔버스 클릭으로 배치 · Shift+클릭: 연속.
+          </div>
         </div>
       </aside>
 

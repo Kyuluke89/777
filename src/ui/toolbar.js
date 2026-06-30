@@ -100,8 +100,12 @@
     $('act-rotate').onclick = function () { App.interact.rotateSelected(); };
     $('act-dup').onclick = function () { App.interact.duplicateSelected(); };
 
-    // 커스텀 부품 만들기
+    // 커스텀 부품 만들기 + 내 부품 내보내기/가져오기
     $('act-custom').onclick = function () { App.partEditor.open(); };
+    $('lib-export').onclick = function () { App.userlib.exportFile(); flash('내 부품 내보냄'); };
+    $('lib-import').onclick = function () {
+      App.userlib.importFile(function () { App.palette.reloadUser(); flash('내 부품 가져옴'); });
+    };
 
     // EDZ 가져오기
     $('act-edz').onclick = function () { $('edz-file').click(); };

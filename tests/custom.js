@@ -68,6 +68,22 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   });
   assert(applied.terms === 4, '기존 부품에 단자 추가 적용 (' + applied.terms + ')');
 
+  // 3.5) 저장 JSON 에 내 부품 라이브러리 동봉 → 비운 뒤 복원
+  const rt = await page.evaluate(() => {
+    const out = App.clone(App.store.get());
+    out.userParts = App.userlib.load();              // saveToFile 과 동일 로직
+    const json = JSON.stringify(out);
+    App.userlib.saveAll([]); App.palette.reloadUser(); // 라이브러리 비우기
+    const empty = App.palette.getLibrary().some(x => x.partNo === '테스트단자대');
+    const data = JSON.parse(json);
+    if (Array.isArray(data.userParts)) { App.userlib.merge(data.userParts); App.palette.reloadUser(); }
+    const back = App.palette.getLibrary().some(x => x.partNo === '테스트단자대');
+    return { empty, back, hasField: Array.isArray(out.userParts) && out.userParts.length > 0 };
+  });
+  assert(rt.hasField, '저장 데이터에 userParts 포함');
+  assert(rt.empty === false, '라이브러리 비움 확인');
+  assert(rt.back, '불러오기로 내 부품 라이브러리 복원');
+
   // 4) 커스텀 부품 삭제(라이브러리)
   const removed = await page.evaluate(() => {
     App.userlib.remove('테스트단자대'); App.palette.reloadUser();

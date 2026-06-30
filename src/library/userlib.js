@@ -34,6 +34,19 @@
     return arr;
   };
 
+  // 목록 병합 (불러오기/프로젝트 동봉 복원용)
+  U.merge = function (list) {
+    const arr = U.load();
+    (list || []).forEach(function (p) {
+      if (!p || !p.partNo) return;
+      p.custom = true;
+      const i = arr.findIndex(function (x) { return x.partNo === p.partNo; });
+      if (i >= 0) arr[i] = p; else arr.push(p);
+    });
+    U.saveAll(arr);
+    return arr;
+  };
+
   U.remove = function (partNo) {
     const arr = U.load().filter(function (p) { return p.partNo !== partNo; });
     U.saveAll(arr);
@@ -59,14 +72,7 @@
         try {
           const list = JSON.parse(r.result);
           if (!Array.isArray(list)) throw new Error('형식 오류');
-          const arr = U.load();
-          list.forEach(function (p) {
-            if (!p.partNo) return;
-            const i = arr.findIndex(function (x) { return x.partNo === p.partNo; });
-            p.custom = true;
-            if (i >= 0) arr[i] = p; else arr.push(p);
-          });
-          U.saveAll(arr);
+          const arr = U.merge(list);
           if (onDone) onDone(arr);
         } catch (e) { alert('가져오기 실패: ' + e.message); }
       };

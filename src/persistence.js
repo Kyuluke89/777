@@ -4,12 +4,14 @@
   const App = (global.App = global.App || {});
   const P = (App.persistence = {});
 
-  // --- JSON 파일 저장 (다운로드) ---
+  // --- JSON 파일 저장 (다운로드) — 도면 + 내 부품 라이브러리 동봉 ---
   P.saveToFile = function (state) {
     state = state || App.store.get();
     state.meta = state.meta || {};
     state.meta.updatedAt = new Date().toISOString();
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const out = App.clone(state);
+    out.userParts = App.userlib ? App.userlib.load() : []; // 커스텀 부품 라이브러리 포함
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const safe = (state.name || 'panel').replace(/[^\w가-힣\-]+/g, '_');
@@ -41,6 +43,12 @@
           data.wires = data.wires || [];
           data.labels = data.labels || [];
           data.meta = data.meta || {};
+          // 동봉된 내 부품 라이브러리 복원 → 팔레트 반영 후 프로젝트에서 분리
+          if (Array.isArray(data.userParts) && App.userlib) {
+            App.userlib.merge(data.userParts);
+            if (App.palette) App.palette.reloadUser();
+          }
+          delete data.userParts;
           if (onLoaded) onLoaded(data);
         } catch (e) {
           alert('불러오기 실패: ' + e.message);
