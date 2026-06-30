@@ -84,6 +84,11 @@
       App.ui.ductWidth = parseInt(this.value, 10) || 60;
     });
 
+    // 다음 라인번호(배선)
+    $('wire-next').addEventListener('input', function () {
+      App.ui.nextWireLabel = this.value.trim();
+    });
+
     // 액션
     $('act-new').onclick = function () {
       if (!confirm('새 프로젝트를 시작할까요? 저장하지 않은 변경은 사라집니다.')) return;

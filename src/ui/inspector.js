@@ -16,13 +16,18 @@
   }
 
   function commitField(id, field, value) {
+    let refresh = false;
     App.store.commit(function (s) {
       const f = App.store.findById(id);
       if (!f) return;
-      if (field === 'label' || field === 'color' || field === 'tag') f.item[field] = value;
-      else f.item[field] = parseFloat(value);
+      if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg') {
+        f.item[field] = value;
+        // SQ 선택 시 AWG 자동 채움
+        if (field === 'sq' && App.wires.SQ_AWG[value]) { f.item.awg = App.wires.SQ_AWG[value]; refresh = true; }
+      } else f.item[field] = parseFloat(value);
     });
     App.render.all();
+    if (refresh) Inspector.update();
   }
 
   Inspector.update = function () {
@@ -62,6 +67,11 @@
       html += row('라인 길이', '<span class="text-xs text-slate-700 font-semibold">' + App.wires.length(App.store.get(), it) + ' mm</span>');
       html += row('색상', '<input data-field="color" type="color" value="' + (it.color || '#dc2626') +
         '" class="w-12 h-7 border border-slate-300 rounded" />');
+      let sqOpts = '<option value="">-</option>';
+      App.wires.SQ_LIST.forEach(function (s) { sqOpts += '<option value="' + s + '"' + (String(it.sq) === s ? ' selected' : '') + '>' + s + ' SQ</option>'; });
+      html += row('규격(SQ)', '<select data-field="sq" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + sqOpts + '</select>');
+      html += row('AWG', '<input data-field="awg" type="text" value="' + (it.awg || '') +
+        '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" placeholder="자동" />');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +

@@ -174,13 +174,17 @@
     return 'W' + (max + 1);
   };
 
+  // KS 표준 전선 규격(SQ mm²) → AWG 대략 환산
+  W.SQ_AWG = { '0.75': '18', '1.25': '16', '2.0': '14', '2.5': '14', '3.5': '12', '5.5': '10', '8': '8', '14': '6', '22': '4', '30': '3', '38': '2', '60': '1/0', '100': '3/0' };
+  W.SQ_LIST = ['0.75', '1.25', '2.0', '3.5', '5.5', '8', '14', '22', '30', '38', '60', '100'];
+
   W.create = function (state, from, to) {
     return {
       id: App.uid('wire'),
       fromComp: from.compId, fromTerm: from.index,
       toComp: to.compId, toTerm: to.index,
       label: W.nextLabel(state),
-      color: '#dc2626',
+      color: '#dc2626', sq: '', awg: '',
       corners: null, midY: null
     };
   };

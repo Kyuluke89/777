@@ -100,6 +100,20 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(wireInfo.n === 1, '와이어 1개 생성 (' + wireInfo.n + ')');
   assert(wireInfo.label === 'W1', '자동 라벨 W1 (' + wireInfo.label + ')');
+
+  // 사용자 지정 라인번호: '100' 지정 → 와이어 라벨 100, 입력칸 101로 증가
+  const customNum = await page.evaluate(() => {
+    App.ui.nextWireLabel = '100';
+    const s = App.store.get(); const c = s.components;
+    App.store.commit(ss => { const w = App.wires.create(ss, { compId: c[0].id, index: 2 }, { compId: c[1].id, index: 2 }); if (App.ui.nextWireLabel) w.label = App.ui.nextWireLabel; ss.wires.push(w); });
+    // 인터랙트와 동일한 증가 로직 모사
+    function inc(s) { const m = /^(.*?)(\d+)$/.exec(s); return m ? m[1] + (parseInt(m[2], 10) + 1) : s + '1'; }
+    App.ui.nextWireLabel = inc(App.ui.nextWireLabel);
+    const last = App.store.get().wires.slice(-1)[0];
+    return { label: last.label, next: App.ui.nextWireLabel };
+  });
+  assert(customNum.label === '100' && customNum.next === '101', '지정 라인번호 100→다음 101 (' + JSON.stringify(customNum) + ')');
+  await page.evaluate(() => { App.store.commit(s => { s.wires = s.wires.filter(w => w.label !== '100'); }); App.ui.nextWireLabel = ''; });
   assert(wireInfo.els === 1, '와이어 렌더 (' + wireInfo.els + ')');
   assert(wireInfo.route >= 2, '와이어 경로점');
 
@@ -174,13 +188,17 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   // 배선 길이: 인스펙터/배선표/총길이
   const wlen = await page.evaluate(() => {
     const s = App.store.get(); const w = s.wires[0];
+    App.store.commit(() => { w.sq = '2.5'; w.awg = App.wires.SQ_AWG['2.5']; });
     const wrows = App.exporter.wiringRows(s);
+    const sqCol = wrows[0].indexOf('SQ'), awgCol = wrows[0].indexOf('AWG');
     return { len: App.wires.length(s, w), total: App.wires.totalLength(s),
-      header: wrows[0].indexOf('길이(mm)') >= 0, sum: wrows[wrows.length - 1][0] === '합계' };
+      header: wrows[0].indexOf('길이(mm)') >= 0, sum: wrows[wrows.length - 1][0] === '합계',
+      sq: wrows[1][sqCol], awg: wrows[1][awgCol] };
   });
   assert(wlen.len > 0, '라인 길이 계산 (' + wlen.len + ')');
   assert(wlen.total >= wlen.len, '총 배선 길이');
   assert(wlen.header && wlen.sum, '배선표에 길이 컬럼+합계행');
+  assert(wlen.sq === '2.5' && wlen.awg === '14', '전선 SQ/AWG 표기 (' + wlen.sq + '/' + wlen.awg + ')');
 
   // 글씨 크기 배율: 부품 라벨 폰트가 배율 따라 커짐
   const fontScale = await page.evaluate(() => {

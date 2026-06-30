@@ -9,6 +9,7 @@
     selected: new Set(),
     clipboard: [],
     dim: { stage: 0 },
+    nextWireLabel: '',
     ductWidth: 60,
     railWidth: 35,
     spaceDown: false

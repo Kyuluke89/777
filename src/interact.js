@@ -11,6 +11,15 @@
     return App.geom.snap(v, App.store.get().panel.gridMM);
   }
 
+  // 라벨 자동 증가: 1→2, W1→W2, L01→L02(자리수 유지), 숫자없으면 +1
+  function incLabel(s) {
+    const m = /^(.*?)(\d+)$/.exec(s || '');
+    if (!m) return (s || '') + '1';
+    const next = String(parseInt(m[2], 10) + 1);
+    const padded = m[2].length > next.length ? m[2].slice(0, m[2].length - next.length) + next : next;
+    return m[1] + padded;
+  }
+
   function selectOnly(id) {
     App.ui.selected.clear();
     if (id) App.ui.selected.add(id);
@@ -227,7 +236,17 @@
           App.ui.wireStart = null; App.render.wirePreview(null); return;
         }
         const from = App.ui.wireStart, to = pick;
-        App.store.commit(function (s) { s.wires.push(App.wires.create(s, from, to)); });
+        App.store.commit(function (s) {
+          const w = App.wires.create(s, from, to);
+          if (App.ui.nextWireLabel) w.label = App.ui.nextWireLabel; // 사용자 지정 라인번호
+          s.wires.push(w);
+        });
+        // 지정 번호면 자동 증가 후 입력칸 갱신
+        if (App.ui.nextWireLabel) {
+          App.ui.nextWireLabel = incLabel(App.ui.nextWireLabel);
+          const inp = document.getElementById('wire-next');
+          if (inp) inp.value = App.ui.nextWireLabel;
+        }
         App.ui.wireStart = null;
         App.render.wirePreview(null);
       }
