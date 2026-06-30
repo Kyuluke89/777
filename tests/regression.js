@@ -198,6 +198,27 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(fontScale.after > fontScale.before * 1.8, '부품 글씨 배율 적용 (' + fontScale.before + '→' + fontScale.after + ')');
 
+  // 글씨 위치 이동: 라벨 오프셋이 렌더에 반영 + 드래그 핸들 존재
+  const lm = await page.evaluate(() => {
+    App.store.commit(s => { s.fonts.comp = 1; s.components.push({ id: 'lblc', partNo: 'x', type: 'TB', x: 250, y: 250, widthMM: 60, heightMM: 60, rotation: 0, label: '라벨이동', terminals: 0, term: null }); });
+    App.ui.selected.clear(); App.ui.selected.add('lblc'); App.render.all();
+    function labelXY() {
+      const grp = document.querySelector('#layer-components [data-id="lblc"]');
+      const t = Array.from(grp.querySelectorAll('text')).find(x => x.textContent === '라벨이동');
+      return { x: parseFloat(t.getAttribute('x')), y: parseFloat(t.getAttribute('y')) };
+    }
+    const handle = !!document.querySelector('#layer-tophit [data-labelfor="lblc"]');
+    const before = labelXY();
+    App.store.commit(s => { const c = s.components.find(c => c.id === 'lblc'); c.labelDx = 18; c.labelDy = 22; });
+    App.render.all();
+    const after = labelXY();
+    return { handle: handle, ddx: after.x - before.x, ddy: after.y - before.y };
+  });
+  assert(lm.handle, '라벨 드래그 핸들 존재');
+  assert(Math.abs(lm.ddx - 18) < 0.5 && Math.abs(lm.ddy - 22) < 0.5, '라벨 위치 오프셋 렌더 반영 (' + lm.ddx + ',' + lm.ddy + ')');
+  // 정리: 임시 부품 제거(이후 카운트 의존 테스트 보호)
+  await page.evaluate(() => { App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'lblc'); }); App.ui.selected.clear(); });
+
   // --- PNG 내보내기 (예외 없이 실행) ---
   const pngOk = await page.evaluate(() => { try { App.exporter.png(1); return true; } catch (e) { return 'ERR:' + e.message; } });
   assert(pngOk === true, 'PNG 내보내기 실행 (' + pngOk + ')');

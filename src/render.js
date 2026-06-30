@@ -137,13 +137,12 @@
         'font-weight': 'bold', 'pointer-events': 'none'
       }, grp);
       badge.textContent = c.type || '';
-      // 품명 (폭에 맞게 자동 축소 × 배율)
+      // 품명 (폭에 맞게 자동 축소 × 배율) — 선택 시 드래그로 위치 이동
       const txt = c.label || c.partName || c.partNo || '';
       const fit = Math.max(2.2, Math.min(c.heightMM * 0.16, 9, (c.widthMM - 2) / (0.56 * Math.max(4, txt.length)))) * F.comp;
       const lab = App.el('text', {
-        x: cx, y: cy + Math.min(14, c.heightMM * 0.26),
-        'text-anchor': 'middle', 'font-size': fit, fill: '#334155',
-        'pointer-events': 'none'
+        x: cx + (c.labelDx || 0), y: cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0),
+        'text-anchor': 'middle', 'font-size': fit, fill: '#334155', 'pointer-events': 'none'
       }, grp);
       lab.textContent = txt;
       // 단자 점 (원형/사각형, 로컬 좌표 — 그룹 회전 적용됨) + 단자 번호
@@ -201,12 +200,14 @@
       const ends = App.wires.endLabels(state, w);
       if (ends && w.label) {
         const fontMM = App.viewport.pxToMM(11) * fonts(state).wire;
-        [ends.a, ends.b].forEach(function (e) {
+        [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
+          const key = pair[0], e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
+          const x = e.x + off.dx, y = e.y + off.dy;
           const t = App.el('text', {
-            x: e.x, y: e.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+            x: x, y: y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
             'font-size': fontMM, fill: '#b91c1c', 'font-weight': 'bold', 'pointer-events': 'none',
             stroke: '#ffffff', 'stroke-width': fontMM * 0.22, 'paint-order': 'stroke',
-            transform: 'rotate(' + e.ang + ' ' + e.x + ' ' + e.y + ')'
+            transform: 'rotate(' + e.ang + ' ' + x + ' ' + y + ')'
           }, grp);
           t.textContent = w.label;
         });
@@ -311,7 +312,41 @@
     renderWires(state);
     renderDims(state);
     renderOverlay(state);
+    renderTopHandles(state);
   };
+
+  // 선택된 항목의 라벨 위에 최상위 드래그 핸들(투명) — 선/도형 위에서도 잡히게
+  function renderTopHandles(state) {
+    const g = App.viewport.layers().tophit;
+    clear(g);
+    const F = fonts(state);
+    function rotPt(x, y, cx, cy, deg) {
+      if (!deg) return { x: x, y: y };
+      const t = deg * Math.PI / 180, c = Math.cos(t), s = Math.sin(t);
+      const dx = x - cx, dy = y - cy;
+      return { x: cx + dx * c - dy * s, y: cy + dx * s + dy * c };
+    }
+    state.components.forEach(function (c) {
+      if (!isSelected(c.id)) return;
+      const cx = c.x + c.widthMM / 2, cy = c.y + c.heightMM / 2;
+      const lx = cx + (c.labelDx || 0), ly = cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0);
+      const p = rotPt(lx, ly, cx, cy, c.rotation || 0);
+      const txt = c.label || c.partName || c.partNo || '';
+      const fit = Math.max(2.2, Math.min(c.heightMM * 0.16, 9, (c.widthMM - 2) / (0.56 * Math.max(4, txt.length)))) * F.comp;
+      const hw = Math.max(8, txt.length * fit * 0.6), hh = fit * 1.6;
+      App.el('rect', { x: p.x - hw / 2, y: p.y - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-labelfor': c.id, style: 'cursor:move' }, g);
+    });
+    state.wires.forEach(function (w) {
+      if (!isSelected(w.id) || !w.label) return;
+      const ends = App.wires.endLabels(state, w); if (!ends) return;
+      const fontMM = App.viewport.pxToMM(11) * F.wire;
+      [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
+        const e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
+        const hw = Math.max(6, String(w.label).length * fontMM * 0.7), hh = fontMM * 1.5;
+        App.el('rect', { x: e.x + off.dx - hw / 2, y: e.y + off.dy - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-wirelabel': w.id, 'data-end': pair[0], style: 'cursor:move' }, g);
+      });
+    });
+  }
 
   // 미리보기(드래그 중 새 엔티티) 그리기 — overlay 사용
   Render.preview = function (rectMM) {

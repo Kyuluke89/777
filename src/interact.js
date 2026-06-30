@@ -278,6 +278,12 @@
       return;
     }
 
+    // 글씨(라벨) 드래그 — 부품 이름 / 배선 라벨
+    const lblEl = e.target.closest && e.target.closest('[data-labelfor]');
+    if (lblEl) { startLabelDrag('comp', lblEl.getAttribute('data-labelfor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
+    const wlblEl = e.target.closest && e.target.closest('[data-wirelabel]');
+    if (wlblEl) { startLabelDrag('wire', wlblEl.getAttribute('data-wirelabel'), wlblEl.getAttribute('data-end'), sp); svg.setPointerCapture(e.pointerId); return; }
+
     // 선택 도구
     const node = e.target.closest && e.target.closest('[data-id]');
     if (node) {
@@ -368,6 +374,7 @@
     else if (gesture.type === 'move') updateMove(cp);
     else if (gesture.type === 'wireseg') updateWireSeg(cp);
     else if (gesture.type === 'dimoff') updateDimOff(cp);
+    else if (gesture.type === 'labeldrag') updateLabelDrag(cp);
     else if (gesture.type === 'marquee') updateMarquee(cp);
   }
 
@@ -383,8 +390,36 @@
       App.store.touch();
     }
     else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'labeldrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
+  }
+
+  // 글씨(라벨) 위치 드래그 — 부품 이름(회전 보정) / 배선 라벨(끝별)
+  function startLabelDrag(kind, id, end, sp) {
+    const snap = App.store.snapshot();
+    const f = App.store.findById(id); if (!f) return;
+    let orig, rot = 0;
+    if (kind === 'comp') { orig = { dx: f.item.labelDx || 0, dy: f.item.labelDy || 0 }; rot = f.item.rotation || 0; }
+    else { const o = (end === 'a' ? f.item.lblA : f.item.lblB) || { dx: 0, dy: 0 }; orig = { dx: o.dx, dy: o.dy }; }
+    gesture = { type: 'labeldrag', snap: snap, sp: sp, kind: kind, id: id, end: end, orig: orig, rot: rot, moved: false };
+  }
+  function updateLabelDrag(cp) {
+    let dx = cp.x - gesture.sp.x, dy = cp.y - gesture.sp.y;
+    if (gesture.kind === 'comp' && gesture.rot) {
+      const th = gesture.rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+      const lx = dx * c + dy * s, ly = -dx * s + dy * c; // 월드→로컬(역회전)
+      dx = lx; dy = ly;
+    }
+    const it = App.store.findById(gesture.id).item;
+    if (gesture.kind === 'comp') {
+      it.labelDx = Math.round(gesture.orig.dx + dx); it.labelDy = Math.round(gesture.orig.dy + dy);
+    } else {
+      const o = { dx: Math.round(gesture.orig.dx + dx), dy: Math.round(gesture.orig.dy + dy) };
+      if (gesture.end === 'a') it.lblA = o; else it.lblB = o;
+    }
+    gesture.moved = true;
+    App.store.touch();
   }
 
   function startDimOff(dimId, sp) {
