@@ -314,6 +314,10 @@
     if (lblEl) { startLabelDrag('comp', lblEl.getAttribute('data-labelfor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
     const tagEl = e.target.closest && e.target.closest('[data-tagfor]');
     if (tagEl) { startLabelDrag('tag', tagEl.getAttribute('data-tagfor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
+    const typeEl = e.target.closest && e.target.closest('[data-typefor]');
+    if (typeEl) { startLabelDrag('type', typeEl.getAttribute('data-typefor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
+    const titleEl = e.target.closest && e.target.closest('[data-titlemove]');
+    if (titleEl) { startTitleDrag(sp); svg.setPointerCapture(e.pointerId); return; }
     const wlblEl = e.target.closest && e.target.closest('[data-wirelabel]');
     if (wlblEl) { startLabelDrag('wire', wlblEl.getAttribute('data-wirelabel'), wlblEl.getAttribute('data-end'), sp); svg.setPointerCapture(e.pointerId); return; }
 
@@ -408,6 +412,7 @@
     else if (gesture.type === 'wireseg') updateWireSeg(cp);
     else if (gesture.type === 'dimoff') updateDimOff(cp);
     else if (gesture.type === 'labeldrag') updateLabelDrag(cp);
+    else if (gesture.type === 'titledrag') updateTitleDrag(cp);
     else if (gesture.type === 'marquee') updateMarquee(cp);
   }
 
@@ -424,6 +429,7 @@
     }
     else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'labeldrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'titledrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
   }
@@ -444,12 +450,13 @@
     let orig, rot = 0;
     if (kind === 'comp') { orig = { dx: f.item.labelDx || 0, dy: f.item.labelDy || 0 }; rot = f.item.rotation || 0; }
     else if (kind === 'tag') { orig = { dx: f.item.tagDx || 0, dy: f.item.tagDy || 0 }; rot = f.item.rotation || 0; }
+    else if (kind === 'type') { orig = { dx: f.item.typeDx || 0, dy: f.item.typeDy || 0 }; rot = f.item.rotation || 0; }
     else { const o = (end === 'a' ? f.item.lblA : f.item.lblB) || { dx: 0, dy: 0 }; orig = { dx: o.dx, dy: o.dy }; }
     gesture = { type: 'labeldrag', snap: snap, sp: sp, kind: kind, id: id, end: end, orig: orig, rot: rot, moved: false };
   }
   function updateLabelDrag(cp) {
     let dx = cp.x - gesture.sp.x, dy = cp.y - gesture.sp.y;
-    if ((gesture.kind === 'comp' || gesture.kind === 'tag') && gesture.rot) {
+    if ((gesture.kind === 'comp' || gesture.kind === 'tag' || gesture.kind === 'type') && gesture.rot) {
       const th = gesture.rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
       const lx = dx * c + dy * s, ly = -dx * s + dy * c; // 월드→로컬(역회전)
       dx = lx; dy = ly;
@@ -459,10 +466,26 @@
       it.labelDx = Math.round(gesture.orig.dx + dx); it.labelDy = Math.round(gesture.orig.dy + dy);
     } else if (gesture.kind === 'tag') {
       it.tagDx = Math.round(gesture.orig.dx + dx); it.tagDy = Math.round(gesture.orig.dy + dy);
+    } else if (gesture.kind === 'type') {
+      it.typeDx = Math.round(gesture.orig.dx + dx); it.typeDy = Math.round(gesture.orig.dy + dy);
     } else {
       const o = { dx: Math.round(gesture.orig.dx + dx), dy: Math.round(gesture.orig.dy + dy) };
       if (gesture.end === 'a') it.lblA = o; else it.lblB = o;
     }
+    gesture.moved = true;
+    App.store.touch();
+  }
+
+  // 제목(타이틀) 위치 드래그 — panel.titleDx/titleDy
+  function startTitleDrag(sp) {
+    const snap = App.store.snapshot();
+    const p = App.store.get().panel;
+    gesture = { type: 'titledrag', snap: snap, sp: sp, orig: { dx: p.titleDx || 0, dy: p.titleDy || 0 }, moved: false };
+  }
+  function updateTitleDrag(cp) {
+    const p = App.store.get().panel;
+    p.titleDx = Math.round(gesture.orig.dx + (cp.x - gesture.sp.x));
+    p.titleDy = Math.round(gesture.orig.dy + (cp.y - gesture.sp.y));
     gesture.moved = true;
     App.store.touch();
   }

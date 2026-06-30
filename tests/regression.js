@@ -309,22 +309,78 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(lib.gone, '기본 부품 숨김(삭제) 동작');
   assert(lib.back, '숨긴 기본 부품 복원 동작');
 
-  // 라이브러리 이름 수정(✎) + 복제(⎘) — 실제 버튼 클릭(prompt 오버라이드)
+  // 라이브러리 타이틀(품번)·이름 수정(✎) + 복제(⎘) — 실제 버튼 클릭(prompt 오버라이드)
   await page.fill('#palette-search', 'XBM-DN16S');
   await page.waitForTimeout(50);
-  await page.evaluate(() => { window.__op = window.prompt; window.prompt = () => 'PLC새이름'; });
-  await page.locator('#palette-list .pal-edit').first().click();
-  const renamed = await page.evaluate(() => { const p = App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S'); return p && p.name; });
-  await page.evaluate(() => { window.prompt = () => 'XBM-DN16S-COPY'; });
-  await page.locator('#palette-list .pal-dup').first().click();
-  const dup = await page.evaluate(() => {
-    const c = App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S-COPY');
-    return { exists: !!c, sameShape: c && c.w === App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S').w };
+  await page.evaluate(() => {
+    window.__op = window.prompt;
+    window.prompt = (msg) => {
+      if (msg.indexOf('복제') >= 0) return 'XBM-DN16S-COPY';
+      if (msg.indexOf('타이틀') >= 0) return 'PLC-RENAMED';
+      if (msg.indexOf('이름') >= 0) return 'PLC새이름';
+      return '';
+    };
   });
-  await page.evaluate(() => { window.prompt = window.__op; App.userlib.remove('XBM-DN16S'); App.userlib.remove('XBM-DN16S-COPY'); App.palette.reloadUser(); });
+  const wRef = await page.evaluate(() => App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S').w);
+  // 복제(원본이 첫 항목)
+  await page.locator('#palette-list .pal-dup').first().click();
+  // 타이틀+이름 수정(원본)
+  await page.locator('#palette-list .pal-edit').first().click();
+  const ren = await page.evaluate((wRef) => {
+    const lib = App.palette.getLibrary();
+    const renamed = lib.find(x => x.partNo === 'PLC-RENAMED');
+    const copy = lib.find(x => x.partNo === 'XBM-DN16S-COPY');
+    const oldGone = !lib.some(x => x.partNo === 'XBM-DN16S');
+    return {
+      titleChanged: !!renamed, nameChanged: renamed && renamed.name === 'PLC새이름', oldGone: oldGone,
+      dupExists: !!copy, dupSameShape: copy && copy.w === wRef
+    };
+  }, wRef);
+  await page.evaluate(() => { window.prompt = window.__op; App.userlib.remove('PLC-RENAMED'); App.userlib.remove('XBM-DN16S-COPY'); App.userlib.unhideAll(); App.palette.reloadUser(); });
   await page.fill('#palette-search', '');
-  assert(renamed === 'PLC새이름', '라이브러리 이름 수정 (' + renamed + ')');
-  assert(dup.exists && dup.sameShape, '라이브러리 복제(같은 형태, 새 품번)');
+  assert(ren.titleChanged && ren.nameChanged, '라이브러리 타이틀+이름 수정');
+  assert(ren.oldGone, '수정 후 기존 품번 정리');
+  assert(ren.dupExists && ren.dupSameShape, '라이브러리 복제(같은 형태, 새 품번)');
+
+  // 커스텀 타입 추가 + 타입 배지 이동 + 글자 세로 방향
+  const tf = await page.evaluate(() => {
+    const added = App.types.add('VFD');
+    const hasVFD = App.types.list().some(t => t.name === 'VFD');
+    const color = App.types.color('VFD');
+    const c0 = App.store.get().components[0];
+    const origType = c0.type;
+    App.store.commit(s => { const c = s.components.find(x => x.id === c0.id); c.type = 'VFD'; c.typeDx = 10; c.typeDy = -5; c.textVert = true; });
+    App.ui.selected = new Set([c0.id]);
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
+    const badge = Array.from(grp.querySelectorAll('text')).find(t => t.textContent === 'VFD');
+    const bx = badge ? parseFloat(badge.getAttribute('x')) : -999;
+    const cx = c0.x + c0.widthMM / 2;
+    const moved = Math.abs(bx - (cx + 10)) < 0.01;
+    const rotated = !!badge && (badge.getAttribute('transform') || '').indexOf('rotate(-90') >= 0;
+    const handle = !!document.querySelector('#layer-tophit [data-typefor="' + c0.id + '"]');
+    App.store.commit(s => { const c = s.components.find(x => x.id === c0.id); c.type = origType; c.typeDx = 0; c.typeDy = 0; c.textVert = false; });
+    App.types.remove('VFD'); App.ui.selected.clear(); App.render.all();
+    return { hasVFD, colorOk: /^#/.test(color), moved, rotated, handle };
+  });
+  assert(tf.hasVFD && tf.colorOk, '커스텀 타입 추가(+색상)');
+  assert(tf.moved, '타입 배지 위치 이동');
+  assert(tf.rotated, '글자 세로 방향(타입)');
+  assert(tf.handle, '타입 배지 드래그 핸들');
+
+  // 타이틀 위치 이동(오프셋 + 핸들)
+  const titlePos = await page.evaluate(() => {
+    App.store.commit(s => { s.panel.title = 'T'; s.panel.titleDx = 40; s.panel.titleDy = 10; });
+    App.render.all();
+    const t = Array.from(document.querySelectorAll('#layer-panel text')).find(x => x.textContent === 'T');
+    const x = parseFloat(t.getAttribute('x')), y = parseFloat(t.getAttribute('y'));
+    const handle = !!document.querySelector('#layer-tophit [data-titlemove]');
+    const ok = Math.abs(x - (App.store.get().panel.widthMM / 2 + 40)) < 0.01 && Math.abs(y - (-34 + 10)) < 0.01;
+    App.store.commit(s => { s.panel.title = ''; s.panel.titleDx = 0; s.panel.titleDy = 0; }); App.render.all();
+    return { ok, handle };
+  });
+  assert(titlePos.ok, '타이틀 위치 오프셋 반영');
+  assert(titlePos.handle, '타이틀 이동 핸들');
 
   // 부품을 찬넬(레일) 중심에 정렬
   const railCenter = await page.evaluate(() => {

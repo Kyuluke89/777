@@ -11,6 +11,7 @@
     state.meta.updatedAt = new Date().toISOString();
     const out = App.clone(state);
     out.userParts = App.userlib ? App.userlib.load() : []; // 커스텀 부품 라이브러리 포함
+    out.customTypes = App.types ? App.types.allCustom() : []; // 사용자 추가 타입(색상) 포함
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -51,6 +52,8 @@
             if (App.palette) App.palette.reloadUser();
           }
           delete data.userParts;
+          if (Array.isArray(data.customTypes) && App.types) App.types.merge(data.customTypes);
+          delete data.customTypes;
           if (onLoaded) onLoaded(data);
         } catch (e) {
           alert('불러오기 실패: ' + e.message);

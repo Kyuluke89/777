@@ -78,14 +78,24 @@
     };
     item.querySelector('.pal-edit').onclick = function (e) {
       e.stopPropagation();
-      const nv = prompt('부품 이름(품명) 수정', p.name || '');
-      if (nv == null) return;
-      const name = nv.trim();
-      App.userlib.add(Object.assign({}, p, { name: name })); // 시드면 사용자 오버라이드로 저장
-      App.store.commit(function (s) {              // 배치된 동일 부품 품명도 갱신
-        s.components.forEach(function (c) { if (c.partNo === p.partNo) c.partName = name; });
+      let title = prompt('라이브러리 타이틀(품번) 수정', p.partNo);
+      if (title == null) return;
+      title = title.trim() || p.partNo;
+      // 품번 중복 방지(다른 부품과 충돌 시 자동 번호)
+      if (title !== p.partNo && library.some(function (x) { return x.partNo === title; })) {
+        let i = 2; while (library.some(function (x) { return x.partNo === title + '-' + i; })) i++; title = title + '-' + i;
+      }
+      let nm = prompt('부품 이름(품명) 수정', p.name || '');
+      if (nm == null) nm = p.name || '';
+      nm = nm.trim();
+      const oldPN = p.partNo;
+      App.userlib.add(Object.assign({}, p, { partNo: title, name: nm })); // 시드면 사용자 오버라이드
+      if (title !== oldPN) { if (p.custom) App.userlib.remove(oldPN); else App.userlib.hide(oldPN); }
+      App.store.commit(function (s) {              // 배치된 동일 부품 품번/품명 동기화
+        s.components.forEach(function (c) { if (c.partNo === oldPN) { c.partNo = title; c.partName = nm; } });
       });
-      if (App.toolbar) App.toolbar.flash('이름 변경: ' + (name || '(빈 이름)'));
+      if (App.ui.placing && App.ui.placing.partNo === oldPN) App.ui.placing = null;
+      if (App.toolbar) App.toolbar.flash('수정됨: ' + title);
       Palette.reloadUser();
     };
     item.onclick = function () {

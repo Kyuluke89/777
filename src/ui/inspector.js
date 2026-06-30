@@ -121,7 +121,12 @@
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
       html += row('호기번호', '<input data-field="tag" type="text" placeholder="예: Q1" value="' + (it.tag || '').replace(/"/g, '&quot;') +
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
-      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.type || '') + ' · ' + (it.partNo || '') + '</div>';
+      html += row('타입', '<select id="insp-type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
+        App.types.optionsHtml(it.type) + '</select>');
+      html += row('글자 방향', '<select id="insp-textdir" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
+        '<option value="h"' + (it.textVert ? '' : ' selected') + '>가로</option>' +
+        '<option value="v"' + (it.textVert ? ' selected' : '') + '>세로</option></select>');
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.partNo || '') + '</div>';
       html += '<button id="insp-edit-part" class="mt-2 w-full px-2 py-1 text-xs rounded bg-teal-600 text-white">✎ 크기·단자 편집</button>';
       html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
     } else {
@@ -145,6 +150,25 @@
     const lockBox = root.querySelector('#insp-lock');
     if (lockBox) lockBox.onchange = function () {
       App.store.commit(function () { const fnd = App.store.findById(id); if (fnd) fnd.item.locked = lockBox.checked; });
+      App.render.all();
+    };
+    // 타입 변경(+ 새 타입 추가)
+    const typeSel = root.querySelector('#insp-type');
+    if (typeSel) typeSel.onchange = function () {
+      let v = typeSel.value;
+      if (v === '__new__') {
+        const nm = prompt('새 타입 이름(예: VFD, FUSE)', '');
+        if (!nm || !nm.trim()) { Inspector.update(); return; }
+        v = App.types.add(nm);
+      }
+      App.store.commit(function () { const fnd = App.store.findById(id); if (fnd) fnd.item.type = v; });
+      App.render.all();
+      Inspector.update();
+    };
+    // 글자 방향(가로/세로)
+    const dirSel = root.querySelector('#insp-textdir');
+    if (dirSel) dirSel.onchange = function () {
+      App.store.commit(function () { const fnd = App.store.findById(id); if (fnd) fnd.item.textVert = (dirSel.value === 'v'); });
       App.render.all();
     };
   };

@@ -233,6 +233,8 @@
     st.selSet = new Set();
     $('pe-title').textContent = st.mode === 'component' ? '부품 크기·단자 편집' : '커스텀 부품 만들기';
     $('pe-name-in').value = st.name;
+    if (App.types) App.types.add(st.type); // 커스텀 타입이면 선택지에 보장
+    if (PE.fillTypes) PE.fillTypes(st.type);
     $('pe-type').value = st.type;
     $('pe-w').value = st.w;
     $('pe-h').value = st.h;
@@ -330,7 +332,19 @@
     });
     peSvg.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-    ['pe-w', 'pe-h', 'pe-type', 'pe-name-in', 'pe-next'].forEach(function (id) {
+    // 타입 선택을 동적(+새 타입)으로 채우고 __new__ 처리
+    function fillTypes(sel) { $('pe-type').innerHTML = App.types.optionsHtml(sel); }
+    PE.fillTypes = fillTypes;
+    fillTypes('TB');
+    $('pe-type').addEventListener('change', function () {
+      if ($('pe-type').value === '__new__') {
+        const nm = prompt('새 타입 이름(예: VFD, FUSE)', '');
+        const v = (nm && nm.trim()) ? App.types.add(nm) : (st ? st.type : 'TB');
+        fillTypes(v);
+      }
+      readInputs(); refresh();
+    });
+    ['pe-w', 'pe-h', 'pe-name-in', 'pe-next'].forEach(function (id) {
       const elx = $(id); if (elx) elx.addEventListener('change', function () { readInputs(); refresh(); });
     });
     ['pe-tshape', 'pe-tw', 'pe-th', 'pe-tlabel'].forEach(function (id) {
