@@ -23,7 +23,8 @@
         return {
           index: i, name: t.name,
           x: comp.x + t.rx, y: comp.y + t.ry,
-          side: (t.ry <= comp.heightMM / 2) ? 'top' : 'bottom'
+          side: (t.ry <= comp.heightMM / 2) ? 'top' : 'bottom',
+          shape: t.shape || 'circle', w: t.w || 3.6, h: t.h || 3.6
         };
       });
     }
@@ -35,10 +36,10 @@
     const pts = [];
     let idx = 0;
     for (let i = 0; i < top; i++) {
-      pts.push({ index: idx++, name: String(idx), side: 'top', x: comp.x + (w * (i + 1)) / (top + 1), y: comp.y });
+      pts.push({ index: idx++, name: String(idx), side: 'top', x: comp.x + (w * (i + 1)) / (top + 1), y: comp.y, shape: 'circle', w: 3.6, h: 3.6 });
     }
     for (let i = 0; i < bottom; i++) {
-      pts.push({ index: idx++, name: String(idx), side: 'bottom', x: comp.x + (w * (i + 1)) / (bottom + 1), y: comp.y + h });
+      pts.push({ index: idx++, name: String(idx), side: 'bottom', x: comp.x + (w * (i + 1)) / (bottom + 1), y: comp.y + h, shape: 'circle', w: 3.6, h: 3.6 });
     }
     return pts;
   };
@@ -54,7 +55,7 @@
     return local.map(function (p) {
       const dx = p.x - cx, dy = p.y - cy;
       return {
-        index: p.index, side: p.side, name: p.name,
+        index: p.index, side: p.side, name: p.name, shape: p.shape, w: p.w, h: p.h,
         x: cx + dx * cos - dy * sin,
         y: cy + dx * sin + dy * cos
       };

@@ -139,13 +139,21 @@
         'pointer-events': 'none'
       }, grp);
       lab.textContent = txt;
-      // 단자 점 (로컬 좌표 — 그룹 회전 적용됨) + 단자 번호
+      // 단자 점 (원형/사각형, 로컬 좌표 — 그룹 회전 적용됨) + 단자 번호
       App.terminals.local(c).forEach(function (t) {
-        App.el('circle', {
-          cx: t.x, cy: t.y, r: 1.8,
-          fill: '#ffffff', stroke: color, 'stroke-width': 0.8,
-          'data-comp': c.id, 'data-term': t.index
-        }, grp);
+        if (t.shape === 'rect') {
+          App.el('rect', {
+            x: t.x - t.w / 2, y: t.y - t.h / 2, width: t.w, height: t.h,
+            fill: '#ffffff', stroke: color, 'stroke-width': 0.8,
+            'data-comp': c.id, 'data-term': t.index
+          }, grp);
+        } else {
+          App.el('circle', {
+            cx: t.x, cy: t.y, r: (t.w || 3.6) / 2,
+            fill: '#ffffff', stroke: color, 'stroke-width': 0.8,
+            'data-comp': c.id, 'data-term': t.index
+          }, grp);
+        }
         if (t.name) {
           const ty = (t.side === 'top') ? (t.y - 2.6) : (t.y + 4.6);
           const tn = App.el('text', {

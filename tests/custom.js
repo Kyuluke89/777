@@ -30,15 +30,24 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   await page.mouse.click(cbox.x + cbox.width * 0.5, cbox.y + cbox.height * 0.6);
   const termsAdded = await page.evaluate(() => document.querySelectorAll('#pe-canvas [data-ti]').length);
   assert(termsAdded === 3, '단자 3개 추가 (' + termsAdded + ')');
+  // 사각형 단자 1개 추가 (모양/크기 변경)
+  await page.selectOption('#pe-tshape', 'rect');
+  await page.fill('#pe-tw', '6'); await page.dispatchEvent('#pe-tw', 'change');
+  await page.fill('#pe-th', '4'); await page.dispatchEvent('#pe-th', 'change');
+  await page.mouse.click(cbox.x + cbox.width * 0.5, cbox.y + cbox.height * 0.5);
+  const rectCount = await page.evaluate(() => document.querySelectorAll('#pe-canvas rect').length);
+  assert(rectCount >= 1, '사각형 단자 렌더 (' + rectCount + ')');
   await page.click('#pe-save');
 
   const saved = await page.evaluate(() => {
     const u = App.userlib.load();
     const p = u.find(x => x.partNo === '테스트단자대');
     const inLib = App.palette.getLibrary().some(x => x.partNo === '테스트단자대');
-    return { count: u.length, has: !!p, w: p && p.w, h: p && p.h, terms: p && p.term.length, inLib };
+    const rect = p && p.term.some(t => t.shape === 'rect' && t.w === 6 && t.h === 4);
+    return { count: u.length, has: !!p, w: p && p.w, h: p && p.h, terms: p && p.term.length, inLib, rect };
   });
-  assert(saved.has && saved.w === 80 && saved.h === 60 && saved.terms === 3, '커스텀 부품 저장 (' + JSON.stringify(saved) + ')');
+  assert(saved.has && saved.w === 80 && saved.h === 60 && saved.terms === 4, '커스텀 부품 저장 (' + JSON.stringify(saved) + ')');
+  assert(saved.rect, '사각형 단자(6×4) 저장됨');
   assert(saved.inLib, '팔레트 라이브러리에 등장');
 
   // 2) 커스텀 부품 배치 → term 이 부품에 복사
@@ -51,22 +60,22 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
     }));
     return App.terminals.world(App.store.get().components.find(c => c.id === 'cust1')).length;
   });
-  assert(placed === 3, '커스텀 부품 단자 3개 배치 (' + placed + ')');
+  assert(placed === 4, '커스텀 부품 단자 4개 배치 (' + placed + ')');
 
   // 3) 기존 부품 단자 편집: 선택 → 편집 → 단자 추가 → 적용
   await page.evaluate(() => { App.ui.selected.clear(); App.ui.selected.add('cust1'); App.render.all(); if (App.inspector) App.inspector.update(); });
   await page.click('#insp-edit-part');
   assert(await page.evaluate(() => getComputedStyle(document.getElementById('part-editor')).display !== 'none'), '편집 모달 열림');
   const loadedTerms = await page.evaluate(() => document.querySelectorAll('#pe-canvas [data-ti]').length);
-  assert(loadedTerms === 3, '기존 단자 3개 로드 (' + loadedTerms + ')');
+  assert(loadedTerms === 4, '기존 단자 4개 로드 (' + loadedTerms + ')');
   const cbox2 = await page.locator('#pe-canvas').boundingBox();
-  await page.mouse.click(cbox2.x + cbox2.width * 0.5, cbox2.y + cbox2.height * 0.5); // 단자 1개 추가
+  await page.mouse.click(cbox2.x + cbox2.width * 0.25, cbox2.y + cbox2.height * 0.25); // 빈 곳 → 단자 1개 추가
   await page.click('#pe-apply');
   const applied = await page.evaluate(() => {
     const c = App.store.get().components.find(x => x.id === 'cust1');
     return { terms: c.term.length };
   });
-  assert(applied.terms === 4, '기존 부품에 단자 추가 적용 (' + applied.terms + ')');
+  assert(applied.terms === 5, '기존 부품에 단자 추가 적용 (' + applied.terms + ')');
 
   // 3.5) 저장 JSON 에 내 부품 라이브러리 동봉 → 비운 뒤 복원
   const rt = await page.evaluate(() => {
