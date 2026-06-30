@@ -15,8 +15,11 @@
     const a2 = { x: x2 + nx * off, y: y2 + ny * off };
     const mid = { x: (a1.x + a2.x) / 2, y: (a1.y + a2.y) / 2 };
     let ang = Math.atan2(dy, dx) * 180 / Math.PI;
-    if (ang > 90) ang -= 180; else if (ang < -90) ang += 180; // 글자 뒤집힘 방지
-    return { p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 }, a1: a1, a2: a2, mid: mid, nx: nx, ny: ny, L: L, ang: ang };
+    // 텍스트 회전: [-90, 90) 로 정규화 → 가로는 수평, 세로는 아래→위로 읽힘(기계제도 표준)
+    let textAng = ang;
+    while (textAng < -90) textAng += 180;
+    while (textAng >= 90) textAng -= 180;
+    return { p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 }, a1: a1, a2: a2, mid: mid, nx: nx, ny: ny, L: L, ang: ang, textAng: textAng };
   };
 
   // 표시 길이(mm, 반올림)

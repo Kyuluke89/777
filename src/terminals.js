@@ -5,7 +5,7 @@
   const T = (App.terminals = {});
 
   // 타입별 기본 단자 수 (부품에 terminals 정보가 없을 때)
-  const DEFAULTS = { MCCB: 6, MCB: 4, ELCB: 6, MC: 8, CP: 2, SMPS: 6, PLC: 20, RELAY: 8, TB: 2, ETC: 4 };
+  const DEFAULTS = { MCCB: 6, MCB: 4, ELCB: 6, MC: 8, CP: 2, SMPS: 6, PLC: 20, RELAY: 8, TB: 2, NF: 4, STOP: 0, ETC: 4 };
   T.defaultCount = function (type) { return DEFAULTS[type] || 4; };
 
   function count(comp) {

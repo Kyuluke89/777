@@ -7,7 +7,7 @@
   const TYPE_COLORS = {
     MCCB: '#1d4ed8', MCB: '#2563eb', ELCB: '#1e40af',
     MC: '#0d9488', CP: '#7c3aed', SMPS: '#ea580c',
-    PLC: '#15803d', TB: '#64748b', RELAY: '#db2777', STOP: '#0f766e', ETC: '#475569'
+    PLC: '#15803d', TB: '#64748b', RELAY: '#db2777', STOP: '#0f766e', NF: '#0e7490', ETC: '#475569'
   };
   App.typeColor = function (t) { return TYPE_COLORS[t] || TYPE_COLORS.ETC; };
 
@@ -224,45 +224,51 @@
     });
   }
 
-  function arrow(grp, x, y, dirx, diry, color) {
-    const s = 3, a = 0.5; // 화살표 크기(mm)
+  function arrow(grp, x, y, dirx, diry, sizeMM, color) {
+    const s = sizeMM, a = 0.42;
     const bx = x + dirx * s, by = y + diry * s;
     const px = -diry, py = dirx;
     App.el('path', {
       d: 'M ' + x + ' ' + y + ' L ' + (bx + px * a * s) + ' ' + (by + py * a * s) +
          ' L ' + (bx - px * a * s) + ' ' + (by - py * a * s) + ' Z',
-      fill: color, stroke: color, 'stroke-width': 0.3, 'pointer-events': 'none'
+      fill: color, stroke: color, 'stroke-width': sizeMM * 0.1, 'pointer-events': 'none'
     }, grp);
   }
 
   function renderDims(state) {
     const g = App.viewport.layers().dims;
     clear(g);
+    const fontMM = App.viewport.pxToMM(13);   // 화면 기준 일정 크기(읽기 쉬움)
+    const lw = App.viewport.pxToMM(1);
     state.dimensions.forEach(function (dim) {
       const m = App.dims.geom(dim);
       const sel = isSelected(dim.id);
       const col = sel ? '#0ea5e9' : '#7c3aed';
       const grp = App.el('g', { 'data-id': dim.id, 'data-kind': 'dimensions' }, g);
+      const ux = (m.a2.x - m.a1.x) / m.L, uy = (m.a2.y - m.a1.y) / m.L; // 선 방향 단위
       // 클릭 영역
-      App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: 'transparent', 'stroke-width': 6 }, grp);
+      App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: 'transparent', 'stroke-width': App.viewport.pxToMM(8) }, grp);
       // 연장선 (측정점 → 치수선, 약간 연장)
-      const ex = m.nx * 2, ey = m.ny * 2;
-      App.el('line', { x1: m.p1.x, y1: m.p1.y, x2: m.a1.x + ex, y2: m.a1.y + ey, stroke: col, 'stroke-width': 0.4, 'pointer-events': 'none' }, grp);
-      App.el('line', { x1: m.p2.x, y1: m.p2.y, x2: m.a2.x + ex, y2: m.a2.y + ey, stroke: col, 'stroke-width': 0.4, 'pointer-events': 'none' }, grp);
-      // 치수선
-      App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: col, 'stroke-width': 0.6, 'pointer-events': 'none' }, grp);
-      // 화살표 (안쪽 방향)
-      const ux = (m.a2.x - m.a1.x) / m.L, uy = (m.a2.y - m.a1.y) / m.L;
-      arrow(grp, m.a1.x, m.a1.y, ux, uy, col);
-      arrow(grp, m.a2.x, m.a2.y, -ux, -uy, col);
-      // 치수 텍스트 (치수선 위, 선과 정렬)
+      const ex = m.nx * fontMM * 0.4, ey = m.ny * fontMM * 0.4;
+      App.el('line', { x1: m.p1.x, y1: m.p1.y, x2: m.a1.x + ex, y2: m.a1.y + ey, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+      App.el('line', { x1: m.p2.x, y1: m.p2.y, x2: m.a2.x + ex, y2: m.a2.y + ey, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+      // 치수선 — 가운데 글자 자리만큼 끊어서(걸리게) 두 토막
+      const label = String(App.dims.length(dim));
+      const half = (label.length * fontMM * 0.32) + fontMM * 0.35; // 글자 폭 절반
+      const gS = { x: m.mid.x - ux * half, y: m.mid.y - uy * half };
+      const gE = { x: m.mid.x + ux * half, y: m.mid.y + uy * half };
+      App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: gS.x, y2: gS.y, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+      App.el('line', { x1: gE.x, y1: gE.y, x2: m.a2.x, y2: m.a2.y, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+      // 화살표 (안쪽)
+      arrow(grp, m.a1.x, m.a1.y, ux, uy, fontMM * 0.55, col);
+      arrow(grp, m.a2.x, m.a2.y, -ux, -uy, fontMM * 0.55, col);
+      // 치수 텍스트 — 선 가운데, 선과 정렬(수평/수직 모두 바로 읽히게)
       const tx = App.el('text', {
-        x: m.mid.x + m.nx * 3, y: m.mid.y + m.ny * 3, 'text-anchor': 'middle',
-        'font-size': 7, fill: col, 'font-weight': 'bold', 'pointer-events': 'none',
-        transform: 'rotate(' + m.ang + ' ' + (m.mid.x + m.nx * 3) + ' ' + (m.mid.y + m.ny * 3) + ')'
+        x: m.mid.x, y: m.mid.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+        'font-size': fontMM, fill: col, 'font-weight': 'bold', 'pointer-events': 'none',
+        transform: 'rotate(' + m.textAng + ' ' + m.mid.x + ' ' + m.mid.y + ')'
       }, grp);
-      tx.textContent = App.dims.length(dim);
-      // 선택 시 중앙 핸들(오프셋 이동)
+      tx.textContent = label;
       if (sel) {
         const hs = App.viewport.pxToMM(5);
         App.el('rect', {
@@ -355,8 +361,13 @@
     const m = App.dims.geom(dim);
     App.el('line', { x1: m.p1.x, y1: m.p1.y, x2: m.a1.x, y2: m.a1.y, stroke: '#7c3aed', 'stroke-width': 0.4, 'stroke-dasharray': '2 1' }, p);
     App.el('line', { x1: m.p2.x, y1: m.p2.y, x2: m.a2.x, y2: m.a2.y, stroke: '#7c3aed', 'stroke-width': 0.4, 'stroke-dasharray': '2 1' }, p);
-    App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: '#7c3aed', 'stroke-width': 0.6 }, p);
-    const t = App.el('text', { x: m.mid.x + m.nx * 3, y: m.mid.y + m.ny * 3, 'text-anchor': 'middle', 'font-size': 7, fill: '#7c3aed', 'font-weight': 'bold' }, p);
+    App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: '#7c3aed', 'stroke-width': App.viewport.pxToMM(1) }, p);
+    const fontMM = App.viewport.pxToMM(13);
+    const t = App.el('text', {
+      x: m.mid.x, y: m.mid.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+      'font-size': fontMM, fill: '#7c3aed', 'font-weight': 'bold',
+      transform: 'rotate(' + m.textAng + ' ' + m.mid.x + ' ' + m.mid.y + ')'
+    }, p);
     t.textContent = App.dims.length(dim);
   };
 })(window);
