@@ -316,6 +316,8 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const grp = document.querySelector('#layer-wires [data-id="' + w0.id + '"]');
     const ln = grp.querySelector('polyline[data-acdc]');
     const tagged = ln && ln.getAttribute('data-acdc') === 'AC';
+    // 정지 상태에서도 라인 중간 AC 뱃지(텍스트) 존재
+    const badge = Array.from(grp.querySelectorAll('text')).some(t => t.textContent === 'AC');
     // 흐름 재생 → 점선 패턴 적용 + dashoffset 시간에 따라 변함
     App.render.setFlow(true);
     const flowing = App.render.isFlowing();
@@ -328,9 +330,10 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     App.render.setFlow(false);
     const stopped = !App.render.isFlowing();
     const cleared = !document.querySelector('#layer-wires polyline[data-acdc]').style.strokeDasharray;
-    return { tagged, flowing, hasDash, moved: o1 !== o2, stopped, cleared };
+    return { tagged, badge, flowing, hasDash, moved: o1 !== o2, stopped, cleared };
   });
   assert(flow.tagged, '배선 AC 전원구분 표시(data-acdc)');
+  assert(flow.badge, '정지 상태 라인 중간 AC/DC 뱃지 표시');
   assert(flow.flowing && flow.hasDash, '흐름 재생 시 점선 적용');
   assert(flow.moved, '흐름 애니메이션 dashoffset 변화');
   assert(flow.stopped && flow.cleared, '흐름 정지 시 점선 제거');

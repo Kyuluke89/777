@@ -216,6 +216,22 @@
         if (App.ui && App.ui.flow) {
           line.style.strokeDasharray = (w.acdc === 'DC' ? '12 6' : '8 5');
         }
+        // 정지 상태에서도 라인 중간에 AC/DC 뱃지 표시
+        const mp = App.wires.midPoint(pts);
+        if (mp) {
+          const fMM = App.viewport.pxToMM(8);
+          const bg = (w.acdc === 'DC') ? '#1d4ed8' : '#b45309';
+          const pw = fMM * 2.4, ph = fMM * 1.5;
+          App.el('rect', {
+            x: mp.x - pw / 2, y: mp.y - ph / 2, width: pw, height: ph, rx: ph * 0.32,
+            fill: bg, stroke: '#ffffff', 'stroke-width': fMM * 0.14, 'pointer-events': 'none'
+          }, grp);
+          const tb = App.el('text', {
+            x: mp.x, y: mp.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+            'font-size': fMM, fill: '#ffffff', 'font-weight': 'bold', 'pointer-events': 'none'
+          }, grp);
+          tb.textContent = w.acdc;
+        }
       }
       // 양 끝 라인번호 — 선에서 30mm 안쪽, 선에 정렬(마킹튜브), 흰 테두리로 가독성
       const ends = App.wires.endLabels(state, w, pts);
