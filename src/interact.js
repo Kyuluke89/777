@@ -423,6 +423,15 @@
     gesture = null;
   }
 
+  // 진행 중 제스처 취소(예: 모바일에서 두번째 손가락 터치 시) — 변경 되돌림
+  function cancelGesture() {
+    if (!gesture) return;
+    if (gesture.snap) { try { App.store.replace(gesture.snap, { history: false }); } catch (x) {} }
+    gesture = null;
+    if (App.render) { App.render.preview(null); App.render.wirePreview(null); App.render.dimPreview(null); }
+    App.render.all();
+  }
+
   // 글씨(라벨) 위치 드래그 — 부품 이름(회전 보정) / 배선 라벨(끝별)
   function startLabelDrag(kind, id, end, sp) {
     const snap = App.store.snapshot();
@@ -607,6 +616,7 @@
   Interact.copySelected = copySelected;
   Interact.paste = paste;
   Interact.duplicateSelected = duplicateSelected;
+  Interact.cancelGesture = cancelGesture;
 
   Interact.init = function (svgEl) {
     svg = svgEl;

@@ -134,5 +134,32 @@
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       Viewport.zoomAt(e.clientX, e.clientY, factor);
     }, { passive: false });
+
+    // 터치(모바일): 두 손가락 = 핀치 줌 + 팬, 한 손가락 = 선택/이동/그리기(포인터 이벤트)
+    function pinchState(t) {
+      const ax = t[0].clientX, ay = t[0].clientY, bx = t[1].clientX, by = t[1].clientY;
+      return { dist: Math.hypot(bx - ax, by - ay), cx: (ax + bx) / 2, cy: (ay + by) / 2 };
+    }
+    let pinch = null;
+    svg.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 2) {
+        if (App.interact && App.interact.cancelGesture) App.interact.cancelGesture(); // 한손가락 제스처 중단
+        pinch = pinchState(e.touches);
+        e.preventDefault();
+      }
+    }, { passive: false });
+    svg.addEventListener('touchmove', function (e) {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const cur = pinchState(e.touches);
+      if (pinch.dist > 0) Viewport.zoomAt(cur.cx, cur.cy, cur.dist / pinch.dist); // 핀치 줌
+      const s = Viewport.scale();
+      Viewport.panBy((cur.cx - pinch.cx) / s, (cur.cy - pinch.cy) / s);          // 중심 이동=팬
+      pinch = cur;
+      App.render.all();
+    }, { passive: false });
+    function endPinch(e) { if (pinch && e.touches.length < 2) pinch = null; }
+    svg.addEventListener('touchend', endPinch);
+    svg.addEventListener('touchcancel', endPinch);
   };
 })(window);

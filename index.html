@@ -35,71 +35,81 @@
 <body class="bg-slate-100 text-slate-800 select-none">
   <div class="flex flex-col h-screen">
 
-    <!-- 상단 툴바 -->
-    <header class="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-200 flex-wrap no-canvas">
-      <h1 class="text-sm font-bold text-slate-700 mr-2">⚡ 제어반 배치설계</h1>
+    <!-- 상단 툴바 (2단: 1단=도구/편집/파일/내보내기, 2단=배치·배선 옵션) -->
+    <header class="flex flex-col bg-white border-b border-slate-200 no-canvas">
+      <!-- 1단 -->
+      <div class="flex items-center gap-2 px-3 py-2 flex-wrap">
+        <h1 class="text-sm font-bold text-slate-700 mr-2">⚡ 제어반 배치설계</h1>
 
-      <div class="flex items-center gap-1 mr-2">
-        <button id="tool-select" class="toolbtn bg-white text-slate-700" title="선택/이동 (V)">↖ 선택</button>
-        <button id="tool-duct-h" class="toolbtn bg-white text-slate-700" title="가로 덕트">덕트 ─</button>
-        <button id="tool-duct-v" class="toolbtn bg-white text-slate-700" title="세로 덕트">덕트 │</button>
-        <button id="tool-rail-h" class="toolbtn bg-white text-slate-700" title="가로 레일">레일 ─</button>
-        <button id="tool-rail-v" class="toolbtn bg-white text-slate-700" title="세로 레일">레일 │</button>
-        <button id="tool-wire" class="toolbtn bg-white text-slate-700" title="단자 연결(와이어): 단자 클릭 → 단자 클릭">⚯ 배선</button>
-        <button id="tool-dim" class="toolbtn bg-white text-slate-700" title="치수: 점→점→위치 클릭 (스냅). 가운데 핸들로 이동">↔ 치수</button>
+        <div class="flex items-center gap-1 mr-1">
+          <button id="tool-select" class="toolbtn bg-white text-slate-700" title="선택/이동 (V)">↖ 선택</button>
+          <button id="tool-duct-h" class="toolbtn bg-white text-slate-700" title="가로 덕트">덕트 ─</button>
+          <button id="tool-duct-v" class="toolbtn bg-white text-slate-700" title="세로 덕트">덕트 │</button>
+          <button id="tool-rail-h" class="toolbtn bg-white text-slate-700" title="가로 레일">레일 ─</button>
+          <button id="tool-rail-v" class="toolbtn bg-white text-slate-700" title="세로 레일">레일 │</button>
+          <button id="tool-wire" class="toolbtn bg-white text-slate-700" title="단자 연결(와이어): 단자 클릭 → 단자 클릭">⚯ 배선</button>
+          <button id="tool-dim" class="toolbtn bg-white text-slate-700" title="치수: 점→점→위치 클릭 (스냅). 가운데 핸들로 이동">↔ 치수</button>
+        </div>
+
+        <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+        <button id="act-rotate" class="toolbtn bg-white text-slate-700" title="회전 (R)">⟳ 회전</button>
+        <button id="act-dup" class="toolbtn bg-white text-slate-700" title="복제 (Ctrl+D)">⎘ 복제</button>
+        <button id="act-lock" class="toolbtn bg-white text-slate-700" title="잠금/해제 (덕트·레일·부품 고정)">🔒 잠금</button>
+        <button id="act-delete" class="toolbtn bg-white text-slate-700" title="삭제 (Del)">🗑 삭제</button>
+        <button id="act-undo" class="toolbtn bg-white text-slate-700" title="실행취소 (Ctrl+Z)">↶</button>
+        <button id="act-redo" class="toolbtn bg-white text-slate-700" title="다시실행 (Ctrl+Shift+Z)">↷</button>
+
+        <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+        <button id="act-new" class="toolbtn bg-white text-slate-700">새로</button>
+        <button id="act-save" class="toolbtn bg-emerald-600 text-white border-emerald-600">💾 저장(JSON)</button>
+        <button id="act-load" class="toolbtn bg-white text-slate-700">📂 불러오기</button>
+        <button id="act-custom" class="toolbtn bg-teal-600 text-white border-teal-600" title="박스 크기·단자 직접 만들기">＋ 커스텀 부품</button>
+        <button id="act-edz" class="toolbtn bg-violet-600 text-white border-violet-600">＋ EDZ 가져오기</button>
+        <input id="edz-file" type="file" accept=".edz,.zip" class="hidden" />
+
+        <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+        <button id="act-bom" class="toolbtn bg-white text-slate-700" title="부품 BOM CSV">BOM</button>
+        <button id="act-wlist" class="toolbtn bg-white text-slate-700" title="배선표 CSV">배선표</button>
+        <button id="act-png" class="toolbtn bg-white text-slate-700" title="도면 PNG">🖼 PNG</button>
+        <button id="act-print" class="toolbtn bg-white text-slate-700" title="인쇄 / PDF 저장">🖨 인쇄</button>
+
+        <div class="ml-auto flex items-center gap-2">
+          <span id="autosave-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500"></span>
+          <span id="status-msg" class="text-xs text-blue-600 opacity-0 transition-opacity"></span>
+        </div>
       </div>
 
-      <label class="text-xs text-slate-500 flex items-center gap-1 mr-2">덕트폭
-        <select id="duct-width" class="border border-slate-300 rounded px-1 py-0.5 text-xs">
-          <option value="40">40</option>
-          <option value="60" selected>60</option>
-          <option value="80">80</option>
-          <option value="100">100</option>
-        </select>mm
-      </label>
+      <!-- 2단: 배치·배선 옵션 -->
+      <div class="flex items-center gap-3 px-3 py-1.5 flex-wrap bg-slate-50 border-t border-slate-100 text-xs">
+        <span class="font-semibold text-slate-400">배치</span>
+        <label class="text-slate-500 flex items-center gap-1">덕트폭
+          <select id="duct-width" class="border border-slate-300 rounded px-1 py-0.5 text-xs">
+            <option value="40">40</option>
+            <option value="60" selected>60</option>
+            <option value="80">80</option>
+            <option value="100">100</option>
+          </select>mm
+        </label>
 
-      <label class="text-xs text-slate-500 flex items-center gap-1 mr-2" title="배선 시 부여할 라인번호(자동 증가). 비우면 W1·W2…">라인번호
-        <input id="wire-next" type="text" placeholder="자동(W#)" class="w-20 border border-slate-300 rounded px-1 py-0.5 text-xs" />
-      </label>
+        <div class="h-4 w-px bg-slate-200"></div>
 
-      <label class="text-xs text-slate-500 flex items-center gap-1 mr-2" title="같은 경로로 겹쳐 지나가는 배선을 나란히 벌려 구분">
-        <input id="wire-spread" type="checkbox" checked /> 겹선 분리
-      </label>
+        <span class="font-semibold text-slate-400">배선</span>
+        <label class="text-slate-500 flex items-center gap-1" title="배선 시 부여할 라인번호(자동 증가). 비우면 W1·W2…">라인번호
+          <input id="wire-next" type="text" placeholder="자동(W#)" class="w-20 border border-slate-300 rounded px-1 py-0.5 text-xs" />
+        </label>
 
-      <label class="text-xs text-slate-500 flex items-center gap-1" title="배선 프리셋(색상·두께·규격) 선택">프리셋
-        <select id="wire-preset" class="w-28 border border-slate-300 rounded px-1 py-0.5 text-xs"></select>
-      </label>
-      <button id="wire-preset-save" class="toolbtn bg-white text-slate-600" title="현재 색상·두께·규격을 프리셋으로 저장">＋ 저장</button>
-      <button id="wire-preset-del" class="toolbtn bg-white text-slate-600" title="선택한 프리셋 삭제">✕</button>
+        <label class="text-slate-500 flex items-center gap-1" title="같은 경로로 겹쳐 지나가는 배선을 나란히 벌려 구분">
+          <input id="wire-spread" type="checkbox" checked /> 겹선 분리
+        </label>
 
-      <div class="h-5 w-px bg-slate-200 mx-1"></div>
-
-      <button id="act-rotate" class="toolbtn bg-white text-slate-700" title="회전 (R)">⟳ 회전</button>
-      <button id="act-dup" class="toolbtn bg-white text-slate-700" title="복제 (Ctrl+D)">⎘ 복제</button>
-      <button id="act-lock" class="toolbtn bg-white text-slate-700" title="잠금/해제 (덕트·레일·부품 고정)">🔒 잠금</button>
-      <button id="act-delete" class="toolbtn bg-white text-slate-700" title="삭제 (Del)">🗑 삭제</button>
-      <button id="act-undo" class="toolbtn bg-white text-slate-700" title="실행취소 (Ctrl+Z)">↶</button>
-      <button id="act-redo" class="toolbtn bg-white text-slate-700" title="다시실행 (Ctrl+Shift+Z)">↷</button>
-
-      <div class="h-5 w-px bg-slate-200 mx-1"></div>
-
-      <button id="act-new" class="toolbtn bg-white text-slate-700">새로</button>
-      <button id="act-save" class="toolbtn bg-emerald-600 text-white border-emerald-600">💾 저장(JSON)</button>
-      <button id="act-load" class="toolbtn bg-white text-slate-700">📂 불러오기</button>
-      <button id="act-custom" class="toolbtn bg-teal-600 text-white border-teal-600" title="박스 크기·단자 직접 만들기">＋ 커스텀 부품</button>
-      <button id="act-edz" class="toolbtn bg-violet-600 text-white border-violet-600">＋ EDZ 가져오기</button>
-      <input id="edz-file" type="file" accept=".edz,.zip" class="hidden" />
-
-      <div class="h-5 w-px bg-slate-200 mx-1"></div>
-
-      <button id="act-bom" class="toolbtn bg-white text-slate-700" title="부품 BOM CSV">BOM</button>
-      <button id="act-wlist" class="toolbtn bg-white text-slate-700" title="배선표 CSV">배선표</button>
-      <button id="act-png" class="toolbtn bg-white text-slate-700" title="도면 PNG">🖼 PNG</button>
-      <button id="act-print" class="toolbtn bg-white text-slate-700" title="인쇄 / PDF 저장">🖨 인쇄</button>
-
-      <div class="ml-auto flex items-center gap-2">
-        <span id="autosave-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500"></span>
-        <span id="status-msg" class="text-xs text-blue-600 opacity-0 transition-opacity"></span>
+        <label class="text-slate-500 flex items-center gap-1" title="배선 프리셋(색상·두께·규격) 선택">프리셋
+          <select id="wire-preset" class="w-28 border border-slate-300 rounded px-1 py-0.5 text-xs"></select>
+        </label>
+        <button id="wire-preset-save" class="toolbtn bg-white text-slate-600" title="현재 색상·두께·규격을 프리셋으로 저장">＋ 저장</button>
+        <button id="wire-preset-del" class="toolbtn bg-white text-slate-600" title="선택한 프리셋 삭제">✕</button>
       </div>
     </header>
 
