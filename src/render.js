@@ -155,11 +155,15 @@
           }, grp);
         }
         if (t.name) {
-          const ty = (t.side === 'top') ? (t.y - 2.6) : (t.y + 4.6);
-          const tn = App.el('text', {
-            x: t.x, y: ty, 'text-anchor': 'middle',
-            'font-size': 3.4, fill: '#475569', 'pointer-events': 'none'
-          }, grp);
+          const pos = t.lp || (t.side === 'top' ? 'top' : 'bottom');
+          const gw = (t.w || 3.6) / 2 + 1.6, gh = (t.h || 3.6) / 2 + 1.6;
+          let a;
+          if (pos === 'left') a = { x: t.x - gw, y: t.y, 'text-anchor': 'end', 'dominant-baseline': 'central' };
+          else if (pos === 'right') a = { x: t.x + gw, y: t.y, 'text-anchor': 'start', 'dominant-baseline': 'central' };
+          else if (pos === 'bottom') a = { x: t.x, y: t.y + gh, 'text-anchor': 'middle', 'dominant-baseline': 'hanging' };
+          else a = { x: t.x, y: t.y - gh, 'text-anchor': 'middle' };
+          a['font-size'] = 3.4; a.fill = '#475569'; a['pointer-events'] = 'none';
+          const tn = App.el('text', a, grp);
           tn.textContent = t.name;
         }
       });

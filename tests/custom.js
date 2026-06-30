@@ -34,6 +34,7 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   await page.selectOption('#pe-tshape', 'rect');
   await page.fill('#pe-tw', '6'); await page.dispatchEvent('#pe-tw', 'change');
   await page.fill('#pe-th', '4'); await page.dispatchEvent('#pe-th', 'change');
+  await page.selectOption('#pe-tlabel', 'left'); // 글씨 왼쪽
   await page.mouse.click(cbox.x + cbox.width * 0.5, cbox.y + cbox.height * 0.5);
   const rectCount = await page.evaluate(() => document.querySelectorAll('#pe-canvas rect').length);
   assert(rectCount >= 1, '사각형 단자 렌더 (' + rectCount + ')');
@@ -43,11 +44,11 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
     const u = App.userlib.load();
     const p = u.find(x => x.partNo === '테스트단자대');
     const inLib = App.palette.getLibrary().some(x => x.partNo === '테스트단자대');
-    const rect = p && p.term.some(t => t.shape === 'rect' && t.w === 6 && t.h === 4);
+    const rect = p && p.term.some(t => t.shape === 'rect' && t.w === 6 && t.h === 4 && t.lp === 'left');
     return { count: u.length, has: !!p, w: p && p.w, h: p && p.h, terms: p && p.term.length, inLib, rect };
   });
   assert(saved.has && saved.w === 80 && saved.h === 60 && saved.terms === 4, '커스텀 부품 저장 (' + JSON.stringify(saved) + ')');
-  assert(saved.rect, '사각형 단자(6×4) 저장됨');
+  assert(saved.rect, '사각형 단자(6×4, 글씨 왼쪽) 저장됨');
   assert(saved.inLib, '팔레트 라이브러리에 등장');
 
   // 2) 커스텀 부품 배치 → term 이 부품에 복사

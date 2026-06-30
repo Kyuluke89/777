@@ -56,7 +56,15 @@
       } else {
         el('circle', { cx: t.rx, cy: t.ry, r: w / 2, fill: '#fff', stroke: stroke, 'stroke-width': sw }, g);
       }
-      const tx = el('text', { x: t.rx, y: t.ry - h / 2 - 1.5, 'text-anchor': 'middle', 'font-size': 4, fill: '#334155' }, g);
+      const pos = t.lp || 'top';
+      const gw = w / 2 + 1.6, gh = h / 2 + 1.6;
+      let a;
+      if (pos === 'left') a = { x: t.rx - gw, y: t.ry, 'text-anchor': 'end', 'dominant-baseline': 'central' };
+      else if (pos === 'right') a = { x: t.rx + gw, y: t.ry, 'text-anchor': 'start', 'dominant-baseline': 'central' };
+      else if (pos === 'bottom') a = { x: t.rx, y: t.ry + gh, 'text-anchor': 'middle', 'dominant-baseline': 'hanging' };
+      else a = { x: t.rx, y: t.ry - gh, 'text-anchor': 'middle' };
+      a['font-size'] = 4; a.fill = '#334155';
+      const tx = el('text', a, g);
       tx.textContent = t.name;
     });
   }
@@ -94,6 +102,7 @@
     $('pe-tshape').value = st.termShape;
     $('pe-tw').value = st.termW;
     $('pe-th').value = st.termH;
+    $('pe-tlabel').value = st.termLabelPos;
     updateShapeUI();
   }
   // 컨트롤 → 기본값 + 선택된 단자에 적용
@@ -101,11 +110,12 @@
     st.termShape = $('pe-tshape').value;
     st.termW = Math.max(0.5, parseFloat($('pe-tw').value) || 3.6);
     st.termH = st.termShape === 'rect' ? Math.max(0.5, parseFloat($('pe-th').value) || 3.6) : st.termW;
+    st.termLabelPos = $('pe-tlabel').value;
     updateShapeUI();
     // 명시적으로 클릭해 선택한 단자에만 적용(방금 놓은 단자는 건드리지 않음)
     if (st.sel >= 0 && st.selExplicit && st.terms[st.sel]) {
       const t = st.terms[st.sel];
-      t.shape = st.termShape; t.w = st.termW; t.h = st.termH;
+      t.shape = st.termShape; t.w = st.termW; t.h = st.termH; t.lp = st.termLabelPos;
     }
     refresh();
   }
@@ -118,12 +128,12 @@
       st.sel = dragIdx; st.selExplicit = true; // 클릭으로 선택 → 컨트롤 변경이 이 단자에 적용
       // 선택 단자의 모양/크기를 컨트롤에 반영
       const t = st.terms[st.sel];
-      if (t) { st.termShape = t.shape || 'circle'; st.termW = t.w || 3.6; st.termH = t.h || 3.6; syncTermControls(); }
+      if (t) { st.termShape = t.shape || 'circle'; st.termW = t.w || 3.6; st.termH = t.h || 3.6; st.termLabelPos = t.lp || 'top'; syncTermControls(); }
       refresh();
     } else {
       // 빈 곳 클릭 → 단자 추가 (박스 범위로 클램프, 현재 모양/크기 적용)
       const rx = clamp(snap(p.x), 0, st.w), ry = clamp(snap(p.y), 0, st.h);
-      st.terms.push({ name: st.nextName, rx: rx, ry: ry, shape: st.termShape, w: st.termW, h: st.termH });
+      st.terms.push({ name: st.nextName, rx: rx, ry: ry, shape: st.termShape, w: st.termW, h: st.termH, lp: st.termLabelPos });
       st.sel = st.terms.length - 1; st.selExplicit = false; // 자동 선택(모양 변경이 소급 적용되지 않게)
       st.nextName = incName(st.nextName);
       $('pe-next').value = st.nextName;
@@ -159,7 +169,7 @@
     } else {
       st = { mode: 'new', name: '', type: 'TB', w: 60, h: 80, terms: [], nextName: 'A1', sel: -1 };
     }
-    st.termShape = 'circle'; st.termW = 3.6; st.termH = 3.6;
+    st.termShape = 'circle'; st.termW = 3.6; st.termH = 3.6; st.termLabelPos = 'top';
     $('pe-title').textContent = st.mode === 'component' ? '부품 크기·단자 편집' : '커스텀 부품 만들기';
     $('pe-name-in').value = st.name;
     $('pe-type').value = st.type;
@@ -210,7 +220,7 @@
     ['pe-w', 'pe-h', 'pe-type', 'pe-name-in', 'pe-next'].forEach(function (id) {
       const elx = $(id); if (elx) elx.addEventListener('change', function () { readInputs(); refresh(); });
     });
-    ['pe-tshape', 'pe-tw', 'pe-th'].forEach(function (id) {
+    ['pe-tshape', 'pe-tw', 'pe-th', 'pe-tlabel'].forEach(function (id) {
       const elx = $(id); if (elx) elx.addEventListener('change', applyTermControls);
     });
     $('pe-save').onclick = saveToLibrary;

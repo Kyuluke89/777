@@ -24,7 +24,7 @@
           index: i, name: t.name,
           x: comp.x + t.rx, y: comp.y + t.ry,
           side: (t.ry <= comp.heightMM / 2) ? 'top' : 'bottom',
-          shape: t.shape || 'circle', w: t.w || 3.6, h: t.h || 3.6
+          shape: t.shape || 'circle', w: t.w || 3.6, h: t.h || 3.6, lp: t.lp || null
         };
       });
     }
@@ -55,7 +55,7 @@
     return local.map(function (p) {
       const dx = p.x - cx, dy = p.y - cy;
       return {
-        index: p.index, side: p.side, name: p.name, shape: p.shape, w: p.w, h: p.h,
+        index: p.index, side: p.side, name: p.name, shape: p.shape, w: p.w, h: p.h, lp: p.lp,
         x: cx + dx * cos - dy * sin,
         y: cy + dx * sin + dy * cos
       };
