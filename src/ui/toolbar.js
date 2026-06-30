@@ -113,6 +113,7 @@
     $('act-delete').onclick = function () { App.interact.deleteSelected(); };
     $('act-rotate').onclick = function () { App.interact.rotateSelected(); };
     $('act-dup').onclick = function () { App.interact.duplicateSelected(); };
+    $('act-lock').onclick = function () { App.interact.toggleLock(); };
 
     // 커스텀 부품 만들기 + 내 부품 내보내기/가져오기
     $('act-custom').onclick = function () { App.partEditor.open(); };

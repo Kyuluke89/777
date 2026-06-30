@@ -11,7 +11,15 @@
   };
   App.typeColor = function (t) { return TYPE_COLORS[t] || TYPE_COLORS.ETC; };
 
+  const LABEL_BASE = 5; // 부품 이름 기본 글씨 크기(mm) — 모든 부품 동일
+
   function clear(g) { while (g.firstChild) g.removeChild(g.firstChild); }
+
+  // 잠금 표시(자물쇠) — 좌상단 모서리
+  function lockBadge(grp, x, y) {
+    const t = App.el('text', { x: x, y: y, 'font-size': 6, fill: '#64748b', 'pointer-events': 'none' }, grp);
+    t.textContent = '🔒';
+  }
 
   // 글씨 크기 배율(종류별)
   function fonts(state) {
@@ -59,6 +67,7 @@
         fill: 'none', stroke: '#f59e0b', 'stroke-width': 0.6,
         'stroke-dasharray': '3 3', 'pointer-events': 'none'
       }, grp);
+      if (d.locked) lockBadge(grp, d.x + 1, d.y + 6);
     });
   }
 
@@ -81,6 +90,7 @@
       } else {
         App.el('line', { x1: r.x + w / 2, y1: r.y, x2: r.x + w / 2, y2: r.y + h, stroke: '#94a3b8', 'stroke-width': 0.8, 'pointer-events': 'none' }, grp);
       }
+      if (r.locked) lockBadge(grp, r.x + 1, r.y + 6);
     });
   }
 
@@ -114,9 +124,11 @@
         transform: c.rotation ? ('rotate(' + c.rotation + ' ' + cx + ' ' + cy + ')') : null
       }, g);
       const color = App.typeColor(c.type);
+      // 불투명 흰 배경(뒤 레일/덕트 가림) + 타입색 옅은 틴트
+      App.el('rect', { x: c.x, y: c.y, width: c.widthMM, height: c.heightMM, rx: 2, fill: '#ffffff' }, grp);
       App.el('rect', {
         x: c.x, y: c.y, width: c.widthMM, height: c.heightMM,
-        rx: 2, fill: over ? '#ef4444' : color, 'fill-opacity': over ? 0.18 : 0.16,
+        rx: 2, fill: over ? '#ef4444' : color, 'fill-opacity': over ? 0.22 : 0.16,
         stroke: over ? '#dc2626' : (isSelected(c.id) ? '#111827' : color),
         'stroke-width': isSelected(c.id) || over ? 2 : 1.2,
         'stroke-dasharray': over ? '4 2' : null
@@ -124,7 +136,7 @@
       // 호기번호(tag) — 입력 시 상단에 작게
       if (c.tag) {
         const tg = App.el('text', {
-          x: cx, y: c.y + Math.min(8, c.heightMM * 0.12), 'text-anchor': 'middle',
+          x: cx + (c.tagDx || 0), y: c.y + Math.min(8, c.heightMM * 0.12) + (c.tagDy || 0), 'text-anchor': 'middle',
           'font-size': Math.min(8, c.heightMM * 0.14) * F.comp, fill: '#111827',
           'font-weight': 'bold', 'pointer-events': 'none'
         }, grp);
@@ -137,14 +149,15 @@
         'font-weight': 'bold', 'pointer-events': 'none'
       }, grp);
       badge.textContent = c.type || '';
-      // 품명 (폭에 맞게 자동 축소 × 배율) — 선택 시 드래그로 위치 이동
+      // 품명 — 모든 부품 동일 크기(통일) × 배율, 선택 시 드래그로 위치 이동
       const txt = c.label || c.partName || c.partNo || '';
-      const fit = Math.max(2.2, Math.min(c.heightMM * 0.16, 9, (c.widthMM - 2) / (0.56 * Math.max(4, txt.length)))) * F.comp;
+      const fit = LABEL_BASE * F.comp;
       const lab = App.el('text', {
         x: cx + (c.labelDx || 0), y: cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0),
         'text-anchor': 'middle', 'font-size': fit, fill: '#334155', 'pointer-events': 'none'
       }, grp);
       lab.textContent = txt;
+      if (c.locked) lockBadge(grp, c.x + 1, c.y + 6);
       // 단자 점 (원형/사각형, 로컬 좌표 — 그룹 회전 적용됨) + 단자 번호
       App.terminals.local(c).forEach(function (t) {
         if (t.shape === 'rect') {
@@ -332,9 +345,17 @@
       const lx = cx + (c.labelDx || 0), ly = cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0);
       const p = rotPt(lx, ly, cx, cy, c.rotation || 0);
       const txt = c.label || c.partName || c.partNo || '';
-      const fit = Math.max(2.2, Math.min(c.heightMM * 0.16, 9, (c.widthMM - 2) / (0.56 * Math.max(4, txt.length)))) * F.comp;
+      const fit = LABEL_BASE * F.comp;
       const hw = Math.max(8, txt.length * fit * 0.6), hh = fit * 1.6;
       App.el('rect', { x: p.x - hw / 2, y: p.y - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-labelfor': c.id, style: 'cursor:move' }, g);
+      // 호기번호(tag) 핸들
+      if (c.tag) {
+        const tf = Math.min(8, c.heightMM * 0.14) * F.comp;
+        const tlx = cx + (c.tagDx || 0), tly = c.y + Math.min(8, c.heightMM * 0.12) + (c.tagDy || 0);
+        const tp = rotPt(tlx, tly, cx, cy, c.rotation || 0);
+        const thw = Math.max(7, String(c.tag).length * tf * 0.6), thh = tf * 1.6;
+        App.el('rect', { x: tp.x - thw / 2, y: tp.y - thh / 2, width: thw, height: thh, fill: 'transparent', 'pointer-events': 'all', 'data-tagfor': c.id, style: 'cursor:move' }, g);
+      }
     });
     state.wires.forEach(function (w) {
       if (!isSelected(w.id) || !w.label) return;

@@ -89,10 +89,12 @@
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.type || '') + ' · ' + (it.partNo || '') + '</div>';
       html += '<button id="insp-edit-part" class="mt-2 w-full px-2 py-1 text-xs rounded bg-teal-600 text-white">✎ 크기·단자 편집</button>';
+      html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
     } else {
       html += row('길이', numInput('lengthMM', it.lengthMM));
       html += row('폭', numInput('widthMM', it.widthMM));
       html += row('방향', '<span class="text-xs text-slate-600">' + (it.orient === 'h' ? '가로' : '세로') + '</span>');
+      html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
     }
 
     root.innerHTML = html;
@@ -105,6 +107,11 @@
     if (editBtn) editBtn.onclick = function () {
       const found = App.store.findById(id);
       if (found && found.kind === 'components') App.partEditor.open({ component: found.item });
+    };
+    const lockBox = root.querySelector('#insp-lock');
+    if (lockBox) lockBox.onchange = function () {
+      App.store.commit(function () { const fnd = App.store.findById(id); if (fnd) fnd.item.locked = lockBox.checked; });
+      App.render.all();
     };
   };
 

@@ -219,6 +219,48 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   // 정리: 임시 부품 제거(이후 카운트 의존 테스트 보호)
   await page.evaluate(() => { App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'lblc'); }); App.ui.selected.clear(); });
 
+  // 호기번호 드래그 핸들 존재
+  const tagH = await page.evaluate(() => {
+    const c = App.store.get().components[0];
+    App.store.commit(s => { s.components.find(x => x.id === c.id).tag = 'Q9'; });
+    App.ui.selected.clear(); App.ui.selected.add(c.id); App.render.all();
+    const has = !!document.querySelector('#layer-tophit [data-tagfor="' + c.id + '"]');
+    App.store.commit(s => { s.components.find(x => x.id === c.id).tag = ''; }); App.ui.selected.clear();
+    return has;
+  });
+  assert(tagH, '호기번호 드래그 핸들 존재');
+
+  // 부품 이름 크기 통일(넓은/좁은 부품 동일 폰트)
+  const uni = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'wf', partNo: 'x', type: 'TB', x: 40, y: 520, widthMM: 100, heightMM: 60, rotation: 0, label: 'AAAA', terminals: 0, term: null });
+      s.components.push({ id: 'nf', partNo: 'x', type: 'TB', x: 40, y: 600, widthMM: 12, heightMM: 60, rotation: 0, label: 'BBBBBBBB', terminals: 0, term: null });
+    });
+    App.render.all();
+    function lf(id, lbl) { const g = document.querySelector('#layer-components [data-id="' + id + '"]'); const t = Array.from(g.querySelectorAll('text')).find(x => x.textContent === lbl); return parseFloat(t.getAttribute('font-size')); }
+    const a = lf('wf', 'AAAA'), b = lf('nf', 'BBBBBBBB');
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'wf' && c.id !== 'nf'); });
+    return { a: a, b: b };
+  });
+  assert(Math.abs(uni.a - uni.b) < 0.01, '부품 이름 크기 통일 (' + uni.a + ' vs ' + uni.b + ')');
+
+  // 잠금: 잠긴 덕트는 미세이동 안 됨
+  const lock = await page.evaluate(() => {
+    App.store.commit(s => s.ducts.push({ id: 'dlk', orient: 'h', x: 100, y: 100, lengthMM: 200, widthMM: 60 }));
+    App.ui.selected.clear(); App.ui.selected.add('dlk'); App.render.all();
+    App.interact.toggleLock();
+    const x0 = App.store.get().ducts.find(d => d.id === 'dlk').x;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    const x1 = App.store.get().ducts.find(d => d.id === 'dlk').x;
+    App.interact.toggleLock();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    const x2 = App.store.get().ducts.find(d => d.id === 'dlk').x;
+    App.store.commit(s => { s.ducts = s.ducts.filter(d => d.id !== 'dlk'); }); App.ui.selected.clear();
+    return { lockedMove: x1 === x0, unlockedMove: x2 !== x1 };
+  });
+  assert(lock.lockedMove, '잠긴 덕트 이동 안 됨');
+  assert(lock.unlockedMove, '잠금 해제 후 이동됨');
+
   // --- PNG 내보내기 (예외 없이 실행) ---
   const pngOk = await page.evaluate(() => { try { App.exporter.png(1); return true; } catch (e) { return 'ERR:' + e.message; } });
   assert(pngOk === true, 'PNG 내보내기 실행 (' + pngOk + ')');

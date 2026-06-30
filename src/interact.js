@@ -160,7 +160,7 @@
     const origPos = {};
     App.ui.selected.forEach(function (id) {
       const f = App.store.findById(id);
-      if (f) origPos[id] = { x: f.item.x, y: f.item.y };
+      if (f && !f.item.locked) origPos[id] = { x: f.item.x, y: f.item.y }; // 잠긴 항목은 이동 제외
     });
     gesture = { type: 'move', sp: sp, snap: snap, origPos: origPos, moved: false };
   }
@@ -281,6 +281,8 @@
     // 글씨(라벨) 드래그 — 부품 이름 / 배선 라벨
     const lblEl = e.target.closest && e.target.closest('[data-labelfor]');
     if (lblEl) { startLabelDrag('comp', lblEl.getAttribute('data-labelfor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
+    const tagEl = e.target.closest && e.target.closest('[data-tagfor]');
+    if (tagEl) { startLabelDrag('tag', tagEl.getAttribute('data-tagfor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
     const wlblEl = e.target.closest && e.target.closest('[data-wirelabel]');
     if (wlblEl) { startLabelDrag('wire', wlblEl.getAttribute('data-wirelabel'), wlblEl.getAttribute('data-end'), sp); svg.setPointerCapture(e.pointerId); return; }
 
@@ -401,12 +403,13 @@
     const f = App.store.findById(id); if (!f) return;
     let orig, rot = 0;
     if (kind === 'comp') { orig = { dx: f.item.labelDx || 0, dy: f.item.labelDy || 0 }; rot = f.item.rotation || 0; }
+    else if (kind === 'tag') { orig = { dx: f.item.tagDx || 0, dy: f.item.tagDy || 0 }; rot = f.item.rotation || 0; }
     else { const o = (end === 'a' ? f.item.lblA : f.item.lblB) || { dx: 0, dy: 0 }; orig = { dx: o.dx, dy: o.dy }; }
     gesture = { type: 'labeldrag', snap: snap, sp: sp, kind: kind, id: id, end: end, orig: orig, rot: rot, moved: false };
   }
   function updateLabelDrag(cp) {
     let dx = cp.x - gesture.sp.x, dy = cp.y - gesture.sp.y;
-    if (gesture.kind === 'comp' && gesture.rot) {
+    if ((gesture.kind === 'comp' || gesture.kind === 'tag') && gesture.rot) {
       const th = gesture.rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
       const lx = dx * c + dy * s, ly = -dx * s + dy * c; // 월드→로컬(역회전)
       dx = lx; dy = ly;
@@ -414,6 +417,8 @@
     const it = App.store.findById(gesture.id).item;
     if (gesture.kind === 'comp') {
       it.labelDx = Math.round(gesture.orig.dx + dx); it.labelDy = Math.round(gesture.orig.dy + dy);
+    } else if (gesture.kind === 'tag') {
+      it.tagDx = Math.round(gesture.orig.dx + dx); it.tagDy = Math.round(gesture.orig.dy + dy);
     } else {
       const o = { dx: Math.round(gesture.orig.dx + dx), dy: Math.round(gesture.orig.dy + dy) };
       if (gesture.end === 'a') it.lblA = o; else it.lblB = o;
@@ -505,7 +510,7 @@
     App.store.commit(function (s) {
       ['components', 'ducts', 'rails'].forEach(function (k) {
         s[k].forEach(function (it) {
-          if (ids.indexOf(it.id) >= 0) { it.x += dx * g; it.y += dy * g; }
+          if (ids.indexOf(it.id) >= 0 && !it.locked) { it.x += dx * g; it.y += dy * g; }
         });
       });
     });
@@ -555,8 +560,24 @@
     if (e.key === ' ') App.ui.spaceDown = false;
   }
 
+  // 선택 항목 잠금/해제 토글 (덕트·레일·부품)
+  function toggleLock() {
+    if (!App.ui.selected.size) return;
+    const ids = Array.from(App.ui.selected);
+    // 하나라도 잠겨있지 않으면 모두 잠금, 전부 잠겨있으면 해제
+    let anyUnlocked = false;
+    ids.forEach(function (id) { const f = App.store.findById(id); if (f && !f.item.locked) anyUnlocked = true; });
+    App.store.commit(function (s) {
+      ['ducts', 'rails', 'components'].forEach(function (k) {
+        s[k].forEach(function (it) { if (ids.indexOf(it.id) >= 0) it.locked = anyUnlocked; });
+      });
+    });
+    if (App.inspector) App.inspector.update();
+  }
+
   Interact.deleteSelected = deleteSelected;
   Interact.rotateSelected = rotateSelected;
+  Interact.toggleLock = toggleLock;
   Interact.copySelected = copySelected;
   Interact.paste = paste;
   Interact.duplicateSelected = duplicateSelected;
