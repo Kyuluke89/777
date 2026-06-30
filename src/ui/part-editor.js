@@ -225,9 +225,9 @@
       const c = opts.component;
       let terms = c.term ? App.clone(c.term)
         : App.terminals.local(c).map(function (t) { return { name: String(t.name || ''), rx: Math.round((t.x - c.x) * 10) / 10, ry: Math.round((t.y - c.y) * 10) / 10 }; });
-      st = { mode: 'component', targetId: c.id, name: c.partName || c.label || '커스텀', type: c.type || 'TB', w: c.widthMM, h: c.heightMM, terms: terms, nextName: 'A1', sel: -1 };
+      st = { mode: 'component', targetId: c.id, partNo: c.partNo || '', name: c.partName || c.label || '커스텀', type: c.type || 'TB', w: c.widthMM, h: c.heightMM, terms: terms, nextName: 'A1', sel: -1 };
     } else {
-      st = { mode: 'new', name: '', type: 'TB', w: 60, h: 80, terms: [], nextName: 'A1', sel: -1 };
+      st = { mode: 'new', partNo: '', name: '', type: 'TB', w: 60, h: 80, terms: [], nextName: 'A1', sel: -1 };
     }
     st.termShape = 'circle'; st.termW = 3.6; st.termH = 3.6; st.termLabelPos = 'top';
     st.selSet = new Set();
@@ -238,7 +238,9 @@
     $('pe-h').value = st.h;
     $('pe-next').value = st.nextName;
     syncTermControls();
+    // 컨텍스트별 버튼 하나만: 배치 편집=적용(배치+라이브러리), 신규=라이브러리 저장
     $('pe-apply').classList.toggle('hidden', st.mode !== 'component');
+    $('pe-save').classList.toggle('hidden', st.mode === 'component');
     refresh();
     modal.style.display = 'flex';
   };
@@ -255,37 +257,65 @@
     }
   }
 
+  function partNoOf() { return st.partNo || st.name || ('커스텀_' + App.uid('p')); }
+
   function buildPart() {
-    return { partNo: st.name || ('커스텀_' + App.uid('p')), manufacturer: '커스텀', type: st.type,
+    return { partNo: partNoOf(), manufacturer: '커스텀', type: st.type,
       name: st.name || '커스텀 부품', w: st.w, h: st.h, d: 60, terminals: st.terms.length,
       term: App.clone(st.terms), custom: true };
+  }
+
+  // 배치된 동일 부품(같은 partNo) 전체를 새 정의로 갱신 (라벨/호기번호 등 인스턴스 값은 보존)
+  function syncPlaced(s, partNo, def) {
+    if (!partNo) return 0;
+    let n = 0;
+    s.components.forEach(function (c) {
+      if (c.partNo !== partNo) return;
+      c.widthMM = def.w; c.heightMM = def.h; c.term = App.clone(def.terms);
+      c.terminals = def.terms.length; c.type = def.type;
+      if (def.name) c.partName = def.name;
+      n++;
+    });
+    return n;
+  }
+
+  // 라이브러리 + 배치된 동일 부품 모두 한 번에 갱신
+  function saveAll(updateEditedId) {
+    const partNo = partNoOf();
+    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name };
+    let cnt = 0;
+    App.store.commit(function (s) {
+      // 편집 중인 바로 그 부품(아직 partNo가 없을 수도 있음)도 확실히 반영
+      if (updateEditedId) {
+        const c = s.components.find(function (x) { return x.id === updateEditedId; });
+        if (c) {
+          c.widthMM = def.w; c.heightMM = def.h; c.term = App.clone(def.terms);
+          c.terminals = def.terms.length; c.type = def.type;
+          if (def.name) c.partName = def.name;
+          if (!c.partNo) c.partNo = partNo; // partNo 없던 부품은 부여해 동기화 대상에 포함
+        }
+      }
+      cnt = syncPlaced(s, partNo, def);
+    });
+    // 기본/사용자 라이브러리 업서트(부품번호 기준)
+    App.userlib.add({ partNo: partNo, manufacturer: '커스텀', type: st.type,
+      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms) });
+    if (App.palette) App.palette.reloadUser();
+    return cnt;
   }
 
   function saveToLibrary() {
     readInputs();
     if (!st.name) { alert('품명을 입력하세요.'); return; }
-    App.userlib.add(buildPart());
-    if (App.palette) App.palette.reloadUser();
-    if (App.toolbar) App.toolbar.flash('라이브러리에 저장됨: ' + st.name);
+    const cnt = saveAll(null);
+    if (App.toolbar) App.toolbar.flash('라이브러리 저장' + (cnt ? ' · 배치 ' + cnt + '개 갱신' : ''));
     PE.close();
   }
 
   function applyToComponent() {
     readInputs();
-    const id = st.targetId, terms = App.clone(st.terms), w = st.w, h = st.h, nm = st.name, ty = st.type;
-    App.store.commit(function (s) {
-      const c = s.components.find(function (x) { return x.id === id; });
-      if (!c) return;
-      c.widthMM = w; c.heightMM = h; c.term = terms; c.terminals = terms.length; c.type = ty;
-      if (nm) { c.partName = nm; }
-    });
-    // 라이브러리도 자동 갱신 (부품번호 기준 업서트)
-    const c = App.store.get().components.find(function (x) { return x.id === id; });
-    if (c && c.partNo) {
-      App.userlib.add({ partNo: c.partNo, manufacturer: '커스텀', type: ty, name: nm || c.partName || c.partNo, w: w, h: h, d: 60, terminals: terms.length, term: App.clone(terms) });
-      if (App.palette) App.palette.reloadUser();
-    }
-    if (App.toolbar) App.toolbar.flash('부품 + 라이브러리에 적용됨');
+    const cnt = saveAll(st.targetId);
+    if (App.toolbar) App.toolbar.flash('배치 ' + cnt + '개 + 라이브러리에 적용');
     PE.close();
   }
 

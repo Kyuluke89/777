@@ -80,6 +80,28 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   assert(applied.terms === 5, '기존 부품에 단자 추가 적용 (' + applied.terms + ')');
   assert(applied.libTerms === 5, '부품에 적용 시 라이브러리도 갱신 (' + applied.libTerms + ')');
 
+  // 3.2) 같은 부품 여러 개 배치 → 한 번 편집/적용으로 전체 동기화
+  await page.evaluate(() => {
+    const c1 = App.store.get().components.find(x => x.id === 'cust1');
+    App.store.commit(s => s.components.push({
+      id: 'cust2', partNo: c1.partNo, type: c1.type, x: 300, y: 100,
+      widthMM: 999, heightMM: 999, rotation: 0, label: 'stale',
+      terminals: 2, term: [{ name: 'z', rx: 1, ry: 1 }]   // 일부러 오래된 값
+    }));
+  });
+  await page.evaluate(() => { App.ui.selected.clear(); App.ui.selected.add('cust1'); App.render.all(); App.inspector.update(); });
+  await page.click('#insp-edit-part');
+  await page.fill('#pe-w', '70');
+  await page.evaluate(() => document.getElementById('pe-w').dispatchEvent(new Event('change')));
+  await page.click('#pe-apply');
+  const synced = await page.evaluate(() => {
+    const c2 = App.store.get().components.find(x => x.id === 'cust2');
+    return { w: c2.widthMM, terms: c2.term.length };
+  });
+  assert(synced.w === 70, '동일 부품 다른 인스턴스 크기 동기화 (' + synced.w + ')');
+  assert(synced.terms === 5, '동일 부품 다른 인스턴스 단자 동기화 (' + synced.terms + ')');
+  await page.evaluate(() => { App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'cust2'); }); });
+
   // 3.5) 저장 JSON 에 내 부품 라이브러리 동봉 → 비운 뒤 복원
   const rt = await page.evaluate(() => {
     const out = App.clone(App.store.get());
