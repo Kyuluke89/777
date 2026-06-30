@@ -35,9 +35,11 @@
     App.store.subscribe(function (state) {
       App.persistence.scheduleAutosave(state);
       if (countsEl) {
+        const totLen = App.wires ? App.wires.totalLength(state) : 0;
         countsEl.textContent = '부품 ' + state.components.length +
           ' · 덕트 ' + state.ducts.length + ' · 레일 ' + state.rails.length +
-          ' · 배선 ' + state.wires.length + ' · 치수 ' + (state.dimensions || []).length;
+          ' · 배선 ' + state.wires.length + '(' + totLen + 'mm)' +
+          ' · 치수 ' + (state.dimensions || []).length;
       }
     });
 

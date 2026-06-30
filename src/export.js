@@ -51,12 +51,16 @@
       const c = state.components.find(function (x) { return x.id === id; });
       return (c && (c.label || c.partNo)) || '?';
     }
-    const rows = [['라인번호', '시작부품', '시작단자', '끝부품', '끝단자', '색상']];
+    const rows = [['라인번호', '시작부품', '시작단자', '끝부품', '끝단자', '길이(mm)', '색상']];
+    let total = 0;
     state.wires.slice().sort(function (a, b) {
       return String(a.label || '').localeCompare(String(b.label || ''), undefined, { numeric: true });
     }).forEach(function (w) {
-      rows.push([w.label, label(w.fromComp), w.fromTerm, label(w.toComp), w.toTerm, w.color || '']);
+      const len = App.wires.length(state, w);
+      total += len;
+      rows.push([w.label, label(w.fromComp), w.fromTerm, label(w.toComp), w.toTerm, len, w.color || '']);
     });
+    rows.push(['합계', '', '', '', '', total, '']);
     return rows;
   };
 

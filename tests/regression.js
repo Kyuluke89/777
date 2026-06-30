@@ -170,7 +170,17 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     wl: App.exporter.wiringRows()
   }));
   assert(rows.bom.length === 2 && rows.bom[1][2] === 2, 'BOM 집계 (수량 2)');
-  assert(rows.wl.length === 2 && rows.wl[1][0] === 'W1', '배선표 행 W1');
+  assert(rows.wl[1][0] === 'W1', '배선표 행 W1');
+  // 배선 길이: 인스펙터/배선표/총길이
+  const wlen = await page.evaluate(() => {
+    const s = App.store.get(); const w = s.wires[0];
+    const wrows = App.exporter.wiringRows(s);
+    return { len: App.wires.length(s, w), total: App.wires.totalLength(s),
+      header: wrows[0].indexOf('길이(mm)') >= 0, sum: wrows[wrows.length - 1][0] === '합계' };
+  });
+  assert(wlen.len > 0, '라인 길이 계산 (' + wlen.len + ')');
+  assert(wlen.total >= wlen.len, '총 배선 길이');
+  assert(wlen.header && wlen.sum, '배선표에 길이 컬럼+합계행');
 
   // --- PNG 내보내기 (예외 없이 실행) ---
   const pngOk = await page.evaluate(() => { try { App.exporter.png(1); return true; } catch (e) { return 'ERR:' + e.message; } });

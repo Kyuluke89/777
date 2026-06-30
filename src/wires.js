@@ -199,6 +199,15 @@
     for (let i = 0; i < pts.length - 1; i++) L += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
     return L;
   }
+  // 배선(라인) 실제 경로 길이(mm)
+  W.length = function (state, wire) {
+    const pts = W.route(state, wire);
+    return pts ? Math.round(polyLen(pts)) : 0;
+  };
+  // 전체 배선 총 길이(mm)
+  W.totalLength = function (state) {
+    return (state.wires || []).reduce(function (s, w) { return s + W.length(state, w); }, 0);
+  };
   // 경로 시작에서 dist 만큼 진행한 점 + 그 지점 세그먼트 방향
   function pointAlong(pts, dist) {
     let rem = dist;

@@ -59,6 +59,7 @@
     if (f.kind === 'wires') {
       html += row('라인번호', '<input data-field="label" type="text" value="' + (it.label || '') +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
+      html += row('라인 길이', '<span class="text-xs text-slate-700 font-semibold">' + App.wires.length(App.store.get(), it) + ' mm</span>');
       html += row('색상', '<input data-field="color" type="color" value="' + (it.color || '#dc2626') +
         '" class="w-12 h-7 border border-slate-300 rounded" />');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
