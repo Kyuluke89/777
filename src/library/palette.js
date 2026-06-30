@@ -24,11 +24,15 @@
     render();
   };
 
-  // 시드 + 사용자(커스텀) 라이브러리 재구성
+  // 시드 + 사용자(커스텀) 라이브러리 재구성 (같은 부품번호는 사용자 버전 우선)
   Palette.reloadUser = function () {
-    const base = (App.seedParts || []).slice();
+    const base = (App.seedParts || []);
     const user = App.userlib ? App.userlib.load() : [];
-    library = base.concat(user);
+    const order = [];
+    const map = {};
+    base.forEach(function (p) { if (!(p.partNo in map)) order.push(p.partNo); map[p.partNo] = p; });
+    user.forEach(function (p) { if (!(p.partNo in map)) order.push(p.partNo); map[p.partNo] = p; }); // 덮어쓰기
+    library = order.map(function (k) { return map[k]; });
     render();
   };
 

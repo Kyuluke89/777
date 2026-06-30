@@ -272,14 +272,20 @@
 
   function applyToComponent() {
     readInputs();
-    const id = st.targetId, terms = App.clone(st.terms), w = st.w, h = st.h;
+    const id = st.targetId, terms = App.clone(st.terms), w = st.w, h = st.h, nm = st.name, ty = st.type;
     App.store.commit(function (s) {
       const c = s.components.find(function (x) { return x.id === id; });
       if (!c) return;
-      c.widthMM = w; c.heightMM = h; c.term = terms; c.terminals = terms.length;
-      if (st.name) { c.partName = st.name; }
+      c.widthMM = w; c.heightMM = h; c.term = terms; c.terminals = terms.length; c.type = ty;
+      if (nm) { c.partName = nm; }
     });
-    if (App.toolbar) App.toolbar.flash('부품에 적용됨');
+    // 라이브러리도 자동 갱신 (부품번호 기준 업서트)
+    const c = App.store.get().components.find(function (x) { return x.id === id; });
+    if (c && c.partNo) {
+      App.userlib.add({ partNo: c.partNo, manufacturer: '커스텀', type: ty, name: nm || c.partName || c.partNo, w: w, h: h, d: 60, terminals: terms.length, term: App.clone(terms) });
+      if (App.palette) App.palette.reloadUser();
+    }
+    if (App.toolbar) App.toolbar.flash('부품 + 라이브러리에 적용됨');
     PE.close();
   }
 

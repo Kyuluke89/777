@@ -74,9 +74,11 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   await page.click('#pe-apply');
   const applied = await page.evaluate(() => {
     const c = App.store.get().components.find(x => x.id === 'cust1');
-    return { terms: c.term.length };
+    const libPart = App.palette.getLibrary().find(p => p.partNo === c.partNo);
+    return { terms: c.term.length, libTerms: libPart && libPart.term ? libPart.term.length : 0 };
   });
   assert(applied.terms === 5, '기존 부품에 단자 추가 적용 (' + applied.terms + ')');
+  assert(applied.libTerms === 5, '부품에 적용 시 라이브러리도 갱신 (' + applied.libTerms + ')');
 
   // 3.5) 저장 JSON 에 내 부품 라이브러리 동봉 → 비운 뒤 복원
   const rt = await page.evaluate(() => {
