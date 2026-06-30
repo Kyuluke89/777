@@ -707,6 +707,24 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(zoomFix.mmChanged, '줌 시 라벨 mm값 재계산(재렌더)');
   assert(Math.abs(zoomFix.screen1 - zoomFix.screen2) < 0.5, '라인번호 화면 크기 고정(줌 무관 ' + zoomFix.screen1.toFixed(1) + '≈' + zoomFix.screen2.toFixed(1) + ')');
 
+  // 라인번호 크기: 한 곳(전역)에서 지정 → 모든 라인 동일, 화면 고정
+  await page.fill('#wire-label-px', '22');
+  await page.evaluate(() => document.getElementById('wire-label-px').dispatchEvent(new Event('input')));
+  const lblSize = await page.evaluate(() => {
+    const saved = App.store.get().fonts.wirePx;
+    function screenPx() { const t = document.querySelector('#layer-wires text'); const s = App.viewport.scale(); return t ? parseFloat(t.getAttribute('font-size')) * s : 0; }
+    const px1 = screenPx();
+    const svg = document.getElementById('canvas'); const r = svg.getBoundingClientRect();
+    svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, cancelable: true }));
+    const px2 = screenPx();
+    return { saved, px1, px2 };
+  });
+  assert(lblSize.saved === 22, '라인번호 크기 전역 저장 (' + lblSize.saved + ')');
+  assert(Math.abs(lblSize.px1 - 22) < 1.5, '지정 크기 적용 (~22px, ' + lblSize.px1.toFixed(1) + ')');
+  assert(Math.abs(lblSize.px1 - lblSize.px2) < 0.5, '지정 후에도 줌 고정');
+  await page.fill('#wire-label-px', '11');
+  await page.evaluate(() => document.getElementById('wire-label-px').dispatchEvent(new Event('input')));
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

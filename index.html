@@ -2,6 +2,9 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>제어반 전장 배치 · 배선 설계 (MVP)</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -107,6 +110,10 @@
 
         <label class="text-slate-500 flex items-center gap-1" title="배선 모서리 둥글기(라운드) 반지름. 0이면 직각">라운드
           <input id="wire-round" type="number" min="0" step="1" value="0" class="w-14 border border-slate-300 rounded px-1 py-0.5 text-xs text-right" />mm
+        </label>
+
+        <label class="text-slate-500 flex items-center gap-1" title="모든 라인번호에 동일 적용. 화면 고정 크기(줌 무관)">라인번호 크기
+          <input id="wire-label-px" type="number" min="4" step="1" value="11" class="w-14 border border-slate-300 rounded px-1 py-0.5 text-xs text-right" />
         </label>
 
         <label class="text-slate-500 flex items-center gap-1" title="배선 프리셋(색상·두께·규격) 선택">프리셋

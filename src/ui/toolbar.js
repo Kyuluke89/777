@@ -106,6 +106,14 @@
       App.render.all();
     });
 
+    // 라인번호 크기(전역 단일값, 화면 고정) — 모든 라인에 동일 적용
+    const wlpx = $('wire-label-px');
+    if (wlpx) wlpx.addEventListener('input', function () {
+      const v = Math.max(4, Math.min(60, parseFloat(this.value) || 11));
+      App.store.commit(function (s) { s.fonts = s.fonts || {}; s.fonts.wirePx = v; });
+      App.render.all();
+    });
+
     // 배선 프리셋(색상·두께·규격) 드롭다운
     Toolbar.refreshPresets();
     const ps = $('wire-preset');
@@ -234,5 +242,6 @@
     ['ctype', 'ctag', 'cname', 'term', 'wire', 'dim'].forEach(function (k) {
       if ($('font-' + k)) $('font-' + k).value = f[k] || f.comp || 1;
     });
+    if ($('wire-label-px')) $('wire-label-px').value = f.wirePx || 11;
   };
 })(window);

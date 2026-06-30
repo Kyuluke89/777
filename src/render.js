@@ -30,7 +30,8 @@
       ctype: f.ctype || comp,  // 카테고리(타입 배지)
       ctag: f.ctag || comp,    // 호기번호
       cname: f.cname || comp,  // 부품 이름
-      term: f.term || 1, wire: f.wire || 1, dim: f.dim || 1
+      term: f.term || 1, wire: f.wire || 1, dim: f.dim || 1,
+      wirePx: f.wirePx || 11   // 라인번호 기본 크기(화면 px, 전역 단일값)
     };
   }
 
@@ -272,7 +273,8 @@
       // 양 끝 라인번호 — 선에서 30mm 안쪽, 선에 정렬(마킹튜브), 흰 테두리로 가독성
       const ends = App.wires.endLabels(state, w, pts);
       if (ends && w.label) {
-        const fontMM = App.viewport.pxToMM(11) * fonts(state).wire;
+        const FW = fonts(state);
+        const fontMM = App.viewport.pxToMM(FW.wirePx) * FW.wire;
         [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
           const key = pair[0], e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
           const x = e.x + off.dx, y = e.y + off.dy;
@@ -435,7 +437,7 @@
       if (!w.label) return;
       const wpts = App.wires.displayRoute(state, w, woff);
       const ends = App.wires.endLabels(state, w, wpts); if (!ends) return;
-      const fontMM = App.viewport.pxToMM(11) * F.wire;
+      const fontMM = App.viewport.pxToMM(F.wirePx) * F.wire;
       [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
         const e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
         const hw = Math.max(6, String(w.label).length * fontMM * 0.7), hh = fontMM * 1.5;
