@@ -71,8 +71,8 @@
       App.render.all();
     };
 
-    // 글씨 크기 배율
-    ['comp', 'term', 'wire', 'dim'].forEach(function (k) {
+    // 글씨 크기 배율 (부품은 카테고리/호기/이름 분리)
+    ['ctype', 'ctag', 'cname', 'term', 'wire', 'dim'].forEach(function (k) {
       const el = $('font-' + k);
       if (el) el.addEventListener('change', function () {
         const v = Math.max(0.3, Math.min(5, parseFloat(el.value) || 1));
@@ -252,8 +252,8 @@
     if ($('panel-h')) $('panel-h').value = p.heightMM;
     if ($('panel-grid')) $('panel-grid').value = p.gridMM;
     const f = s.fonts || {};
-    ['comp', 'term', 'wire', 'dim'].forEach(function (k) {
-      if ($('font-' + k)) $('font-' + k).value = f[k] || 1;
+    ['ctype', 'ctag', 'cname', 'term', 'wire', 'dim'].forEach(function (k) {
+      if ($('font-' + k)) $('font-' + k).value = f[k] || f.comp || 1;
     });
   };
 })(window);

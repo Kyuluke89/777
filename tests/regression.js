@@ -403,6 +403,33 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(fontScale.after > fontScale.before * 1.8, '부품 글씨 배율 적용 (' + fontScale.before + '→' + fontScale.after + ')');
 
+  // 부품 글씨 3종(카테고리/호기/이름) 독립 배율 — 각 요소가 자기 배율에만 반응
+  const sep = await page.evaluate(() => {
+    const c0 = App.store.get().components[0];
+    function read() {
+      const grp = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
+      const texts = Array.from(grp.querySelectorAll('text'));
+      const fs = txt => { const t = texts.find(x => x.textContent === txt); return t ? parseFloat(t.getAttribute('font-size')) : 0; };
+      return { type: fs(c0.type), name: fs(c0.label), tag: fs('Q1') };
+    }
+    App.store.commit(s => { const c = s.components.find(x => x.id === c0.id); c.tag = 'Q1'; s.fonts = { ctype: 3, ctag: 1, cname: 1 }; });
+    App.render.all();
+    const A = read();
+    App.store.commit(s => { s.fonts = { ctype: 1, ctag: 1, cname: 3 }; });
+    App.render.all();
+    const B = read();
+    App.store.commit(s => { s.fonts = {}; const c = s.components.find(x => x.id === c0.id); c.tag = ''; });
+    App.render.all();
+    return {
+      typeResponds: A.type > B.type * 1.8,   // 카테고리는 ctype에만 반응
+      nameResponds: B.name > A.name * 1.8,   // 이름은 cname에만 반응
+      tagStable: Math.abs(A.tag - B.tag) < 0.01  // 호기번호는 둘 다 1 → 불변
+    };
+  });
+  assert(sep.typeResponds, '카테고리 글씨 독립 배율');
+  assert(sep.nameResponds, '부품이름 글씨 독립 배율');
+  assert(sep.tagStable, '호기번호 글씨 독립(다른 배율 영향 없음)');
+
   // 글씨 위치 이동: 라벨 오프셋이 렌더에 반영 + 드래그 핸들 존재
   const lm = await page.evaluate(() => {
     App.store.commit(s => { s.fonts.comp = 1; s.components.push({ id: 'lblc', partNo: 'x', type: 'TB', x: 250, y: 250, widthMM: 60, heightMM: 60, rotation: 0, label: '라벨이동', terminals: 0, term: null }); });

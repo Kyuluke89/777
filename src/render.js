@@ -24,7 +24,14 @@
   // 글씨 크기 배율(종류별)
   function fonts(state) {
     const f = state.fonts || {};
-    return { comp: f.comp || 1, term: f.term || 1, wire: f.wire || 1, dim: f.dim || 1 };
+    const comp = f.comp || 1; // 구버전 호환(부품 글씨 통합 배율)
+    return {
+      comp: comp,
+      ctype: f.ctype || comp,  // 카테고리(타입 배지)
+      ctag: f.ctag || comp,    // 호기번호
+      cname: f.cname || comp,  // 부품 이름
+      term: f.term || 1, wire: f.wire || 1, dim: f.dim || 1
+    };
   }
 
   function isSelected(id) {
@@ -145,21 +152,21 @@
       if (c.tag) {
         const tg = App.el('text', {
           x: cx + (c.tagDx || 0), y: c.y + Math.min(8, c.heightMM * 0.12) + (c.tagDy || 0), 'text-anchor': 'middle',
-          'font-size': Math.min(8, c.heightMM * 0.14) * F.comp, fill: '#111827',
+          'font-size': Math.min(8, c.heightMM * 0.14) * F.ctag, fill: '#111827',
           'font-weight': 'bold', 'pointer-events': 'none'
         }, grp);
         tg.textContent = c.tag;
       }
-      // 타입 배지
+      // 타입 배지(카테고리)
       const badge = App.el('text', {
         x: cx, y: cy - 2, 'text-anchor': 'middle',
-        'font-size': Math.min(12, c.heightMM * 0.22) * F.comp, fill: color,
+        'font-size': Math.min(12, c.heightMM * 0.22) * F.ctype, fill: color,
         'font-weight': 'bold', 'pointer-events': 'none'
       }, grp);
       badge.textContent = c.type || '';
-      // 품명 — 모든 부품 동일 크기(통일) × 배율, 선택 시 드래그로 위치 이동
+      // 품명 — 기본 크기 × 배율, 선택 시 드래그로 위치 이동
       const txt = c.label || c.partName || c.partNo || '';
-      const fit = LABEL_BASE * F.comp;
+      const fit = LABEL_BASE * F.cname;
       const lab = App.el('text', {
         x: cx + (c.labelDx || 0), y: cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0),
         'text-anchor': 'middle', 'font-size': fit, fill: '#334155', 'pointer-events': 'none'
@@ -392,12 +399,12 @@
       const lx = cx + (c.labelDx || 0), ly = cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0);
       const p = rotPt(lx, ly, cx, cy, c.rotation || 0);
       const txt = c.label || c.partName || c.partNo || '';
-      const fit = LABEL_BASE * F.comp;
+      const fit = LABEL_BASE * F.cname;
       const hw = Math.max(8, txt.length * fit * 0.6), hh = fit * 1.6;
       App.el('rect', { x: p.x - hw / 2, y: p.y - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-labelfor': c.id, style: 'cursor:move' }, g);
       // 호기번호(tag) 핸들
       if (c.tag) {
-        const tf = Math.min(8, c.heightMM * 0.14) * F.comp;
+        const tf = Math.min(8, c.heightMM * 0.14) * F.ctag;
         const tlx = cx + (c.tagDx || 0), tly = c.y + Math.min(8, c.heightMM * 0.12) + (c.tagDy || 0);
         const tp = rotPt(tlx, tly, cx, cy, c.rotation || 0);
         const thw = Math.max(7, String(c.tag).length * tf * 0.6), thh = tf * 1.6;
