@@ -16,6 +16,7 @@
 
   // 로컬(회전 미적용) 단자 좌표 — 컴포넌트 그룹 안에서 점을 찍을 때 사용
   T.local = function (comp) {
+    if (comp.terminals === 0 && !(comp.term && comp.term.length)) return []; // 단자 없는 부속(스토퍼 등)
     // 1) 부품이 실제 단자 좌표(term: [{name,rx,ry}])를 가지면 그대로 사용 (DXF/EDZ 유래)
     if (comp.term && comp.term.length) {
       return comp.term.map(function (t, i) {

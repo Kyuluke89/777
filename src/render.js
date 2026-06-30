@@ -7,7 +7,7 @@
   const TYPE_COLORS = {
     MCCB: '#1d4ed8', MCB: '#2563eb', ELCB: '#1e40af',
     MC: '#0d9488', CP: '#7c3aed', SMPS: '#ea580c',
-    PLC: '#15803d', TB: '#64748b', RELAY: '#db2777', ETC: '#475569'
+    PLC: '#15803d', TB: '#64748b', RELAY: '#db2777', STOP: '#0f766e', ETC: '#475569'
   };
   App.typeColor = function (t) { return TYPE_COLORS[t] || TYPE_COLORS.ETC; };
 
@@ -224,6 +224,56 @@
     });
   }
 
+  function arrow(grp, x, y, dirx, diry, color) {
+    const s = 3, a = 0.5; // 화살표 크기(mm)
+    const bx = x + dirx * s, by = y + diry * s;
+    const px = -diry, py = dirx;
+    App.el('path', {
+      d: 'M ' + x + ' ' + y + ' L ' + (bx + px * a * s) + ' ' + (by + py * a * s) +
+         ' L ' + (bx - px * a * s) + ' ' + (by - py * a * s) + ' Z',
+      fill: color, stroke: color, 'stroke-width': 0.3, 'pointer-events': 'none'
+    }, grp);
+  }
+
+  function renderDims(state) {
+    const g = App.viewport.layers().dims;
+    clear(g);
+    state.dimensions.forEach(function (dim) {
+      const m = App.dims.geom(dim);
+      const sel = isSelected(dim.id);
+      const col = sel ? '#0ea5e9' : '#7c3aed';
+      const grp = App.el('g', { 'data-id': dim.id, 'data-kind': 'dimensions' }, g);
+      // 클릭 영역
+      App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: 'transparent', 'stroke-width': 6 }, grp);
+      // 연장선 (측정점 → 치수선, 약간 연장)
+      const ex = m.nx * 2, ey = m.ny * 2;
+      App.el('line', { x1: m.p1.x, y1: m.p1.y, x2: m.a1.x + ex, y2: m.a1.y + ey, stroke: col, 'stroke-width': 0.4, 'pointer-events': 'none' }, grp);
+      App.el('line', { x1: m.p2.x, y1: m.p2.y, x2: m.a2.x + ex, y2: m.a2.y + ey, stroke: col, 'stroke-width': 0.4, 'pointer-events': 'none' }, grp);
+      // 치수선
+      App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: col, 'stroke-width': 0.6, 'pointer-events': 'none' }, grp);
+      // 화살표 (안쪽 방향)
+      const ux = (m.a2.x - m.a1.x) / m.L, uy = (m.a2.y - m.a1.y) / m.L;
+      arrow(grp, m.a1.x, m.a1.y, ux, uy, col);
+      arrow(grp, m.a2.x, m.a2.y, -ux, -uy, col);
+      // 치수 텍스트 (치수선 위, 선과 정렬)
+      const tx = App.el('text', {
+        x: m.mid.x + m.nx * 3, y: m.mid.y + m.ny * 3, 'text-anchor': 'middle',
+        'font-size': 7, fill: col, 'font-weight': 'bold', 'pointer-events': 'none',
+        transform: 'rotate(' + m.ang + ' ' + (m.mid.x + m.nx * 3) + ' ' + (m.mid.y + m.ny * 3) + ')'
+      }, grp);
+      tx.textContent = App.dims.length(dim);
+      // 선택 시 중앙 핸들(오프셋 이동)
+      if (sel) {
+        const hs = App.viewport.pxToMM(5);
+        App.el('rect', {
+          x: m.mid.x - hs, y: m.mid.y - hs, width: hs * 2, height: hs * 2, rx: hs * 0.4,
+          fill: '#fff', stroke: '#0ea5e9', 'stroke-width': App.viewport.pxToMM(1.5),
+          'data-dim': dim.id, style: 'cursor:move'
+        }, grp);
+      }
+    });
+  }
+
   Render.all = function (state) {
     state = state || App.store.get();
     renderPanel(state);
@@ -231,6 +281,7 @@
     renderRails(state);
     renderComponents(state);
     renderWires(state);
+    renderDims(state);
     renderOverlay(state);
   };
 
@@ -278,5 +329,34 @@
     m.setAttribute('stroke', '#3b82f6');
     m.setAttribute('stroke-width', App.viewport.pxToMM(1));
     m.setAttribute('stroke-dasharray', App.viewport.pxToMM(3) + ' ' + App.viewport.pxToMM(2));
+  };
+
+  // 스냅 점 표시 (치수 도구)
+  Render.snapMarker = function (pt) {
+    const g = App.viewport.layers().overlay;
+    let s = g.querySelector('#snap-marker');
+    if (!pt) { if (s) s.remove(); return; }
+    const r = App.viewport.pxToMM(4);
+    if (!s) { s = App.el('path', { id: 'snap-marker' }, g); }
+    s.setAttribute('d', 'M ' + (pt.x - r) + ' ' + (pt.y - r) + ' L ' + (pt.x + r) + ' ' + (pt.y + r) +
+      ' M ' + (pt.x - r) + ' ' + (pt.y + r) + ' L ' + (pt.x + r) + ' ' + (pt.y - r));
+    s.setAttribute('stroke', pt.snapped ? '#16a34a' : '#94a3b8');
+    s.setAttribute('stroke-width', App.viewport.pxToMM(1.5));
+    s.setAttribute('fill', 'none');
+  };
+
+  // 치수 미리보기 (그리는 중)
+  Render.dimPreview = function (dim) {
+    const g = App.viewport.layers().overlay;
+    let p = g.querySelector('#dim-preview');
+    if (!dim) { if (p) p.remove(); return; }
+    if (p) p.remove();
+    p = App.el('g', { id: 'dim-preview' }, g);
+    const m = App.dims.geom(dim);
+    App.el('line', { x1: m.p1.x, y1: m.p1.y, x2: m.a1.x, y2: m.a1.y, stroke: '#7c3aed', 'stroke-width': 0.4, 'stroke-dasharray': '2 1' }, p);
+    App.el('line', { x1: m.p2.x, y1: m.p2.y, x2: m.a2.x, y2: m.a2.y, stroke: '#7c3aed', 'stroke-width': 0.4, 'stroke-dasharray': '2 1' }, p);
+    App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: '#7c3aed', 'stroke-width': 0.6 }, p);
+    const t = App.el('text', { x: m.mid.x + m.nx * 3, y: m.mid.y + m.ny * 3, 'text-anchor': 'middle', 'font-size': 7, fill: '#7c3aed', 'font-weight': 'bold' }, p);
+    t.textContent = App.dims.length(dim);
   };
 })(window);

@@ -53,7 +53,7 @@
       label: part.name || part.partNo,  // 기본 표시 = 품명
       tag: '',                          // 호기번호(선택) — 인스펙터에서 입력
       partName: part.name || '',
-      terminals: part.terminals || App.terminals.defaultCount(part.type),
+      terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null
     };
     App.store.commit(function (s) { s.components.push(comp); });
@@ -234,6 +234,26 @@
       return;
     }
 
+    // 치수 도구: 점1 → 점2 → 오프셋 위치 (캐드식 3클릭, 스냅)
+    if (tool === 'dim') {
+      const state = App.store.get();
+      const d = App.ui.dim || (App.ui.dim = { stage: 0 });
+      if (d.stage === 0) {
+        d.p1 = App.geom.snapPoint(state, sp.x, sp.y, App.viewport.pxToMM(8)); d.stage = 1;
+      } else if (d.stage === 1) {
+        d.p2 = App.geom.snapPoint(state, sp.x, sp.y, App.viewport.pxToMM(8)); d.stage = 2;
+      } else {
+        const base = { x1: d.p1.x, y1: d.p1.y, x2: d.p2.x, y2: d.p2.y };
+        const off = snapV(App.dims.offsetFromPoint(base, sp.x, sp.y));
+        const dim = App.dims.create(base.x1, base.y1, base.x2, base.y2, off);
+        App.store.commit(function (s) { s.dimensions.push(dim); });
+        App.ui.dim = { stage: 0 };
+        App.render.dimPreview(null); App.render.snapMarker(null);
+        selectOnly(dim.id);
+      }
+      return;
+    }
+
     if (tool === 'duct-h') { startDraw('h', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'duct-v') { startDraw('v', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'rail-h') { startDraw('h', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
@@ -247,6 +267,14 @@
         segEl.getAttribute('data-orient'), sp);
       svg.setPointerCapture(e.pointerId);
       App.render.all(); // 핸들 위치 갱신
+      return;
+    }
+
+    // 치수 중앙 핸들 → 오프셋(치수선 위치) 이동
+    const dimEl = e.target.closest && e.target.closest('[data-dim]');
+    if (dimEl) {
+      startDimOff(dimEl.getAttribute('data-dim'), sp);
+      svg.setPointerCapture(e.pointerId);
       return;
     }
 
@@ -287,7 +315,7 @@
     if (!r || (r.w < 1 && r.h < 1)) return;
     const state = App.store.get();
     const hit = [];
-    ['components', 'ducts', 'rails', 'wires'].forEach(function (k) {
+    ['components', 'ducts', 'rails', 'wires', 'dimensions'].forEach(function (k) {
       state[k].forEach(function (it) {
         if (rectsIntersect(r, App.geom.bounds(k, it))) hit.push(it.id);
       });
@@ -299,6 +327,22 @@
   }
 
   function onPointerMove(e) {
+    // 치수 도구 미리보기 + 스냅 (버튼 안 눌러도)
+    if (App.ui.tool === 'dim') {
+      const state = App.store.get();
+      const cp = App.viewport.clientToWorld(e.clientX, e.clientY);
+      const d = App.ui.dim || { stage: 0 };
+      if (d.stage === 2) {
+        const base = { x1: d.p1.x, y1: d.p1.y, x2: d.p2.x, y2: d.p2.y };
+        App.render.snapMarker(null);
+        App.render.dimPreview(Object.assign({ off: snapV(App.dims.offsetFromPoint(base, cp.x, cp.y)) }, base));
+      } else {
+        const snap = App.geom.snapPoint(state, cp.x, cp.y, App.viewport.pxToMM(8));
+        App.render.snapMarker(snap);
+        if (d.stage === 1) App.render.dimPreview({ x1: d.p1.x, y1: d.p1.y, x2: snap.x, y2: snap.y, off: 0 });
+        else App.render.dimPreview(null);
+      }
+    }
     // 와이어 미리보기 (버튼 안 눌러도 동작)
     if (App.ui.tool === 'wire' && App.ui.wireStart) {
       const cp = App.viewport.clientToWorld(e.clientX, e.clientY);
@@ -323,6 +367,7 @@
     if (gesture.type === 'draw') updateDraw(cp);
     else if (gesture.type === 'move') updateMove(cp);
     else if (gesture.type === 'wireseg') updateWireSeg(cp);
+    else if (gesture.type === 'dimoff') updateDimOff(cp);
     else if (gesture.type === 'marquee') updateMarquee(cp);
   }
 
@@ -337,8 +382,24 @@
       if (gesture.moved) App.store.pushUndo(gesture.snap);
       App.store.touch();
     }
+    else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
+  }
+
+  function startDimOff(dimId, sp) {
+    const snap = App.store.snapshot();
+    const f = App.store.findById(dimId); if (!f) return;
+    gesture = { type: 'dimoff', snap: snap, sp: sp, dimId: dimId, origOff: f.item.off || 0, moved: false };
+  }
+  function updateDimOff(cp) {
+    const dim = App.store.findById(gesture.dimId).item;
+    const dx = dim.x2 - dim.x1, dy = dim.y2 - dim.y1, L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L, ny = dx / L;
+    const delta = (cp.x - gesture.sp.x) * nx + (cp.y - gesture.sp.y) * ny;
+    dim.off = snapV(gesture.origOff + delta);
+    gesture.moved = true;
+    App.store.touch();
   }
 
   function onDblClick(e) {
@@ -353,7 +414,7 @@
     if (!App.ui.selected.size) return;
     const ids = Array.from(App.ui.selected);
     App.store.commit(function (s) {
-      ['ducts', 'rails', 'components', 'wires'].forEach(function (k) {
+      ['ducts', 'rails', 'components', 'wires', 'dimensions'].forEach(function (k) {
         s[k] = s[k].filter(function (it) { return ids.indexOf(it.id) < 0; });
       });
       // 삭제된 부품에 연결된 와이어도 제거
@@ -443,7 +504,10 @@
     if (e.key === 'Escape') {
       App.ui.placing = null;
       App.ui.wireStart = null;
+      App.ui.dim = { stage: 0 };
       App.render.wirePreview(null);
+      App.render.dimPreview(null);
+      App.render.snapMarker(null);
       App.ui.selected.clear();
       if (App.palette) App.palette.refresh();
       App.render.all();

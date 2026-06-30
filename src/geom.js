@@ -24,6 +24,9 @@
     if (kind === 'components') {
       return { x: item.x, y: item.y, w: item.widthMM, h: item.heightMM };
     }
+    if (kind === 'dimensions') {
+      return App.dims ? App.dims.bounds(item) : { x: item.x1, y: item.y1, w: 0, h: 0 };
+    }
     if (kind === 'wires') {
       const pts = App.wires ? App.wires.route(App.store.get(), item) : null;
       if (pts && pts.length) {
@@ -36,6 +39,32 @@
       }
     }
     return { x: 0, y: 0, w: 0, h: 0 };
+  };
+
+  // 스냅 점 — 부품 모서리/단자/레일·덕트 모서리/패널 모서리 우선, 없으면 격자.
+  Geom.snapPoint = function (state, x, y, tolMM) {
+    const tol = tolMM || 8;
+    let best = null, bestD = tol * tol;
+    function consider(px, py) {
+      const dx = px - x, dy = py - y, d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = { x: px, y: py, snapped: true }; }
+    }
+    const p = state.panel;
+    [[0, 0], [p.widthMM, 0], [0, p.heightMM], [p.widthMM, p.heightMM]].forEach(function (c) { consider(c[0], c[1]); });
+    state.components.forEach(function (c) {
+      consider(c.x, c.y); consider(c.x + c.widthMM, c.y);
+      consider(c.x, c.y + c.heightMM); consider(c.x + c.widthMM, c.y + c.heightMM);
+      if (App.terminals) App.terminals.world(c).forEach(function (t) { consider(t.x, t.y); });
+    });
+    ['ducts', 'rails'].forEach(function (k) {
+      state[k].forEach(function (it) {
+        const b = Geom.bounds(k, it);
+        consider(b.x, b.y); consider(b.x + b.w, b.y);
+        consider(b.x, b.y + b.h); consider(b.x + b.w, b.y + b.h);
+      });
+    });
+    if (best) return best;
+    return { x: Geom.snap(x, p.gridMM), y: Geom.snap(y, p.gridMM), snapped: false };
   };
 
   // 점에서 가장 가까운 단자 (월드 좌표), tolMM 이내

@@ -29,7 +29,8 @@
       ducts: [],      // 배선 덕트
       rails: [],      // 채널 / DIN 레일
       components: [],  // 배치 부품
-      wires: [],      // (다음 단계) 단자 연결선
+      wires: [],      // 단자 연결선
+      dimensions: [], // 치수선
       labels: [],     // (다음 단계) 라인 라벨
       meta: { createdAt: null, updatedAt: null }
     };
@@ -108,7 +109,7 @@
   // --- 엔티티 헬퍼 ---
   Store.findById = function (id) {
     if (!id) return null;
-    const groups = ['ducts', 'rails', 'components', 'wires'];
+    const groups = ['ducts', 'rails', 'components', 'wires', 'dimensions'];
     for (let i = 0; i < groups.length; i++) {
       const arr = state[groups[i]];
       for (let j = 0; j < arr.length; j++) {

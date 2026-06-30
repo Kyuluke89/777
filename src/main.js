@@ -8,6 +8,7 @@
     placing: null,
     selected: new Set(),
     clipboard: [],
+    dim: { stage: 0 },
     ductWidth: 60,
     railWidth: 35,
     spaceDown: false
@@ -36,7 +37,7 @@
       if (countsEl) {
         countsEl.textContent = '부품 ' + state.components.length +
           ' · 덕트 ' + state.ducts.length + ' · 레일 ' + state.rails.length +
-          ' · 배선 ' + state.wires.length;
+          ' · 배선 ' + state.wires.length + ' · 치수 ' + (state.dimensions || []).length;
       }
     });
 

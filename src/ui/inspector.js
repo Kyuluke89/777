@@ -44,6 +44,18 @@
     let html = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">' +
       ({ ducts: '덕트', rails: '채널/레일', components: '부품', wires: '와이어(라인)' }[f.kind]) + '</div>';
 
+    if (f.kind === 'dimensions') {
+      html = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">치수</div>';
+      html += row('길이(mm)', '<span class="text-xs text-slate-700 font-semibold">' + App.dims.length(it) + '</span>');
+      html += row('오프셋(mm)', numInput('off', Math.round(it.off || 0)));
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">가운데 핸들을 드래그해 치수선을 이동할 수 있습니다.</div>';
+      root.innerHTML = html;
+      root.querySelectorAll('[data-field]').forEach(function (inp) {
+        inp.addEventListener('change', function () { commitField(id, inp.getAttribute('data-field'), inp.value); });
+      });
+      return;
+    }
+
     if (f.kind === 'wires') {
       html += row('라인번호', '<input data-field="label" type="text" value="' + (it.label || '') +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');

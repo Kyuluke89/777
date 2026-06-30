@@ -46,6 +46,7 @@
         <button id="tool-rail-h" class="toolbtn bg-white text-slate-700" title="가로 레일">레일 ─</button>
         <button id="tool-rail-v" class="toolbtn bg-white text-slate-700" title="세로 레일">레일 │</button>
         <button id="tool-wire" class="toolbtn bg-white text-slate-700" title="단자 연결(와이어): 단자 클릭 → 단자 클릭">⚯ 배선</button>
+        <button id="tool-dim" class="toolbtn bg-white text-slate-700" title="치수: 점→점→위치 클릭 (스냅). 가운데 핸들로 이동">↔ 치수</button>
       </div>
 
       <label class="text-xs text-slate-500 flex items-center gap-1 mr-2">덕트폭
@@ -191,12 +192,14 @@
   <script src="src/store.js"></script>
   <script src="src/terminals.js"></script>
   <script src="src/wires.js"></script>
+  <script src="src/dims.js"></script>
   <script src="src/geom.js"></script>
   <script src="src/viewport.js"></script>
   <script src="src/render.js"></script>
   <script src="src/persistence.js"></script>
   <script src="src/export.js"></script>
   <script src="src/library/seed.js"></script>
+  <script src="src/library/parts-builtin.js"></script>
   <script src="src/library/parts-ls.js"></script>
   <script src="src/library/parts-dwg.js"></script>
   <script src="src/library/userlib.js"></script>

@@ -122,6 +122,7 @@
       rails: App.el('g', { id: 'layer-rails' }, svg),
       components: App.el('g', { id: 'layer-components' }, svg),
       wires: App.el('g', { id: 'layer-wires' }, svg),
+      dims: App.el('g', { id: 'layer-dims' }, svg),
       overlay: App.el('g', { id: 'layer-overlay', 'pointer-events': 'none' }, svg)
     };
     applyViewBox();

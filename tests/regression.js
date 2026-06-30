@@ -28,8 +28,11 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     await page.mouse.click(px, py);
   }
   await page.click('#tool-select');
+  await page.fill('#palette-search', 'ABS32Fb-3A'); // 단자 있는 부품으로 필터
+  await page.waitForTimeout(50);
   await placeFirstPart(cx - 120, cy - 40);
   await placeFirstPart(cx + 120, cy - 40);
+  await page.fill('#palette-search', '');
   await page.waitForTimeout(150);
 
   let st = await page.evaluate(() => ({ comps: App.store.get().components.length }));
