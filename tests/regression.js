@@ -163,6 +163,13 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wireEdit.grewSegments, '단자옆 이동 후 꺾임이 편집가능 세그먼트로 추가됨');
   assert(wireEdit.endLabels, '양끝 라벨 위치 계산');
   assert(wireEdit.handles >= 1, '선택 시 세그먼트 핸들 렌더 (' + wireEdit.handles + ')');
+  // 세그먼트 핸들이 최상위(tophit) 레이어에 있어 겹친 선에 가려지지 않음
+  const segLayer = await page.evaluate(() => {
+    const inTop = document.querySelectorAll('#layer-tophit [data-seg]').length;
+    const inWires = document.querySelectorAll('#layer-wires [data-seg]').length;
+    return { inTop, inWires };
+  });
+  assert(segLayer.inTop >= 1 && segLayer.inWires === 0, '세그먼트 핸들 최상위 레이어(겹선 위)');
   assert(wireEdit.endTexts === 2, '양끝에 라인번호 텍스트 2개 (' + wireEdit.endTexts + ')');
   await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
 
@@ -300,7 +307,9 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const last = rows[rows.length - 1];
     last.querySelector('.wp-name').value = 'MGR프리셋';
     last.querySelector('.wp-width').value = '2.2';
-    last.querySelector('.wp-color').value = '#16a34a';
+    last.querySelector('.wp-color').value = '#16a34a'; // 저항색 초(select)
+    last.querySelector('.wp-acdc').value = 'AC';
+    const colorIsSelect = last.querySelector('.wp-color').tagName === 'SELECT';
     document.getElementById('wp-save').click();
     const saved = App.userlib.presets().find(p => p.name === 'MGR프리셋');
     // 기존 수정(덮어쓰기): 같은 이름 행의 두께 변경 후 저장
@@ -316,10 +325,15 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     r3.querySelector('.wp-del').click();
     document.getElementById('wp-save').click();
     const deleted = !App.userlib.presets().some(p => p.name === 'MGR프리셋');
-    return { opened, savedOK: saved && saved.width === 2.2, overwritten: overwritten && overwritten.width === 3.3, noDup: count1 === 1, deleted };
+    return {
+      opened, colorIsSelect,
+      savedOK: saved && saved.width === 2.2 && saved.color === '#16a34a' && saved.acdc === 'AC',
+      overwritten: overwritten && overwritten.width === 3.3, noDup: count1 === 1, deleted
+    };
   });
   assert(pm.opened, '프리셋 관리 모달 열림');
-  assert(pm.savedOK, '프리셋 사전 생성(모달에서 직접)');
+  assert(pm.colorIsSelect, '프리셋 색상은 저항색 선택(RGB 아님)');
+  assert(pm.savedOK, '프리셋 사전 생성(색상·전원구분 포함)');
   assert(pm.overwritten && pm.noDup, '기존 프리셋 덮어쓰기(중복 없음)');
   assert(pm.deleted, '프리셋 삭제');
 

@@ -250,6 +250,7 @@
             if (wd.width != null) w.width = wd.width;
             if (wd.sq != null) w.sq = wd.sq;
             if (wd.awg != null) w.awg = wd.awg;
+            if (wd.acdc != null) w.acdc = wd.acdc;
           }
           s.wires.push(w);
         });
@@ -290,8 +291,19 @@
     if (tool === 'rail-h') { startDraw('h', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'rail-v') { startDraw('v', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
 
-    // 와이어 세그먼트 핸들 드래그 (선택된 와이어 편집)
-    const segEl = e.target.closest && e.target.closest('[data-seg]');
+    // 클릭 지점 아래의 모든 요소에서 속성으로 핸들 찾기(겹쳐도 우선순위대로)
+    // → 짧은 선에서 라벨이 위에 겹쳐도 세그먼트 이동 핸들을 먼저 잡게 함
+    const stack = (document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target]);
+    function pick(attr) {
+      for (let i = 0; i < stack.length; i++) {
+        const m = stack[i].closest && stack[i].closest('[' + attr + ']');
+        if (m) return m;
+      }
+      return null;
+    }
+
+    // 와이어 세그먼트 핸들 드래그 (선택된 와이어 편집) — 라벨보다 우선
+    const segEl = pick('data-seg');
     if (segEl) {
       startWireSeg(segEl.getAttribute('data-wire'),
         parseInt(segEl.getAttribute('data-seg'), 10),
@@ -302,7 +314,7 @@
     }
 
     // 치수 중앙 핸들 → 오프셋(치수선 위치) 이동
-    const dimEl = e.target.closest && e.target.closest('[data-dim]');
+    const dimEl = pick('data-dim');
     if (dimEl) {
       startDimOff(dimEl.getAttribute('data-dim'), sp);
       svg.setPointerCapture(e.pointerId);
@@ -310,15 +322,15 @@
     }
 
     // 글씨(라벨) 드래그 — 부품 이름 / 배선 라벨
-    const lblEl = e.target.closest && e.target.closest('[data-labelfor]');
+    const lblEl = pick('data-labelfor');
     if (lblEl) { startLabelDrag('comp', lblEl.getAttribute('data-labelfor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
-    const tagEl = e.target.closest && e.target.closest('[data-tagfor]');
+    const tagEl = pick('data-tagfor');
     if (tagEl) { startLabelDrag('tag', tagEl.getAttribute('data-tagfor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
-    const typeEl = e.target.closest && e.target.closest('[data-typefor]');
+    const typeEl = pick('data-typefor');
     if (typeEl) { startLabelDrag('type', typeEl.getAttribute('data-typefor'), null, sp); svg.setPointerCapture(e.pointerId); return; }
-    const titleEl = e.target.closest && e.target.closest('[data-titlemove]');
+    const titleEl = pick('data-titlemove');
     if (titleEl) { startTitleDrag(sp); svg.setPointerCapture(e.pointerId); return; }
-    const wlblEl = e.target.closest && e.target.closest('[data-wirelabel]');
+    const wlblEl = pick('data-wirelabel');
     if (wlblEl) { startLabelDrag('wire', wlblEl.getAttribute('data-wirelabel'), wlblEl.getAttribute('data-end'), sp); svg.setPointerCapture(e.pointerId); return; }
 
     // 선택 도구

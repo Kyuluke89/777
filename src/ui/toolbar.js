@@ -112,7 +112,7 @@
     if (ps) ps.addEventListener('change', function () {
       const p = (App.userlib.presets() || []).find(function (x) { return x.name === ps.value; });
       if (!p) { App.ui.wireDefaults = null; return; }
-      App.ui.wireDefaults = { color: p.color, width: p.width, sq: p.sq, awg: p.awg };
+      App.ui.wireDefaults = { color: p.color, width: p.width, sq: p.sq, awg: p.awg, acdc: p.acdc || '' };
       // 선택된 배선이 있으면 즉시 적용
       const sel = App.ui.selected;
       let n = 0;
@@ -120,7 +120,7 @@
         App.store.commit(function (s) {
           s.wires.forEach(function (w) {
             if (!sel.has(w.id)) return;
-            w.color = p.color; w.width = p.width; w.sq = p.sq; w.awg = p.awg; n++;
+            w.color = p.color; w.width = p.width; w.sq = p.sq; w.awg = p.awg; w.acdc = p.acdc || ''; n++;
           });
         });
         App.render.all(); App.inspector.update();

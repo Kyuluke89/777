@@ -285,20 +285,7 @@
           t.textContent = w.label;
         });
       }
-      // 선택 시: 세그먼트 이동 핸들 (수평=상하, 수직=좌우)
-      if (sel) {
-        const hs = App.viewport.pxToMM(5);
-        App.wires.editSegments(state, w).forEach(function (s) {
-          App.el('rect', {
-            x: s.mid.x - hs, y: s.mid.y - hs, width: hs * 2, height: hs * 2,
-            rx: hs * 0.4,
-            fill: '#fff', stroke: '#2563eb', 'stroke-width': App.viewport.pxToMM(1.5),
-            'data-wire': w.id, 'data-seg': s.i, 'data-orient': s.orient,
-            'data-pterm': s.pTerm ? '1' : '0', 'data-qterm': s.qTerm ? '1' : '0',
-            style: 'cursor:' + (s.orient === 'H' ? 'ns-resize' : 'ew-resize')
-          }, grp);
-        });
-      }
+      // 세그먼트 이동 핸들은 최상위(tophit) 레이어에서 그린다(겹친 선에 안 가리게)
     });
   }
 
@@ -432,7 +419,20 @@
     }
     const woff = (App.ui && App.ui.spreadWires === false) ? null : App.wires.spreadOffsets(state);
     state.wires.forEach(function (w) {
-      if (!isSelected(w.id) || !w.label) return;
+      if (!isSelected(w.id)) return;
+      // 세그먼트 이동 핸들 — 최상위 레이어라 겹친 선에 가려지지 않음
+      const hs = App.viewport.pxToMM(5);
+      App.wires.editSegments(state, w).forEach(function (s) {
+        App.el('rect', {
+          x: s.mid.x - hs, y: s.mid.y - hs, width: hs * 2, height: hs * 2, rx: hs * 0.4,
+          fill: '#fff', stroke: '#2563eb', 'stroke-width': App.viewport.pxToMM(1.5), 'pointer-events': 'all',
+          'data-wire': w.id, 'data-seg': s.i, 'data-orient': s.orient,
+          'data-pterm': s.pTerm ? '1' : '0', 'data-qterm': s.qTerm ? '1' : '0',
+          style: 'cursor:' + (s.orient === 'H' ? 'ns-resize' : 'ew-resize')
+        }, g);
+      });
+      // 양 끝 라인번호 이동 핸들
+      if (!w.label) return;
       const wpts = App.wires.displayRoute(state, w, woff);
       const ends = App.wires.endLabels(state, w, wpts); if (!ends) return;
       const fontMM = App.viewport.pxToMM(11) * F.wire;
