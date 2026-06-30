@@ -99,6 +99,13 @@
       App.render.all();
     });
 
+    // 배선 모서리 라운드(둥글기)
+    const wr = $('wire-round');
+    if (wr) wr.addEventListener('input', function () {
+      App.ui.wireRound = Math.max(0, parseFloat(this.value) || 0);
+      App.render.all();
+    });
+
     // 배선 프리셋(색상·두께·규격) 드롭다운
     Toolbar.refreshPresets();
     const ps = $('wire-preset');

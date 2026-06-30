@@ -218,13 +218,14 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const r1 = App.wires.route(s2, w1);
     const d1 = App.wires.displayRoute(s2, w1, off);
     let moved = false, endsOk = true;
-    for (let i = 0; i < r1.length; i++) {
+    const n = Math.min(r1.length, d1.length);
+    for (let i = 0; i < n; i++) {
       if (Math.abs(r1[i].x - d1[i].x) > 0.01 || Math.abs(r1[i].y - d1[i].y) > 0.01) moved = true;
     }
-    // 단자 접점(양 끝)은 정확히 유지
+    // 단자 접점(양 끝)은 정확히 유지 (연결점 삽입으로 길이는 달라질 수 있음)
     if (Math.abs(r1[0].x - d1[0].x) > 0.01 || Math.abs(r1[0].y - d1[0].y) > 0.01) endsOk = false;
-    const L = d1.length - 1;
-    if (Math.abs(r1[L].x - d1[L].x) > 0.01 || Math.abs(r1[L].y - d1[L].y) > 0.01) endsOk = false;
+    const rl = r1.length - 1, dl = d1.length - 1;
+    if (Math.abs(r1[rl].x - d1[dl].x) > 0.01 || Math.abs(r1[rl].y - d1[dl].y) > 0.01) endsOk = false;
     // 토글 OFF 시 오프셋 미적용
     App.ui.spreadWires = false; App.render.all();
     const offCount = App.store.get().wires.length;
@@ -307,6 +308,38 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(lib.heads >= 2, '팔레트 카테고리 그룹 헤더 (' + lib.heads + ')');
   assert(lib.gone, '기본 부품 숨김(삭제) 동작');
   assert(lib.back, '숨긴 기본 부품 복원 동작');
+
+  // 겹선 직각 연결(부채꼴 대각 제거) + 라운드(둥근 모서리)
+  const wround = await page.evaluate(() => {
+    const s = App.store.get();
+    const w0 = s.wires[0];
+    App.store.commit(ss => {
+      const w = App.wires.create(ss, { compId: w0.fromComp, index: w0.fromTerm }, { compId: w0.toComp, index: w0.toTerm });
+      w.label = 'ROUNDTEST'; ss.wires.push(w);
+    });
+    const s2 = App.store.get();
+    const off = App.wires.spreadOffsets(s2);
+    const w1 = s2.wires.find(w => w.label === 'ROUNDTEST');
+    const dr = App.wires.displayRoute(s2, w1, off);
+    // 모든 구간이 직각(수평/수직)인지 — 대각(부채꼴) 없어야 함
+    let allOrtho = true;
+    for (let i = 0; i < dr.length - 1; i++) {
+      const a = dr[i], b = dr[i + 1];
+      if (Math.abs(a.x - b.x) > 0.01 && Math.abs(a.y - b.y) > 0.01) allOrtho = false;
+    }
+    // 라운드 경로에 곡선(Q) 포함
+    const path = App.wires.roundedPath(dr, 10);
+    const hasCurve = path.indexOf('Q') >= 0;
+    // 렌더: 라운드>0이면 path 사용
+    App.ui.wireRound = 8; App.render.all();
+    const usesPath = !!document.querySelector('#layer-wires path[stroke]:not([stroke="transparent"])');
+    App.ui.wireRound = 0; App.render.all();
+    App.store.commit(ss => { ss.wires = ss.wires.filter(w => w.label !== 'ROUNDTEST'); });
+    return { allOrtho, hasCurve, usesPath };
+  });
+  assert(wround.allOrtho, '겹선 표시경로 전부 직각(부채꼴 대각 제거)');
+  assert(wround.hasCurve, '라운드 경로 곡선 생성');
+  assert(wround.usesPath, '라운드>0 시 배선 path 렌더');
 
   // AC/DC 전원구분 + 전류 흐름 애니메이션
   const flow = await page.evaluate(async () => {

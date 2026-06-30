@@ -13,6 +13,7 @@
     spreadWires: true,
     wireDefaults: null,
     flow: false,
+    wireRound: 0,
     ductWidth: 60,
     railWidth: 35,
     spaceDown: false

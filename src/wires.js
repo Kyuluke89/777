@@ -294,21 +294,56 @@
     return off;
   };
 
-  // 화면 표시용 경로 — 겹선 오프셋을 적용(단자 접점은 정확히 유지)
+  // 화면 표시용 경로 — 겹선 오프셋을 적용(단자 접점은 정확히 유지).
+  // 끝 구간이 오프셋되면 대각(부채꼴) 대신 직각 꺾임(작은 단)으로 연결한다.
   W.displayRoute = function (state, wire, off) {
     const R = W.route(state, wire);
     if (!R) return null;
     if (!off) return R;
+    const segOff = [];
     const out = R.map(function (p) { return { x: p.x, y: p.y }; });
     for (let i = 0; i < R.length - 1; i++) {
-      const o = off[wire.id + ':' + i];
+      const o = off[wire.id + ':' + i] || 0;
+      segOff[i] = o;
       if (!o) continue;
       if (Math.round(R[i].x) === Math.round(R[i + 1].x)) { out[i].x += o; out[i + 1].x += o; }
       else { out[i].y += o; out[i + 1].y += o; }
     }
-    out[0] = { x: R[0].x, y: R[0].y };
-    out[out.length - 1] = { x: R[R.length - 1].x, y: R[R.length - 1].y };
-    return out;
+    const last = R.length - 1;
+    const res = [];
+    res.push({ x: R[0].x, y: R[0].y });                 // 시작 단자(정확히)
+    if (segOff[0]) {                                     // 첫 구간 오프셋 → 단자 옆 직각 단
+      if (Math.round(R[0].x) === Math.round(R[1].x)) res.push({ x: R[0].x + segOff[0], y: R[0].y });
+      else res.push({ x: R[0].x, y: R[0].y + segOff[0] });
+    }
+    for (let i = 1; i < last; i++) res.push(out[i]);    // 내부 꼭짓점(오프셋 반영)
+    if (segOff[last - 1]) {                              // 끝 구간 오프셋 → 단자 옆 직각 단
+      if (Math.round(R[last].x) === Math.round(R[last - 1].x)) res.push({ x: R[last].x + segOff[last - 1], y: R[last].y });
+      else res.push({ x: R[last].x, y: R[last].y + segOff[last - 1] });
+    }
+    res.push({ x: R[last].x, y: R[last].y });            // 끝 단자(정확히)
+    return res;
+  };
+
+  // 둥근 모서리 경로(d) — 각 꼭짓점을 반지름 r 의 곡선으로 깎음(직각/대각 모두)
+  W.roundedPath = function (pts, r) {
+    if (!pts || pts.length < 2) return '';
+    if (pts.length === 2 || !r || r <= 0) {
+      return 'M ' + pts.map(function (p) { return p.x + ' ' + p.y; }).join(' L ');
+    }
+    function d(a, b) { return Math.hypot(b.x - a.x, b.y - a.y); }
+    let s = 'M ' + pts[0].x + ' ' + pts[0].y;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+      const l1 = d(p0, p1) || 1, l2 = d(p1, p2) || 1;
+      const rr = Math.min(r, l1 / 2, l2 / 2);
+      const a = { x: p1.x + (p0.x - p1.x) / l1 * rr, y: p1.y + (p0.y - p1.y) / l1 * rr };
+      const b = { x: p1.x + (p2.x - p1.x) / l2 * rr, y: p1.y + (p2.y - p1.y) / l2 * rr };
+      s += ' L ' + a.x + ' ' + a.y + ' Q ' + p1.x + ' ' + p1.y + ' ' + b.x + ' ' + b.y;
+    }
+    const e = pts[pts.length - 1];
+    s += ' L ' + e.x + ' ' + e.y;
+    return s;
   };
 
   // 양 끝 라벨 — 선 끝에서 30mm 안쪽, 선에 정렬(마킹튜브 방식)

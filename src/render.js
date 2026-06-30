@@ -206,18 +206,33 @@
       if (!pts) return;
       const sel = isSelected(w.id);
       const grp = App.el('g', { 'data-id': w.id, 'data-kind': 'wires' }, g);
-      // 클릭 영역 (투명 굵은 선)
-      App.el('polyline', {
-        points: App.wires.pointsStr(pts), fill: 'none',
-        stroke: 'transparent', 'stroke-width': 6
-      }, grp);
-      const line = App.el('polyline', {
-        points: App.wires.pointsStr(pts), fill: 'none',
-        stroke: sel ? '#111827' : (w.color || '#dc2626'),
-        'stroke-width': (w.width || 1.2) + (sel ? 0.8 : 0),
-        'stroke-linejoin': 'round', 'stroke-linecap': 'round',
-        'pointer-events': 'none'
-      }, grp);
+      const round = (App.ui && App.ui.wireRound) || 0;
+      const dStr = round > 0 ? App.wires.roundedPath(pts, round) : null;
+      let line;
+      if (dStr) {
+        // 클릭 영역 (투명 굵은 경로)
+        App.el('path', { d: dStr, fill: 'none', stroke: 'transparent', 'stroke-width': 6 }, grp);
+        line = App.el('path', {
+          d: dStr, fill: 'none',
+          stroke: sel ? '#111827' : (w.color || '#dc2626'),
+          'stroke-width': (w.width || 1.2) + (sel ? 0.8 : 0),
+          'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+          'pointer-events': 'none'
+        }, grp);
+      } else {
+        // 클릭 영역 (투명 굵은 선)
+        App.el('polyline', {
+          points: App.wires.pointsStr(pts), fill: 'none',
+          stroke: 'transparent', 'stroke-width': 6
+        }, grp);
+        line = App.el('polyline', {
+          points: App.wires.pointsStr(pts), fill: 'none',
+          stroke: sel ? '#111827' : (w.color || '#dc2626'),
+          'stroke-width': (w.width || 1.2) + (sel ? 0.8 : 0),
+          'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+          'pointer-events': 'none'
+        }, grp);
+      }
       // AC/DC 전원구분 + 흐름 애니메이션 대상 표시
       if (w.acdc) {
         line.setAttribute('data-acdc', w.acdc);
@@ -489,7 +504,7 @@
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
     const t = (now - flowT0) / 1000;
     const g = App.viewport.layers().wires;
-    const lines = g.querySelectorAll('polyline[data-acdc]');
+    const lines = g.querySelectorAll('[data-acdc]');
     for (let i = 0; i < lines.length; i++) {
       const p = lines[i], kind = p.getAttribute('data-acdc');
       let off;
@@ -504,7 +519,7 @@
   }
   function clearFlow() {
     const g = App.viewport.layers().wires;
-    const lines = g.querySelectorAll('polyline[data-acdc]');
+    const lines = g.querySelectorAll('[data-acdc]');
     for (let i = 0; i < lines.length; i++) { lines[i].style.strokeDasharray = ''; lines[i].style.strokeDashoffset = ''; }
   }
   Render.setFlow = function (on) {
