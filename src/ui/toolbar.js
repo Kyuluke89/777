@@ -68,6 +68,17 @@
       App.render.all();
     };
 
+    // 글씨 크기 배율
+    ['comp', 'term', 'wire', 'dim'].forEach(function (k) {
+      const el = $('font-' + k);
+      if (el) el.addEventListener('change', function () {
+        const v = Math.max(0.3, Math.min(5, parseFloat(el.value) || 1));
+        el.value = v;
+        App.store.commit(function (s) { s.fonts = s.fonts || {}; s.fonts[k] = v; });
+        App.render.all();
+      });
+    });
+
     // 덕트 폭
     $('duct-width').addEventListener('change', function () {
       App.ui.ductWidth = parseInt(this.value, 10) || 60;
@@ -138,9 +149,14 @@
 
   // 상태값을 입력 필드에 반영
   Toolbar.syncFromState = function () {
-    const p = App.store.get().panel;
+    const s = App.store.get();
+    const p = s.panel;
     if ($('panel-w')) $('panel-w').value = p.widthMM;
     if ($('panel-h')) $('panel-h').value = p.heightMM;
     if ($('panel-grid')) $('panel-grid').value = p.gridMM;
+    const f = s.fonts || {};
+    ['comp', 'term', 'wire', 'dim'].forEach(function (k) {
+      if ($('font-' + k)) $('font-' + k).value = f[k] || 1;
+    });
   };
 })(window);

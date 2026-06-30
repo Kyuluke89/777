@@ -42,6 +42,7 @@
           data.components = data.components || [];
           data.wires = data.wires || [];
           data.dimensions = data.dimensions || [];
+          data.fonts = data.fonts || { comp: 1, term: 1, wire: 1, dim: 1 };
           data.labels = data.labels || [];
           data.meta = data.meta || {};
           // 동봉된 내 부품 라이브러리 복원 → 팔레트 반영 후 프로젝트에서 분리

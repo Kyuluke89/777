@@ -182,6 +182,22 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wlen.total >= wlen.len, '총 배선 길이');
   assert(wlen.header && wlen.sum, '배선표에 길이 컬럼+합계행');
 
+  // 글씨 크기 배율: 부품 라벨 폰트가 배율 따라 커짐
+  const fontScale = await page.evaluate(() => {
+    const c0 = App.store.get().components[0];
+    function labelFont() {
+      const grp = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
+      const t = Array.from(grp.querySelectorAll('text')).find(x => x.textContent === c0.label);
+      return t ? parseFloat(t.getAttribute('font-size')) : 0;
+    }
+    const before = labelFont();
+    App.store.commit(s => { s.fonts.comp = 2; });
+    App.render.all();
+    const after = labelFont();
+    return { before, after };
+  });
+  assert(fontScale.after > fontScale.before * 1.8, '부품 글씨 배율 적용 (' + fontScale.before + '→' + fontScale.after + ')');
+
   // --- PNG 내보내기 (예외 없이 실행) ---
   const pngOk = await page.evaluate(() => { try { App.exporter.png(1); return true; } catch (e) { return 'ERR:' + e.message; } });
   assert(pngOk === true, 'PNG 내보내기 실행 (' + pngOk + ')');

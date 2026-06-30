@@ -138,6 +138,17 @@
           <button id="panel-fit" class="mt-2 w-full toolbtn bg-slate-100 text-slate-700">화면 맞춤</button>
         </div>
         <div class="px-3 py-2 border-b border-slate-100">
+          <div class="text-xs font-bold text-slate-600 mb-1">글씨 크기 (배율)</div>
+          <label class="flex items-center justify-between py-0.5"><span class="text-xs text-slate-500">부품 이름</span>
+            <input id="font-comp" type="number" step="0.1" min="0.3" class="w-16 px-2 py-1 text-xs border border-slate-300 rounded text-right" value="1"/></label>
+          <label class="flex items-center justify-between py-0.5"><span class="text-xs text-slate-500">단자 번호</span>
+            <input id="font-term" type="number" step="0.1" min="0.3" class="w-16 px-2 py-1 text-xs border border-slate-300 rounded text-right" value="1"/></label>
+          <label class="flex items-center justify-between py-0.5"><span class="text-xs text-slate-500">배선 라벨</span>
+            <input id="font-wire" type="number" step="0.1" min="0.3" class="w-16 px-2 py-1 text-xs border border-slate-300 rounded text-right" value="1"/></label>
+          <label class="flex items-center justify-between py-0.5"><span class="text-xs text-slate-500">치수 글자</span>
+            <input id="font-dim" type="number" step="0.1" min="0.3" class="w-16 px-2 py-1 text-xs border border-slate-300 rounded text-right" value="1"/></label>
+        </div>
+        <div class="px-3 py-2 border-b border-slate-100">
           <div class="text-xs font-bold text-slate-600 mb-1">속성</div>
           <div id="inspector"></div>
         </div>

@@ -13,6 +13,12 @@
 
   function clear(g) { while (g.firstChild) g.removeChild(g.firstChild); }
 
+  // 글씨 크기 배율(종류별)
+  function fonts(state) {
+    const f = state.fonts || {};
+    return { comp: f.comp || 1, term: f.term || 1, wire: f.wire || 1, dim: f.dim || 1 };
+  }
+
   function isSelected(id) {
     return App.ui && App.ui.selected && App.ui.selected.has(id);
   }
@@ -98,6 +104,7 @@
     const g = App.viewport.layers().components;
     clear(g);
     const overlaps = overlappingIds(state);
+    const F = fonts(state);
     state.components.forEach(function (c) {
       const cx = c.x + c.widthMM / 2;
       const cy = c.y + c.heightMM / 2;
@@ -118,7 +125,7 @@
       if (c.tag) {
         const tg = App.el('text', {
           x: cx, y: c.y + Math.min(8, c.heightMM * 0.12), 'text-anchor': 'middle',
-          'font-size': Math.min(8, c.heightMM * 0.14), fill: '#111827',
+          'font-size': Math.min(8, c.heightMM * 0.14) * F.comp, fill: '#111827',
           'font-weight': 'bold', 'pointer-events': 'none'
         }, grp);
         tg.textContent = c.tag;
@@ -126,13 +133,13 @@
       // 타입 배지
       const badge = App.el('text', {
         x: cx, y: cy - 2, 'text-anchor': 'middle',
-        'font-size': Math.min(12, c.heightMM * 0.22), fill: color,
+        'font-size': Math.min(12, c.heightMM * 0.22) * F.comp, fill: color,
         'font-weight': 'bold', 'pointer-events': 'none'
       }, grp);
       badge.textContent = c.type || '';
-      // 품명 (폭에 맞게 자동 축소)
+      // 품명 (폭에 맞게 자동 축소 × 배율)
       const txt = c.label || c.partName || c.partNo || '';
-      const fit = Math.max(2.2, Math.min(c.heightMM * 0.16, 9, (c.widthMM - 2) / (0.56 * Math.max(4, txt.length))));
+      const fit = Math.max(2.2, Math.min(c.heightMM * 0.16, 9, (c.widthMM - 2) / (0.56 * Math.max(4, txt.length)))) * F.comp;
       const lab = App.el('text', {
         x: cx, y: cy + Math.min(14, c.heightMM * 0.26),
         'text-anchor': 'middle', 'font-size': fit, fill: '#334155',
@@ -162,7 +169,7 @@
           else if (pos === 'right') a = { x: t.x + gw, y: t.y, 'text-anchor': 'start', 'dominant-baseline': 'central' };
           else if (pos === 'bottom') a = { x: t.x, y: t.y + gh, 'text-anchor': 'middle', 'dominant-baseline': 'hanging' };
           else a = { x: t.x, y: t.y - gh, 'text-anchor': 'middle' };
-          a['font-size'] = 3.4; a.fill = '#475569'; a['pointer-events'] = 'none';
+          a['font-size'] = 3.4 * F.term; a.fill = '#475569'; a['pointer-events'] = 'none';
           const tn = App.el('text', a, grp);
           tn.textContent = t.name;
         }
@@ -193,7 +200,7 @@
       // 양 끝 라인번호 — 선에서 30mm 안쪽, 선에 정렬(마킹튜브), 흰 테두리로 가독성
       const ends = App.wires.endLabels(state, w);
       if (ends && w.label) {
-        const fontMM = App.viewport.pxToMM(11);
+        const fontMM = App.viewport.pxToMM(11) * fonts(state).wire;
         [ends.a, ends.b].forEach(function (e) {
           const t = App.el('text', {
             x: e.x, y: e.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
@@ -253,7 +260,7 @@
   function renderDims(state) {
     const g = App.viewport.layers().dims;
     clear(g);
-    const fontMM = App.viewport.pxToMM(13);   // 화면 기준 일정 크기(읽기 쉬움)
+    const fontMM = App.viewport.pxToMM(13) * fonts(state).dim;   // 화면 기준 일정 크기 × 배율
     const lw = App.viewport.pxToMM(1);
     state.dimensions.forEach(function (dim) {
       const m = App.dims.geom(dim);

@@ -26,6 +26,7 @@
       name: '새 제어반',
       version: 1,
       panel: { widthMM: 600, heightMM: 800, gridMM: 10 },
+      fonts: { comp: 1, term: 1, wire: 1, dim: 1 }, // 글씨 크기 배율(종류별)
       ducts: [],      // 배선 덕트
       rails: [],      // 채널 / DIN 레일
       components: [],  // 배치 부품
