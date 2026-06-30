@@ -237,6 +237,24 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   // 정리
   await page.evaluate(() => { App.store.commit(s => { s.wires = s.wires.filter(w => w.label !== 'SPREADTEST'); }); });
 
+  // 표준 색띠(흑갈적등황초파보회흰) 프리셋 + 스와치 적용
+  const colors = await page.evaluate(() => {
+    const names = App.wires.COLORS.map(c => c.n).join('');
+    // 배선 선택 → 인스펙터 스와치 클릭
+    const w0 = App.store.get().wires[0];
+    App.ui.selected = new Set([w0.id]);
+    App.inspector.update();
+    const sws = document.querySelectorAll('#inspector .wire-sw');
+    const blue = Array.from(sws).find(b => b.getAttribute('title') === '파');
+    let applied = '';
+    if (blue) { blue.click(); applied = App.store.get().wires.find(w => w.id === w0.id).color; }
+    return { names, count: sws.length, applied };
+  });
+  assert(colors.names === '흑갈적등황초파보회흰', '표준 색띠 10색 (' + colors.names + ')');
+  assert(colors.count === 10, '인스펙터 색 스와치 10개 (' + colors.count + ')');
+  assert(colors.applied === '#1d4ed8', '스와치 클릭으로 색상 적용 (' + colors.applied + ')');
+  await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
+
   // 글씨 크기 배율: 부품 라벨 폰트가 배율 따라 커짐
   const fontScale = await page.evaluate(() => {
     const c0 = App.store.get().components[0];

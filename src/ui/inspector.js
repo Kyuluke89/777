@@ -67,6 +67,16 @@
       html += row('라인 길이', '<span class="text-xs text-slate-700 font-semibold">' + App.wires.length(App.store.get(), it) + ' mm</span>');
       html += row('색상', '<input data-field="color" type="color" value="' + (it.color || '#dc2626') +
         '" class="w-12 h-7 border border-slate-300 rounded" />');
+      let sw = '<div class="flex flex-wrap gap-1 px-1 mt-1">';
+      App.wires.COLORS.forEach(function (c) {
+        const on = (String(it.color || '').toLowerCase() === c.v);
+        sw += '<button type="button" class="wire-sw" data-color="' + c.v + '" title="' + c.n + '" ' +
+          'style="width:18px;height:18px;border-radius:4px;background:' + c.v + ';' +
+          'border:' + (on ? '2px solid #2563eb' : '1px solid #cbd5e1') + ';cursor:pointer;font-size:9px;line-height:1;color:' +
+          (c.n === '흰' || c.n === '황' ? '#334155' : '#fff') + '">' + c.n + '</button>';
+      });
+      sw += '</div>';
+      html += sw;
       let sqOpts = '<option value="">-</option>';
       App.wires.SQ_LIST.forEach(function (s) { sqOpts += '<option value="' + s + '"' + (String(it.sq) === s ? ' selected' : '') + '>' + s + ' SQ</option>'; });
       html += row('규격(SQ)', '<select data-field="sq" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + sqOpts + '</select>');
@@ -81,6 +91,12 @@
       root.querySelectorAll('[data-field]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           commitField(id, inp.getAttribute('data-field'), inp.value);
+        });
+      });
+      root.querySelectorAll('.wire-sw').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          commitField(id, 'color', btn.getAttribute('data-color'));
+          Inspector.update();
         });
       });
       return;
