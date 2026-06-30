@@ -127,30 +127,9 @@
       }
       flash('프리셋 "' + p.name + '"' + (n ? ' → ' + n + '개 적용' : ' 적용(다음 배선부터)'));
     });
-    const pSave = $('wire-preset-save');
-    if (pSave) pSave.onclick = function () {
-      // 선택된 배선이 있으면 그 값, 없으면 현재 기본값
-      let base = App.ui.wireDefaults || { color: '#e11d2a', width: 1.2, sq: '', awg: '' };
-      const sel = App.ui.selected;
-      if (sel && sel.size) {
-        const w = App.store.get().wires.find(function (x) { return sel.has(x.id); });
-        if (w) base = { color: w.color, width: w.width, sq: w.sq, awg: w.awg };
-      }
-      const name = prompt('프리셋 이름', base.sq ? base.sq + 'SQ' : '새 프리셋');
-      if (!name) return;
-      App.userlib.addPreset({ name: name, color: base.color, width: base.width != null ? base.width : 1.2, sq: base.sq || '', awg: base.awg || '' });
-      Toolbar.refreshPresets(name);
-      App.ui.wireDefaults = { color: base.color, width: base.width, sq: base.sq, awg: base.awg };
-      flash('프리셋 "' + name + '" 저장');
-    };
-    const pDel = $('wire-preset-del');
-    if (pDel) pDel.onclick = function () {
-      const ps2 = $('wire-preset');
-      if (!ps2 || !ps2.value) return;
-      if (!confirm('프리셋 "' + ps2.value + '" 삭제할까요?')) return;
-      App.userlib.removePreset(ps2.value);
-      Toolbar.refreshPresets();
-    };
+    // 프리셋 관리(만들기·수정·삭제) 모달
+    const pManage = $('wire-preset-manage');
+    if (pManage) pManage.onclick = function () { App.wirePresets.open(); };
 
     // 전류 흐름 애니메이션 재생/정지
     const flowBtn = $('wire-flow');

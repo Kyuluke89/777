@@ -112,8 +112,7 @@
         <label class="text-slate-500 flex items-center gap-1" title="배선 프리셋(색상·두께·규격) 선택">프리셋
           <select id="wire-preset" class="w-28 border border-slate-300 rounded px-1 py-0.5 text-xs"></select>
         </label>
-        <button id="wire-preset-save" class="toolbtn bg-white text-slate-600" title="현재 색상·두께·규격을 프리셋으로 저장">＋ 저장</button>
-        <button id="wire-preset-del" class="toolbtn bg-white text-slate-600" title="선택한 프리셋 삭제">✕</button>
+        <button id="wire-preset-manage" class="toolbtn bg-white text-slate-600" title="프리셋 만들기·수정·삭제">⚙ 관리</button>
 
         <div class="h-4 w-px bg-slate-200"></div>
 
@@ -256,6 +255,32 @@
     </div>
   </div>
 
+  <!-- 배선 프리셋 관리 모달 -->
+  <div id="wp-editor" class="no-canvas" style="position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;">
+    <div class="bg-white rounded-lg shadow-xl" style="width:560px;max-width:94vw;">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-slate-200">
+        <span class="text-sm font-bold text-slate-700">배선 프리셋 관리</span>
+        <button id="wp-cancel" class="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
+      </div>
+      <div class="px-4 py-2">
+        <div class="flex items-center gap-2 text-[10px] font-semibold text-slate-400 px-1 mb-1">
+          <span style="width:120px">이름</span><span style="width:36px">색상</span>
+          <span style="width:56px">두께</span><span style="width:72px">규격(SQ)</span>
+          <span style="width:56px">AWG</span><span></span>
+        </div>
+        <div id="wp-list" style="max-height:300px;overflow-y:auto;"></div>
+        <div class="flex gap-2 mt-2">
+          <button id="wp-add" class="toolbtn bg-white text-slate-700">＋ 새 프리셋</button>
+          <button id="wp-from-wire" class="toolbtn bg-white text-slate-700" title="선택한 배선의 색상·두께·규격으로 추가">선택 배선에서 추가</button>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-4 py-2 border-t border-slate-200">
+        <button id="wp-save" class="toolbtn bg-emerald-600 text-white border-emerald-600">💾 저장</button>
+        <button id="wp-close" class="toolbtn bg-white text-slate-700">닫기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 모듈 로드 (순서 중요) -->
   <script src="src/store.js"></script>
   <script src="src/terminals.js"></script>
@@ -278,6 +303,7 @@
   <script src="src/ui/toolbar.js"></script>
   <script src="src/ui/inspector.js"></script>
   <script src="src/ui/part-editor.js"></script>
+  <script src="src/ui/wire-presets.js"></script>
   <script src="src/main.js"></script>
 </body>
 </html>

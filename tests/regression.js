@@ -291,6 +291,38 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(preset.applied, '프리셋 선택 시 선택 배선에 적용');
   assert(preset.defOK, '프리셋 선택 시 다음 배선 기본값 설정');
 
+  // 프리셋 관리 모달: 사전 생성 + 기존 수정(덮어쓰기) + 삭제
+  const pm = await page.evaluate(() => {
+    App.wirePresets.open();
+    const opened = getComputedStyle(document.getElementById('wp-editor')).display !== 'none';
+    document.getElementById('wp-add').click();           // 빈 행 추가(사전 생성)
+    const rows = document.querySelectorAll('#wp-list .wp-row');
+    const last = rows[rows.length - 1];
+    last.querySelector('.wp-name').value = 'MGR프리셋';
+    last.querySelector('.wp-width').value = '2.2';
+    last.querySelector('.wp-color').value = '#16a34a';
+    document.getElementById('wp-save').click();
+    const saved = App.userlib.presets().find(p => p.name === 'MGR프리셋');
+    // 기존 수정(덮어쓰기): 같은 이름 행의 두께 변경 후 저장
+    App.wirePresets.open();
+    const r2 = Array.from(document.querySelectorAll('#wp-list .wp-row')).find(r => r.querySelector('.wp-name').value === 'MGR프리셋');
+    r2.querySelector('.wp-width').value = '3.3';
+    document.getElementById('wp-save').click();
+    const overwritten = App.userlib.presets().find(p => p.name === 'MGR프리셋');
+    const count1 = App.userlib.presets().filter(p => p.name === 'MGR프리셋').length;
+    // 삭제
+    App.wirePresets.open();
+    const r3 = Array.from(document.querySelectorAll('#wp-list .wp-row')).find(r => r.querySelector('.wp-name').value === 'MGR프리셋');
+    r3.querySelector('.wp-del').click();
+    document.getElementById('wp-save').click();
+    const deleted = !App.userlib.presets().some(p => p.name === 'MGR프리셋');
+    return { opened, savedOK: saved && saved.width === 2.2, overwritten: overwritten && overwritten.width === 3.3, noDup: count1 === 1, deleted };
+  });
+  assert(pm.opened, '프리셋 관리 모달 열림');
+  assert(pm.savedOK, '프리셋 사전 생성(모달에서 직접)');
+  assert(pm.overwritten && pm.noDup, '기존 프리셋 덮어쓰기(중복 없음)');
+  assert(pm.deleted, '프리셋 삭제');
+
   // 라이브러리: 카테고리 그룹 + 기본부품 숨김/복원
   const lib = await page.evaluate(() => {
     App.palette.reloadUser();

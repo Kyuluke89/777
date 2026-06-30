@@ -30,6 +30,7 @@
     });
     App.inspector.init(document.getElementById('inspector'));
     App.partEditor.init();
+    if (App.wirePresets) App.wirePresets.init();
     App.toolbar.init();
 
     // 상태 변경 → 자동 재렌더 (반응형)
