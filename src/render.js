@@ -190,13 +190,16 @@
         'stroke-linejoin': 'round', 'stroke-linecap': 'round',
         'pointer-events': 'none'
       }, grp);
-      // 양 끝 라인번호 텍스트
+      // 양 끝 라인번호 — 선에서 30mm 안쪽, 선에 정렬(마킹튜브), 흰 테두리로 가독성
       const ends = App.wires.endLabels(state, w);
       if (ends && w.label) {
+        const fontMM = App.viewport.pxToMM(11);
         [ends.a, ends.b].forEach(function (e) {
           const t = App.el('text', {
-            x: e.x, y: e.y, 'font-size': 8,
-            fill: '#b91c1c', 'pointer-events': 'none', 'font-weight': 'bold'
+            x: e.x, y: e.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+            'font-size': fontMM, fill: '#b91c1c', 'font-weight': 'bold', 'pointer-events': 'none',
+            stroke: '#ffffff', 'stroke-width': fontMM * 0.22, 'paint-order': 'stroke',
+            transform: 'rotate(' + e.ang + ' ' + e.x + ' ' + e.y + ')'
           }, grp);
           t.textContent = w.label;
         });

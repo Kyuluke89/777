@@ -478,6 +478,7 @@
   }
 
   function onKeyDown(e) {
+    if (App.partEditor && App.partEditor.isOpen && App.partEditor.isOpen()) return; // 에디터 모달이 처리
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.key === ' ') { App.ui.spaceDown = true; return; }

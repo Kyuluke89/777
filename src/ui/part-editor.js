@@ -5,7 +5,7 @@
   const App = (global.App = global.App || {});
   const PE = (App.partEditor = {});
 
-  let modal, peSvg, st = null, dragIdx = -1;
+  let modal, peSvg, st = null, peG = null;
 
   function $(id) { return document.getElementById(id); }
   function snap(v) { return Math.round(v / 2.5) * 2.5; } // 단자 스냅 2.5mm
@@ -48,8 +48,9 @@
     // 단자 (원형/사각형)
     st.terms.forEach(function (t, i) {
       const g = el('g', { 'data-ti': i, style: 'cursor:move' }, peSvg);
-      const stroke = i === st.sel ? '#dc2626' : color;
-      const sw = i === st.sel ? 1.4 : 0.8;
+      const seld = st.selSet && st.selSet.has(i);
+      const stroke = seld ? '#dc2626' : color;
+      const sw = seld ? 1.4 : 0.8;
       const w = t.w || 3.6, h = t.h || 3.6;
       if (t.shape === 'rect') {
         el('rect', { x: t.rx - w / 2, y: t.ry - h / 2, width: w, height: h, fill: '#fff', stroke: stroke, 'stroke-width': sw }, g);
@@ -75,7 +76,7 @@
     if (!st.terms.length) { box.innerHTML = '<div class="text-[11px] text-slate-400 px-1 py-1">박스를 클릭해 단자를 추가하세요.</div>'; return; }
     st.terms.forEach(function (t, i) {
       const row = document.createElement('div');
-      row.className = 'flex items-center gap-1 py-0.5' + (i === st.sel ? ' bg-blue-50 rounded' : '');
+      row.className = 'flex items-center gap-1 py-0.5' + (st.selSet.has(i) ? ' bg-blue-50 rounded' : '');
       row.innerHTML =
         '<input data-ti="' + i + '" class="pe-name w-16 px-1 py-0.5 text-[11px] border border-slate-300 rounded" value="' + (t.name || '').replace(/"/g, '&quot;') + '"/>' +
         '<span class="text-[10px] text-slate-400 flex-1">(' + Math.round(t.rx) + ',' + Math.round(t.ry) + ')</span>' +
@@ -86,9 +87,17 @@
       inp.onchange = function () { st.terms[+inp.getAttribute('data-ti')].name = inp.value; renderPreview(); };
     });
     box.querySelectorAll('[data-del]').forEach(function (b) {
-      b.onclick = function () { st.terms.splice(+b.getAttribute('data-del'), 1); st.sel = -1; renderPreview(); renderList(); };
+      b.onclick = function () { removeTerms([+b.getAttribute('data-del')]); };
     });
   }
+
+  // 단자 인덱스 배열 삭제(내림차순) + 선택 정리
+  function removeTerms(idxs) {
+    idxs.slice().sort(function (a, b) { return b - a; }).forEach(function (i) { st.terms.splice(i, 1); });
+    st.selSet = new Set(); st.sel = -1;
+    refresh();
+  }
+  function selectedIdxs() { return Array.from(st.selSet); }
 
   function refresh() { renderPreview(); renderList(); }
 
@@ -112,42 +121,93 @@
     st.termH = st.termShape === 'rect' ? Math.max(0.5, parseFloat($('pe-th').value) || 3.6) : st.termW;
     st.termLabelPos = $('pe-tlabel').value;
     updateShapeUI();
-    // 명시적으로 클릭해 선택한 단자에만 적용(방금 놓은 단자는 건드리지 않음)
-    if (st.sel >= 0 && st.selExplicit && st.terms[st.sel]) {
-      const t = st.terms[st.sel];
-      t.shape = st.termShape; t.w = st.termW; t.h = st.termH; t.lp = st.termLabelPos;
+    // 명시적으로 클릭/드래그로 선택한 단자(들)에 적용
+    if (st.selExplicit) {
+      selectedIdxs().forEach(function (i) {
+        const t = st.terms[i];
+        if (t) { t.shape = st.termShape; t.w = st.termW; t.h = st.termH; t.lp = st.termLabelPos; }
+      });
     }
     refresh();
+  }
+  function loadControlsFrom(i) {
+    const t = st.terms[i]; if (!t) return;
+    st.termShape = t.shape || 'circle'; st.termW = t.w || 3.6; st.termH = t.h || 3.6; st.termLabelPos = t.lp || 'top';
+    syncTermControls();
+  }
+  // 마퀴(선택 박스) 그리기
+  function drawMarquee(r) {
+    let m = peSvg.querySelector('#pe-marquee');
+    if (!r) { if (m) m.remove(); return; }
+    if (!m) m = el('rect', { id: 'pe-marquee' }, peSvg);
+    m.setAttribute('x', r.x); m.setAttribute('y', r.y);
+    m.setAttribute('width', r.w); m.setAttribute('height', r.h);
+    m.setAttribute('fill', '#3b82f6'); m.setAttribute('fill-opacity', '0.1');
+    m.setAttribute('stroke', '#2563eb'); m.setAttribute('stroke-width', 0.5);
+    m.setAttribute('stroke-dasharray', '2 1.5');
   }
 
   function onDown(e) {
     const g = e.target.closest && e.target.closest('[data-ti]');
     const p = clientToMM(e);
     if (g) {
-      dragIdx = +g.getAttribute('data-ti');
-      st.sel = dragIdx; st.selExplicit = true; // 클릭으로 선택 → 컨트롤 변경이 이 단자에 적용
-      // 선택 단자의 모양/크기를 컨트롤에 반영
-      const t = st.terms[st.sel];
-      if (t) { st.termShape = t.shape || 'circle'; st.termW = t.w || 3.6; st.termH = t.h || 3.6; st.termLabelPos = t.lp || 'top'; syncTermControls(); }
+      const idx = +g.getAttribute('data-ti');
+      if (!st.selSet.has(idx)) {
+        if (!e.shiftKey) st.selSet.clear();
+        st.selSet.add(idx);
+      }
+      st.sel = idx; st.selExplicit = true;
+      loadControlsFrom(idx);
+      // 선택된 단자 전체 이동 준비
+      const orig = {};
+      st.selSet.forEach(function (i) { orig[i] = { rx: st.terms[i].rx, ry: st.terms[i].ry }; });
+      peG = { type: 'move', sp: p, orig: orig, moved: false };
       refresh();
     } else {
-      // 빈 곳 클릭 → 단자 추가 (박스 범위로 클램프, 현재 모양/크기 적용)
-      const rx = clamp(snap(p.x), 0, st.w), ry = clamp(snap(p.y), 0, st.h);
-      st.terms.push({ name: st.nextName, rx: rx, ry: ry, shape: st.termShape, w: st.termW, h: st.termH, lp: st.termLabelPos });
-      st.sel = st.terms.length - 1; st.selExplicit = false; // 자동 선택(모양 변경이 소급 적용되지 않게)
-      st.nextName = incName(st.nextName);
-      $('pe-next').value = st.nextName;
-      refresh();
+      // 빈 곳: 드래그하면 마퀴 선택, 그냥 클릭하면 단자 추가
+      peG = { type: 'empty', sp: p, sc: { x: e.clientX, y: e.clientY }, moved: false, shift: e.shiftKey };
     }
   }
   function onMove(e) {
-    if (dragIdx < 0) return;
+    if (!peG) return;
     const p = clientToMM(e);
-    st.terms[dragIdx].rx = clamp(snap(p.x), 0, st.w);
-    st.terms[dragIdx].ry = clamp(snap(p.y), 0, st.h);
-    renderPreview();
+    if (peG.type === 'move') {
+      const dx = p.x - peG.sp.x, dy = p.y - peG.sp.y;
+      if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) peG.moved = true;
+      for (const i in peG.orig) {
+        st.terms[i].rx = clamp(snap(peG.orig[i].rx + dx), 0, st.w);
+        st.terms[i].ry = clamp(snap(peG.orig[i].ry + dy), 0, st.h);
+      }
+      renderPreview();
+      return;
+    }
+    if (peG.type === 'empty') {
+      if (Math.hypot(e.clientX - peG.sc.x, e.clientY - peG.sc.y) > 4) peG.type = 'marquee';
+    }
+    if (peG.type === 'marquee') {
+      const r = { x: Math.min(peG.sp.x, p.x), y: Math.min(peG.sp.y, p.y), w: Math.abs(peG.sp.x - p.x), h: Math.abs(peG.sp.y - p.y) };
+      if (!peG.shift) st.selSet.clear();
+      st.terms.forEach(function (t, i) {
+        if (t.rx >= r.x && t.rx <= r.x + r.w && t.ry >= r.y && t.ry <= r.y + r.h) st.selSet.add(i);
+      });
+      st.selExplicit = true;
+      renderPreview();
+      drawMarquee(r);
+    }
   }
-  function onUp() { if (dragIdx >= 0) { dragIdx = -1; renderList(); } }
+  function onUp() {
+    if (!peG) return;
+    if (peG.type === 'empty' && !peG.moved) {
+      // 클릭 → 단자 추가
+      const rx = clamp(snap(peG.sp.x), 0, st.w), ry = clamp(snap(peG.sp.y), 0, st.h);
+      st.terms.push({ name: st.nextName, rx: rx, ry: ry, shape: st.termShape, w: st.termW, h: st.termH, lp: st.termLabelPos });
+      st.selSet = new Set([st.terms.length - 1]); st.sel = st.terms.length - 1; st.selExplicit = false;
+      st.nextName = incName(st.nextName); $('pe-next').value = st.nextName;
+    }
+    drawMarquee(null);
+    peG = null;
+    refresh();
+  }
 
   function readInputs() {
     st.name = $('pe-name-in').value.trim();
@@ -170,6 +230,7 @@
       st = { mode: 'new', name: '', type: 'TB', w: 60, h: 80, terms: [], nextName: 'A1', sel: -1 };
     }
     st.termShape = 'circle'; st.termW = 3.6; st.termH = 3.6; st.termLabelPos = 'top';
+    st.selSet = new Set();
     $('pe-title').textContent = st.mode === 'component' ? '부품 크기·단자 편집' : '커스텀 부품 만들기';
     $('pe-name-in').value = st.name;
     $('pe-type').value = st.type;
@@ -182,6 +243,17 @@
     modal.style.display = 'flex';
   };
   PE.close = function () { modal.style.display = 'none'; st = null; };
+  PE.isOpen = function () { return modal && modal.style.display !== 'none'; };
+
+  function onKey(e) {
+    if (!PE.isOpen()) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (e.key === 'Escape') { e.preventDefault(); PE.close(); return; }
+    if (tag === 'input' || tag === 'select') return; // 입력 중엔 무시
+    if ((e.key === 'Delete' || e.key === 'Backspace') && st && st.selSet.size) {
+      e.preventDefault(); removeTerms(selectedIdxs());
+    }
+  }
 
   function buildPart() {
     return { partNo: st.name || ('커스텀_' + App.uid('p')), manufacturer: '커스텀', type: st.type,
@@ -214,7 +286,12 @@
   PE.init = function () {
     modal = $('part-editor');
     peSvg = $('pe-canvas');
-    peSvg.addEventListener('pointerdown', function (e) { e.preventDefault(); onDown(e); try { peSvg.setPointerCapture(e.pointerId); } catch (x) {} });
+    peSvg.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // 입력 포커스 해제
+      onDown(e);
+      try { peSvg.setPointerCapture(e.pointerId); } catch (x) {}
+    });
     peSvg.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     ['pe-w', 'pe-h', 'pe-type', 'pe-name-in', 'pe-next'].forEach(function (id) {
@@ -223,6 +300,7 @@
     ['pe-tshape', 'pe-tw', 'pe-th', 'pe-tlabel'].forEach(function (id) {
       const elx = $(id); if (elx) elx.addEventListener('change', applyTermControls);
     });
+    window.addEventListener('keydown', onKey);
     $('pe-save').onclick = saveToLibrary;
     $('pe-apply').onclick = applyToComponent;
     $('pe-cancel').onclick = PE.close;

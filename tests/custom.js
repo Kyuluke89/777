@@ -101,6 +101,27 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   });
   assert(!removed, '커스텀 부품 라이브러리 삭제');
 
+  // 5) 마퀴(박스 드래그) 다중선택 + 일괄 삭제
+  await page.click('#act-custom');
+  await page.fill('#pe-name-in', '마퀴'); await page.fill('#pe-w', '80'); await page.fill('#pe-h', '60');
+  await page.dispatchEvent('#pe-w', 'change'); await page.dispatchEvent('#pe-h', 'change');
+  const mb = await page.locator('#pe-canvas').boundingBox();
+  await page.mouse.click(mb.x + mb.width * 0.35, mb.y + mb.height * 0.5);
+  await page.mouse.click(mb.x + mb.width * 0.5, mb.y + mb.height * 0.5);
+  await page.mouse.click(mb.x + mb.width * 0.65, mb.y + mb.height * 0.5);
+  const before = await page.evaluate(() => document.querySelectorAll('#pe-canvas [data-ti]').length);
+  assert(before === 3, '단자 3개 (' + before + ')');
+  await page.mouse.move(mb.x + mb.width * 0.45, mb.y + mb.height * 0.2);
+  await page.mouse.down();
+  await page.mouse.move(mb.x + mb.width * 0.85, mb.y + mb.height * 0.8, { steps: 8 });
+  await page.mouse.up();
+  const seln = await page.evaluate(() => document.querySelectorAll('#pe-terms .bg-blue-50').length);
+  assert(seln >= 2, '마퀴로 2개 이상 선택 (' + seln + ')');
+  await page.keyboard.press('Delete');
+  const after = await page.evaluate(() => document.querySelectorAll('#pe-canvas [data-ti]').length);
+  assert(before - after >= 2, '선택 단자 일괄 삭제 (' + before + '→' + after + ')');
+  await page.click('#pe-cancel');
+
   await browser.close();
   assert(errors.length === 0, '콘솔 에러 없음: ' + JSON.stringify(errors));
   console.log('\n✅ CUSTOM EDITOR TESTS PASS');

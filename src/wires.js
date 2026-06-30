@@ -194,13 +194,46 @@
     const a = pts[i], b = pts[i + 1];
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   };
-  // 양 끝 라벨 위치(단자 바로 바깥)
+  function polyLen(pts) {
+    let L = 0;
+    for (let i = 0; i < pts.length - 1; i++) L += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+    return L;
+  }
+  // 경로 시작에서 dist 만큼 진행한 점 + 그 지점 세그먼트 방향
+  function pointAlong(pts, dist) {
+    let rem = dist;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const seg = Math.hypot(b.x - a.x, b.y - a.y);
+      if (rem <= seg || i === pts.length - 2) {
+        const t = seg > 0 ? Math.max(0, Math.min(1, rem / seg)) : 0;
+        const dx = seg > 0 ? (b.x - a.x) / seg : 1, dy = seg > 0 ? (b.y - a.y) / seg : 0;
+        return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, dx: dx, dy: dy };
+      }
+      rem -= seg;
+    }
+    const last = pts[pts.length - 1];
+    return { x: last.x, y: last.y, dx: 1, dy: 0 };
+  }
+  // 텍스트 회전: 가로 좌→우, 세로 아래→위(앞글자 아래). [-90,90)
+  function textAng(dx, dy) {
+    let a = Math.atan2(dy, dx) * 180 / Math.PI;
+    while (a < -90) a += 180;
+    while (a >= 90) a -= 180;
+    return a;
+  }
+  // 양 끝 라벨 — 선 끝에서 30mm 안쪽, 선에 정렬(마킹튜브 방식)
+  W.LABEL_INSET = 30;
   W.endLabels = function (state, wire) {
-    const a = term(state, wire, 'from'), b = term(state, wire, 'to');
-    if (!a || !b) return null;
+    const pts = W.route(state, wire);
+    if (!pts || pts.length < 2) return null;
+    const L = polyLen(pts);
+    const d = Math.min(W.LABEL_INSET, L * 0.45);   // 너무 짧으면 안쪽으로 조정
+    const A = pointAlong(pts, d);
+    const B = pointAlong(pts.slice().reverse(), d);
     return {
-      a: { x: a.x + 2.5, y: a.y + (a.side === 'top' ? -3 : 5) },
-      b: { x: b.x + 2.5, y: b.y + (b.side === 'top' ? -3 : 5) }
+      a: { x: A.x, y: A.y, ang: textAng(A.dx, A.dy) },
+      b: { x: B.x, y: B.y, ang: textAng(B.dx, B.dy) }
     };
   };
 })(window);
