@@ -692,6 +692,21 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   const selN = await page.evaluate(() => App.ui.selected.size);
   assert(selN >= 2, '영역선택 다중 (' + selN + ')');
 
+  // 라인번호(배선 라벨) 화면 크기 고정 — 휠 줌해도 스크린상 크기 유지
+  await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
+  const zoomFix = await page.evaluate(() => {
+    function wlabel() { const t = document.querySelector('#layer-wires text'); return t ? parseFloat(t.getAttribute('font-size')) : 0; }
+    const f1 = wlabel(), s1 = App.viewport.scale();
+    const svg = document.getElementById('canvas');
+    const r = svg.getBoundingClientRect();
+    svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, cancelable: true }));
+    const f2 = wlabel(), s2 = App.viewport.scale();
+    return { zoomedIn: s2 > s1 * 1.05, screen1: f1 * s1, screen2: f2 * s2, mmChanged: Math.abs(f2 - f1) > 0.001 };
+  });
+  assert(zoomFix.zoomedIn, '휠 줌인 동작');
+  assert(zoomFix.mmChanged, '줌 시 라벨 mm값 재계산(재렌더)');
+  assert(Math.abs(zoomFix.screen1 - zoomFix.screen2) < 0.5, '라인번호 화면 크기 고정(줌 무관 ' + zoomFix.screen1.toFixed(1) + '≈' + zoomFix.screen2.toFixed(1) + ')');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

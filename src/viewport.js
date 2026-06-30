@@ -128,11 +128,12 @@
     };
     applyViewBox();
 
-    // 휠 줌
+    // 휠 줌 — 줌 후 재렌더해 화면 고정 크기 요소(라인번호·치수·핸들)가 줌에 안 변하게
     svg.addEventListener('wheel', function (e) {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       Viewport.zoomAt(e.clientX, e.clientY, factor);
+      if (App.render) App.render.all();
     }, { passive: false });
 
     // 터치(모바일): 두 손가락 = 핀치 줌 + 팬, 한 손가락 = 선택/이동/그리기(포인터 이벤트)
