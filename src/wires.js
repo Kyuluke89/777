@@ -235,10 +235,72 @@
     while (a >= 90) a -= 180;
     return a;
   }
+  // ── 겹선 분리(같은 경로로 겹쳐 지나가는 배선을 나란히 벌려 구분) ──────────
+  // 같은 직선(같은 방향·같은 좌표) 위에서 구간이 겹치는 다른 배선들을 찾아
+  // 각 구간에 수직 방향 오프셋을 배정한다. 단자 접점은 그대로 두고 코너에서
+  // 다시 이어지므로 직각 형태와 연결성은 유지된다.
+  W.SPREAD = 3; // 겹선 간격(mm)
+  W.spreadOffsets = function (state) {
+    const SP = W.SPREAD;
+    const items = [];
+    (state.wires || []).forEach(function (w) {
+      const R = W.route(state, w);
+      if (!R) return;
+      for (let i = 0; i < R.length - 1; i++) {
+        const p = R[i], q = R[i + 1];
+        if (Math.round(p.x) === Math.round(q.x)) {
+          items.push({ wid: w.id, key: i, orient: 'V', c: Math.round(p.x), lo: Math.min(p.y, q.y), hi: Math.max(p.y, q.y) });
+        } else if (Math.round(p.y) === Math.round(q.y)) {
+          items.push({ wid: w.id, key: i, orient: 'H', c: Math.round(p.y), lo: Math.min(p.x, q.x), hi: Math.max(p.x, q.x) });
+        }
+      }
+    });
+    const buckets = {};
+    items.forEach(function (s) { const k = s.orient + ':' + s.c; (buckets[k] = buckets[k] || []).push(s); });
+    const off = {};
+    Object.keys(buckets).forEach(function (k) {
+      const arr = buckets[k].slice().sort(function (a, b) { return a.lo - b.lo || (a.wid < b.wid ? -1 : 1); });
+      let i = 0;
+      while (i < arr.length) {
+        let j = i, hi = arr[i].hi;
+        const cluster = [arr[i]];
+        while (j + 1 < arr.length && arr[j + 1].lo <= hi + 0.5) { // 겹치거나 맞닿음
+          j++; cluster.push(arr[j]); hi = Math.max(hi, arr[j].hi);
+        }
+        const wids = {}; cluster.forEach(function (s) { wids[s.wid] = 1; });
+        if (Object.keys(wids).length > 1) { // 서로 다른 배선이 겹칠 때만 분리
+          const n = cluster.length;
+          cluster.forEach(function (s, idx) {
+            off[s.wid + ':' + s.key] = (idx - (n - 1) / 2) * SP;
+          });
+        }
+        i = j + 1;
+      }
+    });
+    return off;
+  };
+
+  // 화면 표시용 경로 — 겹선 오프셋을 적용(단자 접점은 정확히 유지)
+  W.displayRoute = function (state, wire, off) {
+    const R = W.route(state, wire);
+    if (!R) return null;
+    if (!off) return R;
+    const out = R.map(function (p) { return { x: p.x, y: p.y }; });
+    for (let i = 0; i < R.length - 1; i++) {
+      const o = off[wire.id + ':' + i];
+      if (!o) continue;
+      if (Math.round(R[i].x) === Math.round(R[i + 1].x)) { out[i].x += o; out[i + 1].x += o; }
+      else { out[i].y += o; out[i + 1].y += o; }
+    }
+    out[0] = { x: R[0].x, y: R[0].y };
+    out[out.length - 1] = { x: R[R.length - 1].x, y: R[R.length - 1].y };
+    return out;
+  };
+
   // 양 끝 라벨 — 선 끝에서 30mm 안쪽, 선에 정렬(마킹튜브 방식)
   W.LABEL_INSET = 30;
-  W.endLabels = function (state, wire) {
-    const pts = W.route(state, wire);
+  W.endLabels = function (state, wire, pts) {
+    pts = pts || W.route(state, wire);
     if (!pts || pts.length < 2) return null;
     const L = polyLen(pts);
     const d = Math.min(W.LABEL_INSET, L * 0.45);   // 너무 짧으면 안쪽으로 조정

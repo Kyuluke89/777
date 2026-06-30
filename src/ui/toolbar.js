@@ -89,6 +89,13 @@
       App.ui.nextWireLabel = this.value.trim();
     });
 
+    // 겹선 분리(겹쳐 지나가는 배선 나란히 벌리기)
+    const ws = $('wire-spread');
+    if (ws) ws.addEventListener('change', function () {
+      App.ui.spreadWires = this.checked;
+      App.render.all();
+    });
+
     // 액션
     $('act-new').onclick = function () {
       if (!confirm('새 프로젝트를 시작할까요? 저장하지 않은 변경은 사라집니다.')) return;

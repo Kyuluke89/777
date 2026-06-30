@@ -10,6 +10,7 @@
     clipboard: [],
     dim: { stage: 0 },
     nextWireLabel: '',
+    spreadWires: true,
     ductWidth: 60,
     railWidth: 35,
     spaceDown: false

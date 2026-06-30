@@ -192,8 +192,9 @@
   function renderWires(state) {
     const g = App.viewport.layers().wires;
     clear(g);
+    const off = (App.ui && App.ui.spreadWires === false) ? null : App.wires.spreadOffsets(state);
     state.wires.forEach(function (w) {
-      const pts = App.wires.route(state, w);
+      const pts = App.wires.displayRoute(state, w, off);
       if (!pts) return;
       const sel = isSelected(w.id);
       const grp = App.el('g', { 'data-id': w.id, 'data-kind': 'wires' }, g);
@@ -210,7 +211,7 @@
         'pointer-events': 'none'
       }, grp);
       // 양 끝 라인번호 — 선에서 30mm 안쪽, 선에 정렬(마킹튜브), 흰 테두리로 가독성
-      const ends = App.wires.endLabels(state, w);
+      const ends = App.wires.endLabels(state, w, pts);
       if (ends && w.label) {
         const fontMM = App.viewport.pxToMM(11) * fonts(state).wire;
         [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
@@ -357,9 +358,11 @@
         App.el('rect', { x: tp.x - thw / 2, y: tp.y - thh / 2, width: thw, height: thh, fill: 'transparent', 'pointer-events': 'all', 'data-tagfor': c.id, style: 'cursor:move' }, g);
       }
     });
+    const woff = (App.ui && App.ui.spreadWires === false) ? null : App.wires.spreadOffsets(state);
     state.wires.forEach(function (w) {
       if (!isSelected(w.id) || !w.label) return;
-      const ends = App.wires.endLabels(state, w); if (!ends) return;
+      const wpts = App.wires.displayRoute(state, w, woff);
+      const ends = App.wires.endLabels(state, w, wpts); if (!ends) return;
       const fontMM = App.viewport.pxToMM(11) * F.wire;
       [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
         const e = pair[1], off = pair[2] || { dx: 0, dy: 0 };

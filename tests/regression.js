@@ -200,6 +200,43 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wlen.header && wlen.sum, '배선표에 길이 컬럼+합계행');
   assert(wlen.sq === '2.5' && wlen.awg === '14', '전선 SQ/AWG 표기 (' + wlen.sq + '/' + wlen.awg + ')');
 
+  // 겹선 분리: 같은 경로로 겹치는 배선을 나란히 벌려 구분
+  const spread = await page.evaluate(() => {
+    const s = App.store.get();
+    const w0 = s.wires[0];
+    // 동일 단자쌍으로 두번째 배선 추가 → 경로 완전 중첩
+    App.store.commit(ss => {
+      const w = App.wires.create(ss, { compId: w0.fromComp, index: w0.fromTerm }, { compId: w0.toComp, index: w0.toTerm });
+      w.label = 'SPREADTEST';
+      ss.wires.push(w);
+    });
+    const s2 = App.store.get();
+    const off = App.wires.spreadOffsets(s2);
+    const nOff = Object.keys(off).length;
+    // 표시 경로가 논리 경로와 달라야(벌어져야) 함
+    const w1 = s2.wires.find(w => w.label === 'SPREADTEST');
+    const r1 = App.wires.route(s2, w1);
+    const d1 = App.wires.displayRoute(s2, w1, off);
+    let moved = false, endsOk = true;
+    for (let i = 0; i < r1.length; i++) {
+      if (Math.abs(r1[i].x - d1[i].x) > 0.01 || Math.abs(r1[i].y - d1[i].y) > 0.01) moved = true;
+    }
+    // 단자 접점(양 끝)은 정확히 유지
+    if (Math.abs(r1[0].x - d1[0].x) > 0.01 || Math.abs(r1[0].y - d1[0].y) > 0.01) endsOk = false;
+    const L = d1.length - 1;
+    if (Math.abs(r1[L].x - d1[L].x) > 0.01 || Math.abs(r1[L].y - d1[L].y) > 0.01) endsOk = false;
+    // 토글 OFF 시 오프셋 미적용
+    App.ui.spreadWires = false; App.render.all();
+    const offCount = App.store.get().wires.length;
+    App.ui.spreadWires = true; App.render.all();
+    return { nOff, moved, endsOk, offCount };
+  });
+  assert(spread.nOff > 0, '겹선 오프셋 산출 (' + spread.nOff + '구간)');
+  assert(spread.moved, '겹치는 배선 표시경로 분리됨');
+  assert(spread.endsOk, '겹선 분리해도 단자 접점은 유지');
+  // 정리
+  await page.evaluate(() => { App.store.commit(s => { s.wires = s.wires.filter(w => w.label !== 'SPREADTEST'); }); });
+
   // 글씨 크기 배율: 부품 라벨 폰트가 배율 따라 커짐
   const fontScale = await page.evaluate(() => {
     const c0 = App.store.get().components[0];
