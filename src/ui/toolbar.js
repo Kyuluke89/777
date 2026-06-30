@@ -100,6 +100,9 @@
     $('act-rotate').onclick = function () { App.interact.rotateSelected(); };
     $('act-dup').onclick = function () { App.interact.duplicateSelected(); };
 
+    // 커스텀 부품 만들기
+    $('act-custom').onclick = function () { App.partEditor.open(); };
+
     // EDZ 가져오기
     $('act-edz').onclick = function () { $('edz-file').click(); };
     $('edz-file').onchange = function () {

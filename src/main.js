@@ -23,6 +23,7 @@
       count: document.getElementById('palette-count')
     });
     App.inspector.init(document.getElementById('inspector'));
+    App.partEditor.init();
     App.toolbar.init();
 
     // 상태 변경 → 자동 재렌더 (반응형)

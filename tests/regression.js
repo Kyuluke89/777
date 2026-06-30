@@ -24,7 +24,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
 
   // --- 부품 2개 배치 (실제 클릭) ---
   async function placeFirstPart(px, py) {
-    await page.locator('#palette-list button').first().click();
+    await page.locator('#palette-list > div').first().click();
     await page.mouse.click(px, py);
   }
   await page.click('#tool-select');

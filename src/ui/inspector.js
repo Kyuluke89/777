@@ -75,6 +75,7 @@
       html += row('호기번호', '<input data-field="tag" type="text" placeholder="예: Q1" value="' + (it.tag || '').replace(/"/g, '&quot;') +
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.type || '') + ' · ' + (it.partNo || '') + '</div>';
+      html += '<button id="insp-edit-part" class="mt-2 w-full px-2 py-1 text-xs rounded bg-teal-600 text-white">✎ 크기·단자 편집</button>';
     } else {
       html += row('길이', numInput('lengthMM', it.lengthMM));
       html += row('폭', numInput('widthMM', it.widthMM));
@@ -87,6 +88,11 @@
         commitField(id, inp.getAttribute('data-field'), inp.value);
       });
     });
+    const editBtn = root.querySelector('#insp-edit-part');
+    if (editBtn) editBtn.onclick = function () {
+      const found = App.store.findById(id);
+      if (found && found.kind === 'components') App.partEditor.open({ component: found.item });
+    };
   };
 
   Inspector.init = function (el) { root = el; Inspector.update(); };
