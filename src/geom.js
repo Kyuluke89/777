@@ -85,14 +85,14 @@
     return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
   };
 
-  // 부품 y 를 가장 가까운 레일 상단에 스냅 (간단 버전)
+  // 부품 중심을 가장 가까운 가로 레일(찬넬) 중심에 스냅 → 반환은 부품 상단 y
   Geom.snapToRail = function (state, x, y, compH) {
     let best = null, bestDist = Infinity;
     state.rails.forEach(function (r) {
       if (r.orient !== 'h') return;
-      // 부품 하단이 레일 상단에 닿도록
-      const target = r.y - compH;
-      const within = x + 0 >= r.x - 20 && x <= r.x + r.lengthMM + 20;
+      const railH = r.widthMM || 35;
+      const target = r.y + railH / 2 - compH / 2; // 부품 중심 = 레일 중심
+      const within = x >= r.x - 20 && x <= r.x + r.lengthMM + 20;
       const d = Math.abs(y - target);
       if (within && d < bestDist && d < 40) { bestDist = d; best = target; }
     });

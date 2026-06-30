@@ -309,6 +309,34 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(lib.gone, '기본 부품 숨김(삭제) 동작');
   assert(lib.back, '숨긴 기본 부품 복원 동작');
 
+  // 라이브러리 이름 수정(✎) + 복제(⎘) — 실제 버튼 클릭(prompt 오버라이드)
+  await page.fill('#palette-search', 'XBM-DN16S');
+  await page.waitForTimeout(50);
+  await page.evaluate(() => { window.__op = window.prompt; window.prompt = () => 'PLC새이름'; });
+  await page.locator('#palette-list .pal-edit').first().click();
+  const renamed = await page.evaluate(() => { const p = App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S'); return p && p.name; });
+  await page.evaluate(() => { window.prompt = () => 'XBM-DN16S-COPY'; });
+  await page.locator('#palette-list .pal-dup').first().click();
+  const dup = await page.evaluate(() => {
+    const c = App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S-COPY');
+    return { exists: !!c, sameShape: c && c.w === App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S').w };
+  });
+  await page.evaluate(() => { window.prompt = window.__op; App.userlib.remove('XBM-DN16S'); App.userlib.remove('XBM-DN16S-COPY'); App.palette.reloadUser(); });
+  await page.fill('#palette-search', '');
+  assert(renamed === 'PLC새이름', '라이브러리 이름 수정 (' + renamed + ')');
+  assert(dup.exists && dup.sameShape, '라이브러리 복제(같은 형태, 새 품번)');
+
+  // 부품을 찬넬(레일) 중심에 정렬
+  const railCenter = await page.evaluate(() => {
+    App.store.commit(s => { s.rails.push({ id: 'rr', orient: 'h', x: 100, y: 400, lengthMM: 300, widthMM: 35 }); });
+    const compH = 96;
+    const top = App.geom.snapToRail(App.store.get(), 150, 380, compH); // 레일 근처 상단 후보
+    const railMid = 400 + 35 / 2, compMid = (top != null ? top : 0) + compH / 2;
+    App.store.commit(s => { s.rails = s.rails.filter(r => r.id !== 'rr'); });
+    return { hit: top != null, aligned: top != null && Math.abs(compMid - railMid) < 0.01 };
+  });
+  assert(railCenter.hit && railCenter.aligned, '부품 중심이 찬넬 중심에 정렬');
+
   // 겹선 직각 연결(부채꼴 대각 제거) + 라운드(둥근 모서리)
   const wround = await page.evaluate(() => {
     const s = App.store.get();

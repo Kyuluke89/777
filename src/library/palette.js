@@ -61,7 +61,33 @@
       '<span class="block text-xs font-semibold text-slate-700 truncate">' + p.partNo + (p.custom ? ' <span class="text-[9px] text-teal-600">★내부품</span>' : '') + '</span>' +
       '<span class="block text-[10px] text-slate-400 truncate">' + (p.name || '') + ' · ' + (p.est ? '≈' : '') + p.w + '×' + p.h + 'mm' + (p.est ? ' (추정)' : '') + '</span>' +
       '</span>' +
+      '<button class="pal-dup text-[11px] text-slate-400 hover:text-teal-600 flex-shrink-0" title="복제(같은 형태, 새 품번)">⎘</button>' +
+      '<button class="pal-edit text-[11px] text-slate-400 hover:text-blue-600 flex-shrink-0" title="이름 수정">✎</button>' +
       '<button class="pal-del text-[11px] text-red-400 hover:text-red-600 flex-shrink-0" title="삭제">✕</button>';
+    item.querySelector('.pal-dup').onclick = function (e) {
+      e.stopPropagation();
+      const def = p.partNo + '-사본';
+      let pn = prompt('복제할 새 품번(고유)', def);
+      if (pn == null) return;
+      pn = pn.trim() || def;
+      const exist = library.some(function (x) { return x.partNo === pn; });
+      if (exist) { let i = 2; while (library.some(function (x) { return x.partNo === pn + '-' + i; })) i++; pn = pn + '-' + i; }
+      App.userlib.add(Object.assign({}, p, { partNo: pn })); // 같은 형태, 새 품번
+      if (App.toolbar) App.toolbar.flash('복제됨: ' + pn);
+      Palette.reloadUser();
+    };
+    item.querySelector('.pal-edit').onclick = function (e) {
+      e.stopPropagation();
+      const nv = prompt('부품 이름(품명) 수정', p.name || '');
+      if (nv == null) return;
+      const name = nv.trim();
+      App.userlib.add(Object.assign({}, p, { name: name })); // 시드면 사용자 오버라이드로 저장
+      App.store.commit(function (s) {              // 배치된 동일 부품 품명도 갱신
+        s.components.forEach(function (c) { if (c.partNo === p.partNo) c.partName = name; });
+      });
+      if (App.toolbar) App.toolbar.flash('이름 변경: ' + (name || '(빈 이름)'));
+      Palette.reloadUser();
+    };
     item.onclick = function () {
       if (App.ui.placing && App.ui.placing.partNo === p.partNo) {
         App.ui.placing = null;

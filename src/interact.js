@@ -184,6 +184,11 @@
       if (!f) continue;
       f.item.x = snapV(gesture.origPos[id].x + dx);
       f.item.y = snapV(gesture.origPos[id].y + dy);
+      // 부품은 가까운 찬넬(레일) 중심에 자동 정렬
+      if (f.kind === 'components') {
+        const rt = App.geom.snapToRail(state, f.item.x, f.item.y, f.item.heightMM);
+        if (rt != null) f.item.y = rt;
+      }
     }
     App.store.touch();
   }
