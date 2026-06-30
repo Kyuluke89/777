@@ -53,8 +53,9 @@
       const w = Math.max(50, parseInt($('panel-w').value, 10) || 600);
       const h = Math.max(50, parseInt($('panel-h').value, 10) || 800);
       const g = Math.max(1, parseInt($('panel-grid').value, 10) || 10);
+      const title = ($('panel-title').value || '').trim();
       App.store.commit(function (s) {
-        s.panel.widthMM = w; s.panel.heightMM = h; s.panel.gridMM = g;
+        s.panel.widthMM = w; s.panel.heightMM = h; s.panel.gridMM = g; s.panel.title = title;
       });
       App.render.all();
     }
@@ -62,6 +63,8 @@
       const el = $(id);
       if (el) el.addEventListener('change', applyPanel);
     });
+    // 제목은 입력 즉시 반영
+    if ($('panel-title')) $('panel-title').addEventListener('input', applyPanel);
     $('panel-fit').onclick = function () {
       const p = App.store.get().panel;
       App.viewport.fitTo(p.widthMM, p.heightMM);
@@ -237,6 +240,7 @@
   Toolbar.syncFromState = function () {
     const s = App.store.get();
     const p = s.panel;
+    if ($('panel-title')) $('panel-title').value = p.title || '';
     if ($('panel-w')) $('panel-w').value = p.widthMM;
     if ($('panel-h')) $('panel-h').value = p.heightMM;
     if ($('panel-grid')) $('panel-grid').value = p.gridMM;

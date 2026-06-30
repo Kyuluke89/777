@@ -339,6 +339,21 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(flow.stopped && flow.cleared, '흐름 정지 시 점선 제거');
   await page.evaluate(() => { App.store.commit(() => { App.store.get().wires[0].acdc = ''; }); App.render.all(); });
 
+  // 배치도 제목: 입력 → 사이즈 한 줄 위에 표시
+  await page.fill('#panel-title', '제1배전반 배치도');
+  await page.waitForTimeout(50);
+  const title = await page.evaluate(() => {
+    const saved = App.store.get().panel.title;
+    const texts = Array.from(document.querySelectorAll('#layer-panel text')).map(t => ({ s: t.textContent, y: parseFloat(t.getAttribute('y')) }));
+    const ti = texts.find(t => t.s === '제1배전반 배치도');
+    const sz = texts.find(t => /mm/.test(t.s));
+    return { saved, hasTitle: !!ti, above: ti && sz ? ti.y < sz.y : false };
+  });
+  assert(title.saved === '제1배전반 배치도', '제목 상태 저장');
+  assert(title.hasTitle, '캔버스에 제목 렌더');
+  assert(title.above, '제목이 사이즈 위에 표시');
+  await page.fill('#panel-title', '');
+
   // 글씨 크기 배율: 부품 라벨 폰트가 배율 따라 커짐
   const fontScale = await page.evaluate(() => {
     const c0 = App.store.get().components[0];

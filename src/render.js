@@ -40,6 +40,14 @@
       fill: '#ffffff', stroke: '#334155', 'stroke-width': 2,
       'data-kind': 'panel'
     }, g);
+    // 제목(한 줄 위) — 입력 시에만 표시
+    if (p.title) {
+      const ti = App.el('text', {
+        x: p.widthMM / 2, y: -34, 'text-anchor': 'middle',
+        'font-size': 26, 'font-weight': 'bold', fill: '#1e293b', 'pointer-events': 'none'
+      }, g);
+      ti.textContent = p.title;
+    }
     // 치수 라벨
     const t = App.el('text', {
       x: p.widthMM / 2, y: -12, 'text-anchor': 'middle',
