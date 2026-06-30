@@ -368,10 +368,16 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     };
   });
   const wRef = await page.evaluate(() => App.palette.getLibrary().find(x => x.partNo === 'XBM-DN16S').w);
-  // 복제(원본이 첫 항목)
+  // 복제(원본이 첫 항목) — 복제 후 검색 필터가 비워져 결과가 사라지지 않아야 함
   await page.locator('#palette-list .pal-dup').first().click();
-  // 타이틀+이름 수정(원본)
+  const afterDupSearch = await page.inputValue('#palette-search');
+  const dupVisible = await page.evaluate(() => Array.from(document.querySelectorAll('#palette-list .pal-item .text-slate-700')).some(s => s.textContent.indexOf('XBM-DN16S-COPY') >= 0));
+  // 타이틀+이름 수정 — 원본을 다시 찾아 편집
+  await page.fill('#palette-search', 'XBM-DN16S');
+  await page.waitForTimeout(40);
   await page.locator('#palette-list .pal-edit').first().click();
+  const afterEditSearch = await page.inputValue('#palette-search');
+  const renamedVisible = await page.evaluate(() => Array.from(document.querySelectorAll('#palette-list .pal-item .text-slate-700')).some(s => s.textContent.indexOf('PLC-RENAMED') >= 0));
   const ren = await page.evaluate((wRef) => {
     const lib = App.palette.getLibrary();
     const renamed = lib.find(x => x.partNo === 'PLC-RENAMED');
@@ -387,6 +393,8 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(ren.titleChanged && ren.nameChanged, '라이브러리 타이틀+이름 수정');
   assert(ren.oldGone, '수정 후 기존 품번 정리');
   assert(ren.dupExists && ren.dupSameShape, '라이브러리 복제(같은 형태, 새 품번)');
+  assert(afterDupSearch === '' && dupVisible, '복제 후 검색필터 비움 → 항목 보임');
+  assert(afterEditSearch === '' && renamedVisible, '이름수정 후 검색필터 비움 → 항목 안 사라짐');
 
   // 커스텀 타입 추가 + 타입 배지 이동 + 글자 세로 방향
   const tf = await page.evaluate(() => {

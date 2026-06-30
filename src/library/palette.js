@@ -49,6 +49,9 @@
 
   function typeRank(t) { const i = TYPE_ORDER.indexOf(t); return i < 0 ? TYPE_ORDER.length : i; }
 
+  // 검색 필터 비우기(이름/품번 변경 후 결과가 안 사라지게)
+  function clearFilter() { filter = ''; if (searchEl) searchEl.value = ''; }
+
   function makeItem(p) {
     const item = document.createElement('div');
     item.className = 'pal-item w-full px-2 py-1.5 rounded border border-slate-200 hover:border-blue-400 hover:bg-blue-50 flex items-center gap-2 transition cursor-pointer';
@@ -74,6 +77,7 @@
       if (exist) { let i = 2; while (library.some(function (x) { return x.partNo === pn + '-' + i; })) i++; pn = pn + '-' + i; }
       App.userlib.add(Object.assign({}, p, { partNo: pn })); // 같은 형태, 새 품번
       if (App.toolbar) App.toolbar.flash('복제됨: ' + pn);
+      clearFilter();
       Palette.reloadUser();
     };
     item.querySelector('.pal-edit').onclick = function (e) {
@@ -96,6 +100,7 @@
       });
       if (App.ui.placing && App.ui.placing.partNo === oldPN) App.ui.placing = null;
       if (App.toolbar) App.toolbar.flash('수정됨: ' + title);
+      clearFilter();
       Palette.reloadUser();
     };
     item.onclick = function () {
