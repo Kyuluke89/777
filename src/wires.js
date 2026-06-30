@@ -75,17 +75,72 @@
     return dedup(ortho(anchors));
   };
 
-  // 편집 가능한 세그먼트(양 끝이 모두 꺾임점) → 핸들용
+  // 편집 가능한 세그먼트 — 렌더되는 전체 경로의 모든 직선 구간(단자 옆 포함).
+  // i 는 경로(route) 인덱스. pTerm/qTerm 은 끝점이 단자인지 표시(드래그 시 처리).
   W.editSegments = function (state, wire) {
-    const corners = W.corners(state, wire);
+    const R = W.route(state, wire);
+    if (!R) return [];
     const segs = [];
-    for (let k = 0; k < corners.length - 1; k++) {
-      const p = corners[k], q = corners[k + 1];
-      const orient = (p.x === q.x) ? 'V' : (p.y === q.y ? 'H' : 'D');
-      if (orient === 'D') continue;
-      segs.push({ k: k, orient: orient, mid: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } });
+    for (let i = 0; i < R.length - 1; i++) {
+      const p = R[i], q = R[i + 1];
+      const orient = (p.x === q.x) ? 'V' : (p.y === q.y ? 'H' : null);
+      if (!orient) continue;
+      const len = Math.abs(p.x - q.x) + Math.abs(p.y - q.y);
+      if (len < 3) continue; // 단자 스터브 등 너무 짧은 구간 제외
+      segs.push({
+        i: i, orient: orient,
+        mid: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 },
+        pTerm: i === 0, qTerm: i === R.length - 2
+      });
     }
     return segs;
+  };
+
+  // 드래그 시작 시 corners 를 "현재 전체 경로의 내부 꼭짓점"으로 실체화하고,
+  // 단자에 붙은 세그먼트면 스터브+꺾임을 끼워 넣어 옮길 수 있게 만든다.
+  // 반환: { cP, cQ } 실제로 움직일 corner 인덱스 쌍.
+  W.beginSegmentDrag = function (state, wire, i, orient) {
+    const a = term(state, wire, 'from'), b = term(state, wire, 'to');
+    const R = W.route(state, wire);
+    const corners = R.slice(1, R.length - 1); // 내부 꼭짓점 = 모든 꺾임
+    const sideA = (a.side === 'top') ? -1 : 1;
+    const sideB = (b.side === 'top') ? -1 : 1;
+    let cP = i - 1, cQ = i;
+    const pTerm = (i === 0), qTerm = (i === R.length - 2);
+
+    if (pTerm) {
+      // A→corners[0] 세그먼트. 단자 옆에 스터브+꺾임 삽입
+      const sy = a.y + sideA * STUB;
+      if (orient === 'V') {
+        corners.splice(0, 0, { x: a.x, y: sy }, { x: a.x, y: sy });
+        cP = 1; cQ = 2;
+      } else {
+        const sx = a.x + sideA * STUB;
+        corners.splice(0, 0, { x: sx, y: a.y }, { x: sx, y: a.y });
+        cP = 1; cQ = 2;
+      }
+    } else if (qTerm) {
+      // corners[last]→B 세그먼트. B 옆에 꺾임+스터브 삽입
+      const cpx = corners[cP] ? corners[cP].x : b.x;
+      const cpy = corners[cP] ? corners[cP].y : b.y;
+      const sy = b.y + sideB * STUB;
+      if (orient === 'V') {
+        corners.push({ x: cpx, y: sy }, { x: b.x, y: sy });
+        cQ = corners.length - 2;
+      } else {
+        const sx = b.x + sideB * STUB;
+        corners.push({ x: sx, y: cpy }, { x: sx, y: b.y });
+        cQ = corners.length - 2;
+      }
+    }
+    wire.corners = corners;
+    return { cP: cP, cQ: cQ };
+  };
+
+  // 꼭짓점 정리(연속 중복/일직선 제거)
+  W.cleanCorners = function (corners) {
+    const r = dedup(corners.slice());
+    return r;
   };
 
   // 세그먼트 k 에 꺾임 추가(더블클릭) — corners 를 직접 변형

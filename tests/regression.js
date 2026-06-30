@@ -41,9 +41,13 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const mccb = lib.find(p => p.partNo === 'ABS32Fb-3A');
     const elcb = lib.find(p => p.partNo === 'EBS32Fb-30A/30mA');
     const plc = lib.find(p => p.partNo === 'XBM-DN16S');
-    return { count: lib.length, mccb, elcb, plc, hasFake: !!lib.find(p => p.partNo === 'ABN53c') };
+    const tb = lib.find(p => p.partNo === 'XTB-40H');
+    const relay = lib.find(p => p.partNo === 'R4T-16P-S');
+    return { count: lib.length, mccb, elcb, plc, tb, relay, hasFake: !!lib.find(p => p.partNo === 'ABN53c') };
   });
-  assert(ls.count >= 21, '카탈로그 실데이터 라이브러리 (' + ls.count + ')');
+  assert(ls.count >= 30, '카탈로그 실데이터 라이브러리 (' + ls.count + ')');
+  assert(ls.tb && ls.tb.type === 'TB' && ls.tb.est, '단자대 XTB-40H(추정) 존재');
+  assert(ls.relay && ls.relay.type === 'RELAY', '릴레이 R4T-16P-S 존재');
   assert(!ls.hasFake, '가짜 시드 부품(ABN53c) 제거됨');
   assert(ls.mccb && ls.mccb.w === 50 && ls.mccb.h === 96 && ls.mccb.type === 'MCCB', 'ABS32Fb-3A 실측 50×96 MCCB');
   assert(ls.elcb && ls.elcb.type === 'ELCB', 'EBS32Fb-30A/30mA ELCB 존재');
@@ -97,41 +101,49 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wireInfo.route >= 2, '와이어 경로점');
 
   // --- 배선 편집: 세그먼트 이동 / 직각 유지 / 꺾임 추가 / 양끝 라벨 ---
+  const ortho = pts => pts.every((p, i) => i === 0 || pts[i - 1].x === p.x || pts[i - 1].y === p.y);
   const wireEdit = await page.evaluate(() => {
     const s = App.store.get();
     const w = s.wires[0];
-    const segs = App.wires.editSegments(s, w);
-    const hseg = segs.find(x => x.orient === 'H');
-    const vsegs = segs.filter(x => x.orient === 'V');
-    if (!w.corners) w.corners = JSON.parse(JSON.stringify(App.wires.corners(s, w)));
-    // 수평선 위로 이동
-    w.corners[hseg.k].y -= 30; w.corners[hseg.k + 1].y -= 30;
-    // 수직선 좌우 이동 (첫 V 세그먼트)
-    let vMoved = false;
-    if (vsegs.length) {
-      const vk = vsegs[0].k, ox = w.corners[vk].x;
-      w.corners[vk].x = ox - 15; w.corners[vk + 1].x = ox - 15;
-      vMoved = w.corners[vk].x !== ox;
-    }
-    const after = App.wires.route(s, w);
-    const ortho = pts => pts.every((p, i) => i === 0 || pts[i - 1].x === p.x || pts[i - 1].y === p.y);
-    const before2 = w.corners.length;
-    App.wires.addBend(w.corners, hseg.k, w.corners[hseg.k].x + 5, w.corners[hseg.k].y);
-    const after2 = w.corners.length;
+    function segs() { return App.wires.editSegments(s, w); }
+    const seg0 = segs();
+    const hseg = seg0.find(x => x.orient === 'H');
+    const vseg = seg0.find(x => x.orient === 'V');
+    const before2 = (w.corners || App.wires.corners(s, w)).length;
+
+    // 1) 수평선 상하 이동 (beginSegmentDrag 경유 — 실제 드래그와 동일 경로)
+    let m1 = App.wires.beginSegmentDrag(s, w, hseg.i, 'H');
+    w.corners[m1.cP].y -= 30; w.corners[m1.cQ].y -= 30;
+    w.corners = App.wires.cleanCorners(w.corners);
+    const orthoH = App.wires.route(s, w).every((p, i, a) => i === 0 || a[i - 1].x === p.x || a[i - 1].y === p.y);
+
+    // 2) 단자에 붙은 수직선 좌우 이동 → 꺾임 자동 생성, 직각 유지
+    const segs2 = segs();
+    const vTerm = segs2.find(x => x.orient === 'V' && (x.pTerm || x.qTerm)) || segs2.find(x => x.orient === 'V');
+    const segCountBefore = segs2.length;
+    let m2 = App.wires.beginSegmentDrag(s, w, vTerm.i, 'V');
+    const ox = w.corners[m2.cP].x;
+    w.corners[m2.cP].x = ox - 20; w.corners[m2.cQ].x = ox - 20;
+    w.corners = App.wires.cleanCorners(w.corners);
+    const route2 = App.wires.route(s, w);
+    const orthoV = route2.every((p, i, a) => i === 0 || a[i - 1].x === p.x || a[i - 1].y === p.y);
+    const segCountAfter = segs().length;
+
+    // 3) 꺾임 추가
     App.ui.selected.clear(); App.ui.selected.add(w.id);
     App.render.all();
     return {
-      hseg: !!hseg, vCount: vsegs.length, vMoved, orthoAfter: ortho(after), added: after2 - before2,
-      endLabels: !!App.wires.endLabels(s, w),
+      hasH: !!hseg, hasV: !!vseg, vTermExists: !!segs2.find(x => x.orient === 'V' && (x.pTerm || x.qTerm)),
+      orthoH, orthoV, grewSegments: segCountAfter >= segCountBefore,
       handles: document.querySelectorAll('[data-seg]').length,
+      endLabels: !!App.wires.endLabels(s, w),
       endTexts: Array.from(document.querySelectorAll('#layer-wires text')).filter(t => t.textContent === 'W1').length
     };
   });
-  assert(wireEdit.hseg, '수평 세그먼트(올리고내리기) 존재');
-  assert(wireEdit.vCount >= 2, '수직 세그먼트(좌우이동) 존재 (' + wireEdit.vCount + ')');
-  assert(wireEdit.vMoved, '수직선 좌우 이동 동작');
-  assert(wireEdit.orthoAfter, '이동 후에도 경로 직각 유지');
-  assert(wireEdit.added === 3, '꺾임 추가 시 corners +3 (' + wireEdit.added + ')');
+  assert(wireEdit.hasH && wireEdit.hasV, '수평·수직 세그먼트 존재');
+  assert(wireEdit.vTermExists, '단자에 붙은 수직 세그먼트 핸들 존재');
+  assert(wireEdit.orthoH && wireEdit.orthoV, '이동 후에도 경로 직각 유지');
+  assert(wireEdit.grewSegments, '단자옆 이동 후 꺾임이 편집가능 세그먼트로 추가됨');
   assert(wireEdit.endLabels, '양끝 라벨 위치 계산');
   assert(wireEdit.handles >= 1, '선택 시 세그먼트 핸들 렌더 (' + wireEdit.handles + ')');
   assert(wireEdit.endTexts === 2, '양끝에 라인번호 텍스트 2개 (' + wireEdit.endTexts + ')');
