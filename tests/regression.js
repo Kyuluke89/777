@@ -308,6 +308,34 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(lib.gone, '기본 부품 숨김(삭제) 동작');
   assert(lib.back, '숨긴 기본 부품 복원 동작');
 
+  // AC/DC 전원구분 + 전류 흐름 애니메이션
+  const flow = await page.evaluate(async () => {
+    const w0 = App.store.get().wires[0];
+    App.store.commit(() => { w0.acdc = 'AC'; });
+    App.render.all();
+    const grp = document.querySelector('#layer-wires [data-id="' + w0.id + '"]');
+    const ln = grp.querySelector('polyline[data-acdc]');
+    const tagged = ln && ln.getAttribute('data-acdc') === 'AC';
+    // 흐름 재생 → 점선 패턴 적용 + dashoffset 시간에 따라 변함
+    App.render.setFlow(true);
+    const flowing = App.render.isFlowing();
+    const grp2 = document.querySelector('#layer-wires [data-id="' + w0.id + '"]');
+    const ln2 = grp2.querySelector('polyline[data-acdc]');
+    const hasDash = !!ln2.style.strokeDasharray;
+    const o1 = parseFloat(ln2.style.strokeDashoffset || '0');
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const o2 = parseFloat(ln2.style.strokeDashoffset || '0');
+    App.render.setFlow(false);
+    const stopped = !App.render.isFlowing();
+    const cleared = !document.querySelector('#layer-wires polyline[data-acdc]').style.strokeDasharray;
+    return { tagged, flowing, hasDash, moved: o1 !== o2, stopped, cleared };
+  });
+  assert(flow.tagged, '배선 AC 전원구분 표시(data-acdc)');
+  assert(flow.flowing && flow.hasDash, '흐름 재생 시 점선 적용');
+  assert(flow.moved, '흐름 애니메이션 dashoffset 변화');
+  assert(flow.stopped && flow.cleared, '흐름 정지 시 점선 제거');
+  await page.evaluate(() => { App.store.commit(() => { App.store.get().wires[0].acdc = ''; }); App.render.all(); });
+
   // 글씨 크기 배율: 부품 라벨 폰트가 배율 따라 커짐
   const fontScale = await page.evaluate(() => {
     const c0 = App.store.get().components[0];

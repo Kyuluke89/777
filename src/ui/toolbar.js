@@ -142,6 +142,21 @@
       Toolbar.refreshPresets();
     };
 
+    // 전류 흐름 애니메이션 재생/정지
+    const flowBtn = $('wire-flow');
+    if (flowBtn) flowBtn.onclick = function () {
+      const on = !App.ui.flow;
+      App.render.setFlow(on);
+      flowBtn.textContent = on ? '⏸ 흐름' : '▶ 흐름';
+      flowBtn.classList.toggle('bg-blue-600', on);
+      flowBtn.classList.toggle('text-white', on);
+      flowBtn.classList.toggle('bg-white', !on);
+      if (on) {
+        const has = App.store.get().wires.some(function (w) { return w.acdc; });
+        if (!has) flash('AC/DC로 지정된 배선이 없습니다. 배선 선택 → 전원구분에서 AC/DC를 고르세요.');
+      }
+    };
+
     // 액션
     $('act-new').onclick = function () {
       if (!confirm('새 프로젝트를 시작할까요? 저장하지 않은 변경은 사라집니다.')) return;

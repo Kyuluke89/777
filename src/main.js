@@ -12,6 +12,7 @@
     nextWireLabel: '',
     spreadWires: true,
     wireDefaults: null,
+    flow: false,
     ductWidth: 60,
     railWidth: 35,
     spaceDown: false

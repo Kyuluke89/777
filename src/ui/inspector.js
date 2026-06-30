@@ -20,7 +20,7 @@
     App.store.commit(function (s) {
       const f = App.store.findById(id);
       if (!f) return;
-      if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg') {
+      if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg' || field === 'acdc') {
         f.item[field] = value;
         // SQ 선택 시 AWG 자동 채움
         if (field === 'sq' && App.wires.SQ_AWG[value]) { f.item.awg = App.wires.SQ_AWG[value]; refresh = true; }
@@ -84,6 +84,12 @@
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" placeholder="자동" />');
       html += row('두께(mm)', '<input data-field="width" type="number" step="0.2" min="0.2" value="' + (it.width || 1.2) +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+      const ad = it.acdc || '';
+      html += row('전원구분', '<select data-field="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' +
+        '<option value=""' + (ad === '' ? ' selected' : '') + '>없음</option>' +
+        '<option value="AC"' + (ad === 'AC' ? ' selected' : '') + '>AC (교류)</option>' +
+        '<option value="DC"' + (ad === 'DC' ? ' selected' : '') + '>DC (직류)</option>' +
+        '</select>');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +

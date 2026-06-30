@@ -203,13 +203,20 @@
         points: App.wires.pointsStr(pts), fill: 'none',
         stroke: 'transparent', 'stroke-width': 6
       }, grp);
-      App.el('polyline', {
+      const line = App.el('polyline', {
         points: App.wires.pointsStr(pts), fill: 'none',
         stroke: sel ? '#111827' : (w.color || '#dc2626'),
         'stroke-width': (w.width || 1.2) + (sel ? 0.8 : 0),
         'stroke-linejoin': 'round', 'stroke-linecap': 'round',
         'pointer-events': 'none'
       }, grp);
+      // AC/DC 전원구분 + 흐름 애니메이션 대상 표시
+      if (w.acdc) {
+        line.setAttribute('data-acdc', w.acdc);
+        if (App.ui && App.ui.flow) {
+          line.style.strokeDasharray = (w.acdc === 'DC' ? '12 6' : '8 5');
+        }
+      }
       // 양 끝 라인번호 — 선에서 30mm 안쪽, 선에 정렬(마킹튜브), 흰 테두리로 가독성
       const ends = App.wires.endLabels(state, w, pts);
       if (ends && w.label) {
@@ -451,4 +458,43 @@
     }, p);
     t.textContent = App.dims.length(dim);
   };
+
+  // ── 전류 흐름 애니메이션 (AC=교류 맥동, DC=한 방향 정속) ──────────────
+  let flowRAF = null, flowT0 = 0;
+  function flowTick() {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
+    const t = (now - flowT0) / 1000;
+    const g = App.viewport.layers().wires;
+    const lines = g.querySelectorAll('polyline[data-acdc]');
+    for (let i = 0; i < lines.length; i++) {
+      const p = lines[i], kind = p.getAttribute('data-acdc');
+      let off;
+      if (kind === 'DC') {
+        off = -(t * 30) % 18;                       // 한 방향 연속 흐름
+      } else {
+        off = -(t * 26) + 6 * Math.sin(t * 6);      // 흐르되 맥동(교류 느낌)
+      }
+      p.style.strokeDashoffset = off;
+    }
+    flowRAF = requestAnimationFrame(flowTick);
+  }
+  function clearFlow() {
+    const g = App.viewport.layers().wires;
+    const lines = g.querySelectorAll('polyline[data-acdc]');
+    for (let i = 0; i < lines.length; i++) { lines[i].style.strokeDasharray = ''; lines[i].style.strokeDashoffset = ''; }
+  }
+  Render.setFlow = function (on) {
+    App.ui.flow = !!on;
+    Render.all();                                   // 점선 패턴 적용/제거
+    if (on) {
+      if (!flowRAF && typeof requestAnimationFrame === 'function') {
+        flowT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
+        flowTick();
+      }
+    } else {
+      if (flowRAF) { cancelAnimationFrame(flowRAF); flowRAF = null; }
+      clearFlow();
+    }
+  };
+  Render.isFlowing = function () { return !!flowRAF; };
 })(window);
