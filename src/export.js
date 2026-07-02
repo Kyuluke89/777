@@ -24,7 +24,8 @@
   }
 
   function baseName(state) {
-    return (state.name || 'panel').replace(/[^\w가-힣\-]+/g, '_');
+    const base = (state.panel && state.panel.title) || state.name || 'panel';
+    return String(base).replace(/[^\w가-힣\-]+/g, '_');
   }
 
   // 부품 BOM 행 (테스트 가능)

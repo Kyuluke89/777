@@ -997,6 +997,33 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   const v3closed = await page.evaluate(() => getComputedStyle(document.getElementById('view3d-modal')).display === 'none');
   assert(v3closed, '3D 모달 Esc 닫힘');
 
+  // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
+  const round2 = await page.evaluate(() => {
+    const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    App.sheetsMgr.add('통합2');
+    App.store.commit(s => {
+      s.titleBlock = { show: true, docNo: 'RT-77', author: '', date: '', rev: '' };
+      s.components.push({ id: 'rt1', partNo: 'rt', type: 'TB', x: 10, y: 10, widthMM: 20, heightMM: 20, rotation: 0, label: 'rt', terminals: 0, term: null, img: PIX });
+    });
+    const json = JSON.stringify(App.store.get());
+    App.store.replace(App.createEmptyProject());
+    App.store.replace(JSON.parse(json));
+    const s2 = App.store.get();
+    const ok = {
+      sheets: s2.sheets && s2.sheets.length === 2,
+      active: s2.activeSheet === 1,
+      tb: s2.titleBlock && s2.titleBlock.docNo === 'RT-77',
+      img: !!(s2.components.find(c => c.id === 'rt1') || {}).img
+    };
+    // 정리: 시트1 복귀 + 시트2 삭제
+    App.sheetsMgr.switchTo(0);
+    App.sheetsMgr.remove(1);
+    return ok;
+  });
+  assert(round2.sheets && round2.active, '라운드트립: 시트 보존');
+  assert(round2.tb, '라운드트립: 표제란 보존');
+  assert(round2.img, '라운드트립: 부품 이미지 보존');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 
