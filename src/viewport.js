@@ -134,6 +134,7 @@
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       Viewport.zoomAt(e.clientX, e.clientY, factor);
       if (App.render) App.render.all();
+      if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
     }, { passive: false });
 
     // 터치(모바일): 두 손가락 = 핀치 줌 + 팬, 한 손가락 = 선택/이동/그리기(포인터 이벤트)
@@ -158,6 +159,7 @@
       Viewport.panBy((cur.cx - pinch.cx) / s, (cur.cy - pinch.cy) / s);          // 중심 이동=팬
       pinch = cur;
       App.render.all();
+      if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
     }, { passive: false });
     function endPinch(e) { if (pinch && e.touches.length < 2) pinch = null; }
     svg.addEventListener('touchend', endPinch);

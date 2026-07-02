@@ -733,6 +733,67 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   await page.fill('#wire-label-px', '11');
   await page.evaluate(() => document.getElementById('wire-label-px').dispatchEvent(new Event('input')));
 
+  // 정렬/균등 간격 도구
+  const align = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'g1', partNo: 'g', type: 'TB', x: 100, y: 100, widthMM: 30, heightMM: 40, rotation: 0, label: 'g1', terminals: 0, term: null });
+      s.components.push({ id: 'g2', partNo: 'g', type: 'TB', x: 200, y: 130, widthMM: 30, heightMM: 40, rotation: 0, label: 'g2', terminals: 0, term: null });
+      s.components.push({ id: 'g3', partNo: 'g', type: 'TB', x: 400, y: 160, widthMM: 30, heightMM: 40, rotation: 0, label: 'g3', terminals: 0, term: null });
+    });
+    App.ui.selected = new Set(['g1', 'g2', 'g3']);
+    const nT = App.interact.alignSelected('top');
+    const s1 = App.store.get();
+    const topOK = ['g1', 'g2', 'g3'].every(id => s1.components.find(c => c.id === id).y === 100);
+    const nD = App.interact.distributeSelected('h');
+    const s2 = App.store.get();
+    const xs = ['g1', 'g2', 'g3'].map(id => s2.components.find(c => c.id === id).x).sort((a, b) => a - b);
+    const gap1 = xs[1] - (xs[0] + 30), gap2 = xs[2] - (xs[1] + 30);
+    const distOK = Math.abs(gap1 - gap2) <= 1;
+    // undo 로 정렬 취소 가능
+    App.store.undo(); App.store.undo();
+    const undone = App.store.get().components.find(c => c.id === 'g2').y === 130;
+    App.store.commit(s => { s.components = s.components.filter(c => ['g1', 'g2', 'g3'].indexOf(c.id) < 0); });
+    App.ui.selected.clear(); App.render.all();
+    return { nT, topOK, nD, distOK, undone };
+  });
+  assert(align.nT === 3 && align.topOK, '위 정렬(3개)');
+  assert(align.nD === 3 && align.distOK, '가로 균등 간격');
+  assert(align.undone, '정렬 실행취소 가능');
+
+  // 줌 컨트롤 버튼 + 배율 표시
+  await page.click('#zoom-in');
+  const zoomUI = await page.evaluate(() => ({
+    pct: document.getElementById('zoom-pct').textContent,
+    hasBtns: !!(document.getElementById('zoom-out') && document.getElementById('zoom-fit'))
+  }));
+  assert(zoomUI.hasBtns && /%$/.test(zoomUI.pct), '줌 컨트롤 + 배율 표시 (' + zoomUI.pct + ')');
+  await page.click('#zoom-fit');
+
+  // 도움말 모달 (버튼/F1/닫기)
+  await page.click('#act-help');
+  let helpOpen = await page.evaluate(() => getComputedStyle(document.getElementById('help-modal')).display !== 'none');
+  assert(helpOpen, '도움말 모달 열림');
+  await page.keyboard.press('Escape');
+  helpOpen = await page.evaluate(() => getComputedStyle(document.getElementById('help-modal')).display !== 'none');
+  assert(!helpOpen, '도움말 모달 Esc 닫힘');
+
+  // XSS 방지: 악성 라벨이 요소로 실행되지 않음
+  const xss = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'xs1', partNo: '<img src=x onerror=window.__pwn=1>', type: 'TB', x: 500, y: 100, widthMM: 30, heightMM: 30, rotation: 0, label: '<b>bad</b>', tag: '"><script>1</script>', terminals: 0, term: null });
+    });
+    App.ui.selected = new Set(['xs1']);
+    App.inspector.update();
+    const injectedImg = !!document.querySelector('#inspector img');
+    const injectedB = !!document.querySelector('#inspector b');
+    const escOK = App.esc('<a"b>') === '&lt;a&quot;b&gt;';
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'xs1'); });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { pwned: !!window.__pwn, injectedImg, injectedB, escOK };
+  });
+  assert(!xss.pwned && !xss.injectedImg && !xss.injectedB, '악성 라벨 이스케이프(XSS 차단)');
+  assert(xss.escOK, 'App.esc 동작');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

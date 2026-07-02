@@ -19,6 +19,13 @@
   }
   App.clone = clone;
 
+  // HTML 이스케이프 — 사용자 문자열을 innerHTML 에 넣을 때 필수
+  App.esc = function (s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+
   // 빈 프로젝트 생성
   App.createEmptyProject = function () {
     return {

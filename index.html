@@ -6,10 +6,10 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>제어반 전장 배치 · 배선 설계 (MVP)</title>
+  <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260630b"></script>
+  <script src="vendor/fflate.min.js?v=20260702a"></script>
   <style>
     html, body { height: 100%; margin: 0; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -82,6 +82,7 @@
         <div class="ml-auto flex items-center gap-2">
           <span id="autosave-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500"></span>
           <span id="status-msg" class="text-xs text-blue-600 opacity-0 transition-opacity"></span>
+          <button id="act-help" class="toolbtn bg-white text-slate-600" title="도움말 / 단축키 (F1)">？</button>
         </div>
       </div>
 
@@ -96,6 +97,20 @@
             <option value="100">100</option>
           </select>mm
         </label>
+
+        <div class="h-4 w-px bg-slate-200"></div>
+
+        <span class="font-semibold text-slate-400">정렬</span>
+        <div class="flex items-center gap-0.5">
+          <button id="al-left" class="toolbtn bg-white text-slate-600" title="왼쪽 정렬 (부품 2개+)">⇤</button>
+          <button id="al-vcenter" class="toolbtn bg-white text-slate-600" title="세로 중앙 정렬">⇹</button>
+          <button id="al-right" class="toolbtn bg-white text-slate-600" title="오른쪽 정렬">⇥</button>
+          <button id="al-top" class="toolbtn bg-white text-slate-600" title="위 정렬">⤒</button>
+          <button id="al-hcenter" class="toolbtn bg-white text-slate-600" title="가로 중앙 정렬">⇕</button>
+          <button id="al-bottom" class="toolbtn bg-white text-slate-600" title="아래 정렬">⤓</button>
+          <button id="al-disth" class="toolbtn bg-white text-slate-600" title="가로 균등 간격 (부품 3개+)">⇶</button>
+          <button id="al-distv" class="toolbtn bg-white text-slate-600" title="세로 균등 간격 (부품 3개+)">⫶</button>
+        </div>
 
         <div class="h-4 w-px bg-slate-200"></div>
 
@@ -155,6 +170,13 @@
         <svg id="canvas"></svg>
         <div class="absolute bottom-2 left-2 text-[10px] text-slate-400 bg-white/80 px-2 py-1 rounded no-canvas">
           휠:줌 · Space/우클릭드래그:이동 · 빈공간드래그:영역선택 · 방향키:미세이동 · Ctrl+D:복제 · 배선:단자→단자 · <span id="counts" class="text-slate-500 font-semibold"></span>
+        </div>
+        <!-- 줌 컨트롤 -->
+        <div class="absolute bottom-2 right-2 flex items-center gap-1 bg-white/90 border border-slate-200 rounded-lg px-1.5 py-1 shadow-sm no-canvas">
+          <button id="zoom-out" class="w-6 h-6 text-sm text-slate-600 hover:bg-slate-100 rounded" title="축소">−</button>
+          <span id="zoom-pct" class="text-[10px] text-slate-500 w-10 text-center select-none" title="현재 배율">100%</span>
+          <button id="zoom-in" class="w-6 h-6 text-sm text-slate-600 hover:bg-slate-100 rounded" title="확대">＋</button>
+          <button id="zoom-fit" class="w-6 h-6 text-xs text-slate-600 hover:bg-slate-100 rounded" title="화면 맞춤">⛶</button>
         </div>
       </main>
 
@@ -288,29 +310,76 @@
     </div>
   </div>
 
+  <!-- 도움말 모달 -->
+  <div id="help-modal" class="no-canvas" style="position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:60;">
+    <div class="bg-white rounded-lg shadow-xl" style="width:640px;max-width:94vw;max-height:86vh;overflow-y:auto;">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-slate-200 sticky top-0 bg-white">
+        <span class="text-sm font-bold text-slate-700">도움말 · 단축키</span>
+        <button id="help-close" class="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
+      </div>
+      <div class="px-5 py-3 text-xs text-slate-600 leading-relaxed">
+        <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;">
+          <div>
+            <div class="font-bold text-slate-700 mt-2 mb-1">기본 조작</div>
+            <div>부품 배치: 라이브러리 클릭 → 캔버스 클릭 (Shift: 연속)</div>
+            <div>이동: 선택 후 드래그 · 방향키(Shift: 크게)</div>
+            <div>다중 선택: 빈 공간 드래그(영역) · Shift+클릭</div>
+            <div>화면: 휠 줌 · Space/우클릭 드래그 이동</div>
+            <div>모바일: 한 손가락 조작 · 두 손가락 핀치 줌/이동</div>
+            <div class="font-bold text-slate-700 mt-3 mb-1">단축키</div>
+            <div><b>R</b> 회전 · <b>Del</b> 삭제 · <b>Esc</b> 취소/선택해제</div>
+            <div><b>Ctrl+Z</b> 실행취소 · <b>Ctrl+Shift+Z / Ctrl+Y</b> 다시실행</div>
+            <div><b>Ctrl+C/V</b> 복사/붙여넣기 · <b>Ctrl+D</b> 복제</div>
+            <div><b>F1</b> 이 도움말</div>
+            <div class="font-bold text-slate-700 mt-3 mb-1">배선</div>
+            <div>⚯ 배선 도구 → 단자 클릭 → 단자 클릭</div>
+            <div>선택 후 파란 핸들 드래그: 구간 이동 · 더블클릭: 꺾임 추가</div>
+            <div>라인번호: 시작 번호 지정 시 자동 +1 증가</div>
+            <div>프리셋: 색상·두께·규격·전원(AC/DC) 미리 정의 → 선택 적용</div>
+          </div>
+          <div>
+            <div class="font-bold text-slate-700 mt-2 mb-1">치수</div>
+            <div>↔ 치수 도구 → 점 → 점 → 위치 클릭 (모서리·단자 자동 스냅)</div>
+            <div>가운데 핸들 드래그로 치수선 이동</div>
+            <div class="font-bold text-slate-700 mt-3 mb-1">라이브러리</div>
+            <div>✎ 품번·이름 수정 · ⎘ 복제 · ✕ 삭제(기본 부품은 숨김/복원)</div>
+            <div>커스텀 부품: 크기·단자 직접 배치, 적용 시 배치+라이브러리 동시 갱신</div>
+            <div>EDZ/내보내기·가져오기로 부품 데이터 공유</div>
+            <div class="font-bold text-slate-700 mt-3 mb-1">정렬</div>
+            <div>부품 2개+ 선택 → ⇤⇥⤒⤓(끝 정렬) ⇹⇕(중앙 정렬)</div>
+            <div>부품 3개+ 선택 → ⇶⫶(균등 간격)</div>
+            <div class="font-bold text-slate-700 mt-3 mb-1">저장</div>
+            <div>💾 JSON 저장(내 부품·타입 포함) · http(s)에선 자동저장</div>
+            <div>출력: BOM/배선표 CSV · PNG · 인쇄(PDF)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260630b"></script>
-  <script src="src/terminals.js?v=20260630b"></script>
-  <script src="src/wires.js?v=20260630b"></script>
-  <script src="src/dims.js?v=20260630b"></script>
-  <script src="src/geom.js?v=20260630b"></script>
-  <script src="src/viewport.js?v=20260630b"></script>
-  <script src="src/render.js?v=20260630b"></script>
-  <script src="src/persistence.js?v=20260630b"></script>
-  <script src="src/export.js?v=20260630b"></script>
-  <script src="src/library/seed.js?v=20260630b"></script>
-  <script src="src/library/parts-builtin.js?v=20260630b"></script>
-  <script src="src/library/parts-ls.js?v=20260630b"></script>
-  <script src="src/library/parts-dwg.js?v=20260630b"></script>
-  <script src="src/library/userlib.js?v=20260630b"></script>
-  <script src="src/library/types.js?v=20260630b"></script>
-  <script src="src/library/edz.js?v=20260630b"></script>
-  <script src="src/library/palette.js?v=20260630b"></script>
-  <script src="src/interact.js?v=20260630b"></script>
-  <script src="src/ui/toolbar.js?v=20260630b"></script>
-  <script src="src/ui/inspector.js?v=20260630b"></script>
-  <script src="src/ui/part-editor.js?v=20260630b"></script>
-  <script src="src/ui/wire-presets.js?v=20260630b"></script>
-  <script src="src/main.js?v=20260630b"></script>
+  <script src="src/store.js?v=20260702a"></script>
+  <script src="src/terminals.js?v=20260702a"></script>
+  <script src="src/wires.js?v=20260702a"></script>
+  <script src="src/dims.js?v=20260702a"></script>
+  <script src="src/geom.js?v=20260702a"></script>
+  <script src="src/viewport.js?v=20260702a"></script>
+  <script src="src/render.js?v=20260702a"></script>
+  <script src="src/persistence.js?v=20260702a"></script>
+  <script src="src/export.js?v=20260702a"></script>
+  <script src="src/library/seed.js?v=20260702a"></script>
+  <script src="src/library/parts-builtin.js?v=20260702a"></script>
+  <script src="src/library/parts-ls.js?v=20260702a"></script>
+  <script src="src/library/parts-dwg.js?v=20260702a"></script>
+  <script src="src/library/userlib.js?v=20260702a"></script>
+  <script src="src/library/types.js?v=20260702a"></script>
+  <script src="src/library/edz.js?v=20260702a"></script>
+  <script src="src/library/palette.js?v=20260702a"></script>
+  <script src="src/interact.js?v=20260702a"></script>
+  <script src="src/ui/toolbar.js?v=20260702a"></script>
+  <script src="src/ui/inspector.js?v=20260702a"></script>
+  <script src="src/ui/part-editor.js?v=20260702a"></script>
+  <script src="src/ui/wire-presets.js?v=20260702a"></script>
+  <script src="src/main.js?v=20260702a"></script>
 </body>
 </html>

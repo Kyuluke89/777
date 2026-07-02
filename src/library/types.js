@@ -52,9 +52,10 @@
 
   // <option> 묶음 + "＋ 새 타입…"(value=__new__)
   T.optionsHtml = function (selected) {
+    const esc = App.esc || function (s) { return String(s); };
     let h = '';
     T.list().forEach(function (t) {
-      h += '<option value="' + t.name + '"' + (t.name === selected ? ' selected' : '') + '>' + t.label + '</option>';
+      h += '<option value="' + esc(t.name) + '"' + (t.name === selected ? ' selected' : '') + '>' + esc(t.label) + '</option>';
     });
     h += '<option value="__new__">＋ 새 타입…</option>';
     return h;

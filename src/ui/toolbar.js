@@ -139,6 +139,40 @@
     const pManage = $('wire-preset-manage');
     if (pManage) pManage.onclick = function () { App.wirePresets.open(); };
 
+    // 정렬/균등 간격
+    [['al-left', 'left'], ['al-right', 'right'], ['al-top', 'top'], ['al-bottom', 'bottom'],
+     ['al-hcenter', 'hcenter'], ['al-vcenter', 'vcenter']].forEach(function (pair) {
+      const btn = $(pair[0]);
+      if (btn) btn.onclick = function () {
+        const n = App.interact.alignSelected(pair[1]);
+        flash(n ? '정렬 ' + n + '개' : '부품 2개 이상 선택하세요');
+      };
+    });
+    [['al-disth', 'h'], ['al-distv', 'v']].forEach(function (pair) {
+      const btn = $(pair[0]);
+      if (btn) btn.onclick = function () {
+        const n = App.interact.distributeSelected(pair[1]);
+        flash(n ? '균등 간격 ' + n + '개' : '부품 3개 이상 선택하세요');
+      };
+    });
+
+    // 줌 컨트롤(캔버스 우하단)
+    function zoomCenter(factor) {
+      const svg = App.viewport.svg();
+      const r = svg.getBoundingClientRect();
+      App.viewport.zoomAt(r.x + r.width / 2, r.y + r.height / 2, factor);
+      App.render.all();
+      Toolbar.updateZoomPct();
+    }
+    if ($('zoom-in')) $('zoom-in').onclick = function () { zoomCenter(1.3); };
+    if ($('zoom-out')) $('zoom-out').onclick = function () { zoomCenter(1 / 1.3); };
+    if ($('zoom-fit')) $('zoom-fit').onclick = function () {
+      const p = App.store.get().panel;
+      App.viewport.fitTo(p.widthMM, p.heightMM);
+      App.render.all();
+      Toolbar.updateZoomPct();
+    };
+
     // 전류 흐름 애니메이션 재생/정지
     const flowBtn = $('wire-flow');
     if (flowBtn) flowBtn.onclick = function () {
@@ -214,8 +248,27 @@
     $('act-png').onclick = function () { App.exporter.png(2); flash('PNG 내보내기'); };
     $('act-print').onclick = function () { App.exporter.print(); };
 
+    // 도움말 모달
+    const helpModal = document.getElementById('help-modal');
+    function openHelp() { if (helpModal) helpModal.style.display = 'flex'; }
+    function closeHelp() { if (helpModal) helpModal.style.display = 'none'; }
+    if ($('act-help')) $('act-help').onclick = openHelp;
+    if ($('help-close')) $('help-close').onclick = closeHelp;
+    if (helpModal) helpModal.addEventListener('pointerdown', function (e) { if (e.target === helpModal) closeHelp(); });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'F1') { e.preventDefault(); openHelp(); }
+      else if (e.key === 'Escape' && helpModal && helpModal.style.display !== 'none') closeHelp();
+    });
+
     Toolbar.syncTool();
     Toolbar.syncFromState();
+  };
+
+  // 현재 줌 배율 표시 갱신 (100% = 1px/mm)
+  Toolbar.updateZoomPct = function () {
+    const el = $('zoom-pct');
+    if (!el || !App.viewport.svg()) return;
+    el.textContent = Math.round(App.viewport.scale() * 100) + '%';
   };
 
   // 배선 프리셋 드롭다운 채우기

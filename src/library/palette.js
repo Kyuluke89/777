@@ -61,8 +61,8 @@
     item.innerHTML =
       '<span class="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:' + color + '"></span>' +
       '<span class="flex-1 min-w-0">' +
-      '<span class="block text-xs font-semibold text-slate-700 truncate">' + p.partNo + (p.custom ? ' <span class="text-[9px] text-teal-600">★내부품</span>' : '') + '</span>' +
-      '<span class="block text-[10px] text-slate-400 truncate">' + (p.name || '') + ' · ' + (p.est ? '≈' : '') + p.w + '×' + p.h + 'mm' + (p.est ? ' (추정)' : '') + '</span>' +
+      '<span class="block text-xs font-semibold text-slate-700 truncate">' + App.esc(p.partNo) + (p.custom ? ' <span class="text-[9px] text-teal-600">★내부품</span>' : '') + '</span>' +
+      '<span class="block text-[10px] text-slate-400 truncate">' + App.esc(p.name || '') + ' · ' + (p.est ? '≈' : '') + p.w + '×' + p.h + 'mm' + (p.est ? ' (추정)' : '') + '</span>' +
       '</span>' +
       '<button class="pal-dup text-[11px] text-slate-400 hover:text-teal-600 flex-shrink-0" title="복제(같은 형태, 새 품번)">⎘</button>' +
       '<button class="pal-edit text-[11px] text-slate-400 hover:text-blue-600 flex-shrink-0" title="이름 수정">✎</button>' +
@@ -95,8 +95,14 @@
       const oldPN = p.partNo;
       App.userlib.add(Object.assign({}, p, { partNo: title, name: nm })); // 시드면 사용자 오버라이드
       if (title !== oldPN) { if (p.custom) App.userlib.remove(oldPN); else App.userlib.hide(oldPN); }
-      App.store.commit(function (s) {              // 배치된 동일 부품 품번/품명 동기화
-        s.components.forEach(function (c) { if (c.partNo === oldPN) { c.partNo = title; c.partName = nm; } });
+      const oldName = p.name || '';
+      App.store.commit(function (s) {              // 배치된 동일 부품 품번/품명(+표시 라벨) 동기화
+        s.components.forEach(function (c) {
+          if (c.partNo !== oldPN) return;
+          // 표시 라벨이 기존 품명/품번 그대로면 새 이름으로 갱신(사용자가 바꾼 라벨은 보존)
+          if (c.label === oldName || c.label === oldPN || c.label === c.partName) c.label = nm || title;
+          c.partNo = title; c.partName = nm;
+        });
       });
       if (App.ui.placing && App.ui.placing.partNo === oldPN) App.ui.placing = null;
       if (App.toolbar) App.toolbar.flash('수정됨: ' + title);
@@ -149,7 +155,7 @@
       head.innerHTML =
         '<span class="text-[10px] w-3 text-slate-400">' + (open ? '▾' : '▸') + '</span>' +
         '<span class="inline-block w-2.5 h-2.5 rounded-sm" style="background:' + color + '"></span>' +
-        '<span class="flex-1 text-xs font-bold" style="color:' + color + '">' + t + '</span>' +
+        '<span class="flex-1 text-xs font-bold" style="color:' + color + '">' + App.esc(t) + '</span>' +
         '<span class="text-[10px] text-slate-400">' + items.length + '</span>';
       head.onclick = function () { collapsed[t] = open; render(); };
       listEl.appendChild(head);

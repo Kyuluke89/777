@@ -650,6 +650,62 @@
     if (App.inspector) App.inspector.update();
   }
 
+  // 선택 부품 정렬 — mode: left/right/top/bottom/hcenter/vcenter (잠금 제외)
+  function alignSelected(mode) {
+    const ids = Array.from(App.ui.selected);
+    const items = [];
+    App.store.get().components.forEach(function (c) {
+      if (ids.indexOf(c.id) >= 0 && !c.locked) items.push(c);
+    });
+    if (items.length < 2) return 0;
+    let ref;
+    if (mode === 'left') ref = Math.min.apply(null, items.map(function (c) { return c.x; }));
+    else if (mode === 'right') ref = Math.max.apply(null, items.map(function (c) { return c.x + c.widthMM; }));
+    else if (mode === 'top') ref = Math.min.apply(null, items.map(function (c) { return c.y; }));
+    else if (mode === 'bottom') ref = Math.max.apply(null, items.map(function (c) { return c.y + c.heightMM; }));
+    else if (mode === 'hcenter') ref = items.reduce(function (s, c) { return s + c.y + c.heightMM / 2; }, 0) / items.length;
+    else if (mode === 'vcenter') ref = items.reduce(function (s, c) { return s + c.x + c.widthMM / 2; }, 0) / items.length;
+    App.store.commit(function (s) {
+      s.components.forEach(function (c) {
+        if (ids.indexOf(c.id) < 0 || c.locked) return;
+        if (mode === 'left') c.x = ref;
+        else if (mode === 'right') c.x = ref - c.widthMM;
+        else if (mode === 'top') c.y = ref;
+        else if (mode === 'bottom') c.y = ref - c.heightMM;
+        else if (mode === 'hcenter') c.y = Math.round(ref - c.heightMM / 2);
+        else if (mode === 'vcenter') c.x = Math.round(ref - c.widthMM / 2);
+      });
+    });
+    App.render.all();
+    return items.length;
+  }
+
+  // 선택 부품 균등 간격 배치 — axis: 'h'(가로 간격) | 'v'(세로 간격)
+  function distributeSelected(axis) {
+    const ids = Array.from(App.ui.selected);
+    const items = [];
+    App.store.get().components.forEach(function (c) {
+      if (ids.indexOf(c.id) >= 0 && !c.locked) items.push(c);
+    });
+    if (items.length < 3) return 0;
+    const key = axis === 'h' ? 'x' : 'y', size = axis === 'h' ? 'widthMM' : 'heightMM';
+    items.sort(function (a, b) { return a[key] - b[key]; });
+    const first = items[0], last = items[items.length - 1];
+    const span = (last[key] + last[size]) - first[key];
+    const total = items.reduce(function (s, c) { return s + c[size]; }, 0);
+    const gap = (span - total) / (items.length - 1);
+    let pos = first[key];
+    const target = {};
+    items.forEach(function (c) { target[c.id] = Math.round(pos); pos += c[size] + gap; });
+    App.store.commit(function (s) {
+      s.components.forEach(function (c) { if (target[c.id] != null && !c.locked) c[key] = target[c.id]; });
+    });
+    App.render.all();
+    return items.length;
+  }
+
+  Interact.alignSelected = alignSelected;
+  Interact.distributeSelected = distributeSelected;
   Interact.deleteSelected = deleteSelected;
   Interact.rotateSelected = rotateSelected;
   Interact.toggleLock = toggleLock;

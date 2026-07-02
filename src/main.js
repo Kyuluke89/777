@@ -55,6 +55,7 @@
       App.viewport.fitTo(p.widthMM, p.heightMM);
       App.render.all();
       App.toolbar.syncFromState();
+      if (App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
       App.inspector.update();
       // 자동저장 가능 여부 표시
       const badge = document.getElementById('autosave-badge');

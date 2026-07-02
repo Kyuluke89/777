@@ -62,7 +62,7 @@
     }
 
     if (f.kind === 'wires') {
-      html += row('라인번호', '<input data-field="label" type="text" value="' + (it.label || '') +
+      html += row('라인번호', '<input data-field="label" type="text" value="' + App.esc(it.label || '') +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
       html += row('라인 길이', '<span class="text-xs text-slate-700 font-semibold">' + App.wires.length(App.store.get(), it) + ' mm</span>');
       html += row('색상', '<input data-field="color" type="color" value="' + (it.color || '#dc2626') +
@@ -80,7 +80,7 @@
       let sqOpts = '<option value="">-</option>';
       App.wires.SQ_LIST.forEach(function (s) { sqOpts += '<option value="' + s + '"' + (String(it.sq) === s ? ' selected' : '') + '>' + s + ' SQ</option>'; });
       html += row('규격(SQ)', '<select data-field="sq" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + sqOpts + '</select>');
-      html += row('AWG', '<input data-field="awg" type="text" value="' + (it.awg || '') +
+      html += row('AWG', '<input data-field="awg" type="text" value="' + App.esc(it.awg || '') +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" placeholder="자동" />');
       html += row('두께(mm)', '<input data-field="width" type="number" step="0.2" min="0.2" value="' + (it.width || 1.2) +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
@@ -93,8 +93,8 @@
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +
-        ((fromC && fromC.label) || '?') + ' #' + it.fromTerm + ' → ' +
-        ((toC && toC.label) || '?') + ' #' + it.toTerm + '</div>';
+        App.esc((fromC && fromC.label) || '?') + ' #' + it.fromTerm + ' → ' +
+        App.esc((toC && toC.label) || '?') + ' #' + it.toTerm + '</div>';
       root.innerHTML = html;
       root.querySelectorAll('[data-field]').forEach(function (inp) {
         inp.addEventListener('change', function () {
@@ -117,16 +117,16 @@
       html += row('가로', numInput('widthMM', it.widthMM));
       html += row('세로', numInput('heightMM', it.heightMM));
       html += row('회전', numInput('rotation', it.rotation || 0));
-      html += row('품명', '<input data-field="label" type="text" value="' + (it.label || '').replace(/"/g, '&quot;') +
+      html += row('품명', '<input data-field="label" type="text" value="' + App.esc(it.label || '') +
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
-      html += row('호기번호', '<input data-field="tag" type="text" placeholder="예: Q1" value="' + (it.tag || '').replace(/"/g, '&quot;') +
+      html += row('호기번호', '<input data-field="tag" type="text" placeholder="예: Q1" value="' + App.esc(it.tag || '') +
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
       html += row('타입', '<select id="insp-type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
         App.types.optionsHtml(it.type) + '</select>');
       html += row('글자 방향', '<select id="insp-textdir" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
         '<option value="h"' + (it.textVert ? '' : ' selected') + '>가로</option>' +
         '<option value="v"' + (it.textVert ? ' selected' : '') + '>세로</option></select>');
-      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + (it.partNo || '') + '</div>';
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + App.esc(it.partNo || '') + '</div>';
       html += '<button id="insp-edit-part" class="mt-2 w-full px-2 py-1 text-xs rounded bg-teal-600 text-white">✎ 크기·단자 편집</button>';
       html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
     } else {

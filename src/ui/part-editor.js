@@ -78,7 +78,7 @@
       const row = document.createElement('div');
       row.className = 'flex items-center gap-1 py-0.5' + (st.selSet.has(i) ? ' bg-blue-50 rounded' : '');
       row.innerHTML =
-        '<input data-ti="' + i + '" class="pe-name w-16 px-1 py-0.5 text-[11px] border border-slate-300 rounded" value="' + (t.name || '').replace(/"/g, '&quot;') + '"/>' +
+        '<input data-ti="' + i + '" class="pe-name w-16 px-1 py-0.5 text-[11px] border border-slate-300 rounded" value="' + App.esc(t.name || '') + '"/>' +
         '<span class="text-[10px] text-slate-400 flex-1">(' + Math.round(t.rx) + ',' + Math.round(t.ry) + ')</span>' +
         '<button data-del="' + i + '" class="text-[11px] text-red-500 px-1">✕</button>';
       box.appendChild(row);
@@ -275,7 +275,11 @@
       if (c.partNo !== partNo) return;
       c.widthMM = def.w; c.heightMM = def.h; c.term = App.clone(def.terms);
       c.terminals = def.terms.length; c.type = def.type;
-      if (def.name) c.partName = def.name;
+      if (def.name) {
+        // 표시 라벨이 기존 품명/품번 그대로면 새 이름 반영(사용자 지정 라벨은 보존)
+        if (c.label === c.partName || c.label === c.partNo) c.label = def.name;
+        c.partName = def.name;
+      }
       n++;
     });
     return n;

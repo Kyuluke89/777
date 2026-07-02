@@ -35,12 +35,12 @@
 
   function rowHtml(p, i) {
     return '<div class="wp-row flex items-center gap-2 py-1" data-i="' + i + '">' +
-      '<input class="wp-name px-1 py-0.5 text-xs border border-slate-300 rounded" style="width:104px" value="' + (p.name || '').replace(/"/g, '&quot;') + '" placeholder="이름"/>' +
+      '<input class="wp-name px-1 py-0.5 text-xs border border-slate-300 rounded" style="width:104px" value="' + App.esc(p.name || '') + '" placeholder="이름"/>' +
       '<select class="wp-color px-1 py-0.5 text-xs border border-slate-300 rounded" style="width:50px">' + colorOptions(p.color) + '</select>' +
       '<span class="wp-sw inline-block rounded-sm" style="width:14px;height:14px;border:1px solid #cbd5e1;background:' + (p.color || '#e11d2a') + '"></span>' +
       '<input class="wp-width px-1 py-0.5 text-xs border border-slate-300 rounded text-right" type="number" step="0.2" min="0.2" style="width:48px" value="' + (p.width != null ? p.width : 1.2) + '"/>' +
       '<select class="wp-sq px-1 py-0.5 text-xs border border-slate-300 rounded" style="width:60px">' + sqOptions(p.sq) + '</select>' +
-      '<input class="wp-awg px-1 py-0.5 text-xs border border-slate-300 rounded text-right" style="width:46px" value="' + (p.awg || '') + '" placeholder="자동"/>' +
+      '<input class="wp-awg px-1 py-0.5 text-xs border border-slate-300 rounded text-right" style="width:46px" value="' + App.esc(p.awg || '') + '" placeholder="자동"/>' +
       '<select class="wp-acdc px-1 py-0.5 text-xs border border-slate-300 rounded" style="width:56px">' + acdcOptions(p.acdc) + '</select>' +
       '<button class="wp-del text-red-400 hover:text-red-600 text-xs" title="삭제">✕</button>' +
       '</div>';
