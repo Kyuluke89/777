@@ -1030,6 +1030,19 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(fitOK, '빈 공간 더블클릭 → 화면 맞춤');
 
+  // 전체 시트 통합 내보내기(allSheets) — 시트별 부품/배선 수집
+  const multiExp = await page.evaluate(() => {
+    App.sheetsMgr.add('수출2');
+    App.store.commit(s => { s.components.push({ id: 'me1', partNo: 'ME-1', type: 'TB', x: 10, y: 10, widthMM: 20, heightMM: 20, rotation: 0, label: 'me', terminals: 0, term: null }); });
+    const all = App.exporter.allSheets(App.store.get());
+    const names = all.map(a => a.name);
+    const sheet1HasComps = all[0].st.components.length > 0;   // 시트1(보관 데이터)
+    const sheet2HasME = all[1].st.components.some(c => c.partNo === 'ME-1');
+    App.sheetsMgr.switchTo(0); App.sheetsMgr.remove(1);
+    return { n: all.length, names, sheet1HasComps, sheet2HasME };
+  });
+  assert(multiExp.n === 2 && multiExp.sheet1HasComps && multiExp.sheet2HasME, '전체 시트 통합 수집 (' + multiExp.names + ')');
+
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

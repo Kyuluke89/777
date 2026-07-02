@@ -66,10 +66,45 @@
     return rows;
   };
 
+  // 모든 시트를 [{name, st}] 로 — 활성 시트는 현재 상태, 나머지는 보관 데이터
+  Ex.allSheets = function (state) {
+    state = state || App.store.get();
+    if (!state.sheets || state.sheets.length <= 1) return [{ name: (state.sheets && state.sheets[0] && state.sheets[0].name) || 'Sheet1', st: state }];
+    return state.sheets.map(function (sh, i) {
+      if (i === (state.activeSheet || 0)) return { name: sh.name, st: state };
+      const d = sh.data || {};
+      return { name: sh.name, st: { panel: d.panel || state.panel, components: d.components || [], wires: d.wires || [], ducts: d.ducts || [], rails: d.rails || [], dimensions: d.dimensions || [] } };
+    });
+  };
+
+  // 여러 시트 통합 여부 (시트 1장이면 항상 현재만)
+  function wantAllSheets(state) {
+    if (!state.sheets || state.sheets.length <= 1) return false;
+    return confirm('모든 시트(' + state.sheets.length + '장)를 통합해서 내보낼까요?\n(취소 = 현재 시트만)');
+  }
+
   // 부품 BOM — partNo 기준 집계 → CSV
   Ex.bom = function (state) {
     state = state || App.store.get();
-    const rows = Ex.bomRows(state);
+    let rows;
+    if (wantAllSheets(state)) {
+      // 전체 시트 통합: 수량 합산 + 시트 목록
+      const map = {};
+      Ex.allSheets(state).forEach(function (sh) {
+        (sh.st.components || []).forEach(function (c) {
+          const k = c.partNo || '(미지정)';
+          if (!map[k]) map[k] = { partNo: k, name: c.partName || c.label || '', type: c.type || '', w: c.widthMM, h: c.heightMM, qty: 0, tags: [], sheets: {} };
+          map[k].qty += 1;
+          if (c.tag) map[k].tags.push(c.tag);
+          map[k].sheets[sh.name] = 1;
+        });
+      });
+      rows = [['부품번호', '품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호', '시트']];
+      Object.keys(map).sort().forEach(function (k) {
+        const r = map[k];
+        rows.push([r.partNo, r.name, r.type, r.qty, r.w, r.h, r.tags.join(' '), Object.keys(r.sheets).join(' ')]);
+      });
+    } else rows = Ex.bomRows(state);
     download(baseName(state) + '_BOM.csv', toCsv(rows));
     return rows.length - 1;
   };
@@ -77,7 +112,14 @@
   // 배선표 → CSV
   Ex.wiringList = function (state) {
     state = state || App.store.get();
-    const rows = Ex.wiringRows(state);
+    let rows;
+    if (wantAllSheets(state)) {
+      rows = [['시트'].concat(Ex.wiringRows(state)[0])]; // 헤더에 시트 컬럼
+      Ex.allSheets(state).forEach(function (sh) {
+        const r = Ex.wiringRows(sh.st);
+        for (let i = 1; i < r.length; i++) rows.push([sh.name].concat(r[i]));
+      });
+    } else rows = Ex.wiringRows(state);
     download(baseName(state) + '_배선표.csv', toCsv(rows));
     return rows.length - 1;
   };
