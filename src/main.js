@@ -39,6 +39,7 @@
     // 상태 변경 → 자동저장 예약 + 카운트 갱신
     const countsEl = document.getElementById('counts');
     App.store.subscribe(function (state) {
+      App.persistence.markDirty();
       App.persistence.scheduleAutosave(state);
       if (countsEl) {
         const totLen = App.wires ? App.wires.totalLength(state) : 0;
@@ -57,6 +58,7 @@
       App.toolbar.syncFromState();
       if (App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
       App.inspector.update();
+      App.persistence.markSaved(); // 초기 로드는 변경 아님
       // 자동저장 가능 여부 표시
       const badge = document.getElementById('autosave-badge');
       if (badge) {

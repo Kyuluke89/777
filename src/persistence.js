@@ -15,7 +15,10 @@
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const safe = (state.name || 'panel').replace(/[^\w가-힣\-]+/g, '_');
+    // 파일명: 도면 제목 > 프로젝트명 > 기본값
+    const base = (state.panel && state.panel.title) || state.name || 'panel';
+    const safe = String(base).replace(/[^\w가-힣\-]+/g, '_');
+    P.markSaved();
     a.href = url;
     a.download = safe + '.panel.json';
     document.body.appendChild(a);
@@ -121,4 +124,17 @@
       tx.objectStore(STORE).delete(AUTOSAVE_KEY);
     }).catch(function () {});
   };
+
+  // --- 저장 안 된 변경 추적 + 창 닫기 경고 ---
+  // 자동저장이 없는 file:// 환경에서 실수로 닫아 작업을 잃지 않도록 경고한다.
+  let dirty = false;
+  P.markDirty = function () { dirty = true; };
+  P.markSaved = function () { dirty = false; };
+  P.isDirty = function () { return dirty; };
+  global.addEventListener('beforeunload', function (e) {
+    // 자동저장이 켜져 있으면(http/https) 복원 가능하므로 경고 생략
+    if (!dirty || P.autosaveAvailable()) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
 })(window);

@@ -794,6 +794,17 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(!xss.pwned && !xss.injectedImg && !xss.injectedB, '악성 라벨 이스케이프(XSS 차단)');
   assert(xss.escOK, 'App.esc 동작');
 
+  // 저장 안 된 변경 추적(dirty) — 변경 시 true, markSaved 후 false
+  const dirty = await page.evaluate(() => {
+    App.persistence.markSaved();
+    const clean = !App.persistence.isDirty();
+    App.store.commit(s => { s.panel.gridMM = s.panel.gridMM; }); // 임의 커밋
+    const afterCommit = App.persistence.isDirty();
+    App.persistence.markSaved();
+    return { clean, afterCommit, saved: !App.persistence.isDirty() };
+  });
+  assert(dirty.clean && dirty.afterCommit && dirty.saved, '미저장 변경 추적(dirty→saved)');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 
