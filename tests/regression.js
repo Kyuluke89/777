@@ -929,6 +929,31 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(tbR.has && tbR.saved, '표제란 렌더 + 저장 (DWG-001)');
   await page.evaluate(() => { App.store.commit(s => { s.titleBlock = { show: false }; }); App.render.all(); });
 
+  // === 멀티 시트 ===
+  const sheets = await page.evaluate(() => {
+    const before = App.store.get().components.length;
+    App.sheetsMgr.add('2번반');                       // 새 빈 시트로 전환
+    const s2 = App.store.get();
+    const emptyNew = s2.components.length === 0 && s2.activeSheet === 1;
+    const tabN = document.querySelectorAll('#sheet-tabs button').length;
+    // 새 시트에 부품 추가
+    App.store.commit(s => { s.components.push({ id: 'sh2c', partNo: 'x', type: 'TB', x: 50, y: 50, widthMM: 30, heightMM: 30, rotation: 0, label: 's2', terminals: 0, term: null }); });
+    App.sheetsMgr.switchTo(0);                        // 1번 시트로 복귀
+    const s1 = App.store.get();
+    const backOK = s1.components.length === before && s1.activeSheet === 0;
+    App.sheetsMgr.switchTo(1);                        // 다시 2번 — 내용 유지 확인
+    const keep = App.store.get().components.some(c => c.id === 'sh2c');
+    App.sheetsMgr.switchTo(0);
+    App.sheetsMgr.remove(1);                          // 2번 삭제
+    const oneLeft = App.store.get().sheets.length === 1;
+    return { emptyNew, tabN, backOK, keep, oneLeft };
+  });
+  assert(sheets.emptyNew, '새 시트 추가(빈 도면)');
+  assert(sheets.tabN >= 3, '시트 탭 렌더 (' + sheets.tabN + ')');
+  assert(sheets.backOK, '시트1 복귀 시 내용 복원');
+  assert(sheets.keep, '시트2 내용 유지');
+  assert(sheets.oneLeft, '시트 삭제');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

@@ -169,6 +169,7 @@
       <!-- 중앙: 캔버스 -->
       <main class="flex-1 relative min-w-0">
         <svg id="canvas"></svg>
+        <div id="sheet-tabs" class="absolute top-0 left-2 flex items-end gap-1 no-canvas"></div>
         <div class="absolute bottom-2 left-2 text-[10px] text-slate-400 bg-white/80 px-2 py-1 rounded no-canvas">
           <span id="cursor-pos" class="text-slate-600 font-semibold" style="display:inline-block;min-width:90px">0, 0 mm</span> ·
           휠:줌 · Space/우클릭드래그:이동 · Shift드래그:수평/수직 · V/W/D:도구 · Ctrl+A:전체 · <span id="counts" class="text-slate-500 font-semibold"></span>
@@ -388,6 +389,7 @@
   <script src="src/viewport.js?v=20260702b"></script>
   <script src="src/render.js?v=20260702b"></script>
   <script src="src/persistence.js?v=20260702b"></script>
+  <script src="src/sheets.js?v=20260702b"></script>
   <script src="src/export.js?v=20260702b"></script>
   <script src="src/library/seed.js?v=20260702b"></script>
   <script src="src/library/parts-builtin.js?v=20260702b"></script>
