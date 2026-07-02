@@ -122,4 +122,83 @@
 
   // 인쇄 (브라우저 인쇄 → PDF 저장 가능)
   Ex.print = function () { global.print(); };
+
+  // ── DXF 내보내기 (R12 ASCII, mm) — AutoCAD 등 CAD 에서 열기 ─────────────
+  // DXF 는 y 축이 위로 증가 → y' = -y 로 뒤집어 화면과 같은 모양으로 출력.
+  Ex.dxfString = function (state) {
+    state = state || App.store.get();
+    const L = [];
+    function push() { for (let i = 0; i < arguments.length; i++) L.push(arguments[i]); }
+    function line(layer, x1, y1, x2, y2) {
+      push(0, 'LINE', 8, layer, 10, x1, 20, -y1, 11, x2, 21, -y2);
+    }
+    function rect(layer, x, y, w, h) {
+      line(layer, x, y, x + w, y);
+      line(layer, x + w, y, x + w, y + h);
+      line(layer, x + w, y + h, x, y + h);
+      line(layer, x, y + h, x, y);
+    }
+    function circle(layer, cx, cy, r) {
+      push(0, 'CIRCLE', 8, layer, 10, cx, 20, -cy, 40, r);
+    }
+    function text(layer, x, y, h, s) {
+      if (s == null || s === '') return;
+      push(0, 'TEXT', 8, layer, 10, x, 20, -y, 40, h, 1, String(s));
+    }
+    push(0, 'SECTION', 2, 'ENTITIES');
+    const p = state.panel;
+    rect('PANEL', 0, 0, p.widthMM, p.heightMM);
+    if (p.title) text('TEXT', p.widthMM / 2, -14, 10, p.title);
+    (state.ducts || []).forEach(function (d) {
+      const w = d.orient === 'h' ? d.lengthMM : d.widthMM;
+      const h = d.orient === 'h' ? d.widthMM : d.lengthMM;
+      rect('DUCTS', d.x, d.y, w, h);
+    });
+    (state.rails || []).forEach(function (r) {
+      const w = r.orient === 'h' ? r.lengthMM : (r.widthMM || 35);
+      const h = r.orient === 'h' ? (r.widthMM || 35) : r.lengthMM;
+      rect('RAILS', r.x, r.y, w, h);
+      if (r.orient === 'h') line('RAILS', r.x, r.y + h / 2, r.x + w, r.y + h / 2);
+      else line('RAILS', r.x + w / 2, r.y, r.x + w / 2, r.y + h);
+    });
+    (state.components || []).forEach(function (c) {
+      rect('PARTS', c.x, c.y, c.widthMM, c.heightMM);
+      const cy = c.y + c.heightMM / 2;
+      text('TEXT', c.x + 2, cy, 4, c.label || c.partName || c.partNo || '');
+      if (c.tag) text('TEXT', c.x + 2, c.y + 7, 4, c.tag);
+      App.terminals.world(c).forEach(function (t) {
+        circle('TERMS', t.x, t.y, (t.w || 3.6) / 2);
+        if (t.name) text('TERMS', t.x + 2.4, t.y - 2.4, 2.5, t.name);
+      });
+    });
+    (state.wires || []).forEach(function (w) {
+      const pts = App.wires.route(state, w);
+      if (!pts) return;
+      for (let i = 0; i < pts.length - 1; i++) line('WIRES', pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+      if (w.label) {
+        const ends = App.wires.endLabels(state, w);
+        if (ends) { text('WIRES', ends.a.x, ends.a.y - 2, 3.5, w.label); text('WIRES', ends.b.x, ends.b.y - 2, 3.5, w.label); }
+      }
+    });
+    (state.dimensions || []).forEach(function (m) {
+      const g = App.dims.geom(m);
+      line('DIMS', g.p1.x, g.p1.y, g.a1.x, g.a1.y);
+      line('DIMS', g.p2.x, g.p2.y, g.a2.x, g.a2.y);
+      line('DIMS', g.a1.x, g.a1.y, g.a2.x, g.a2.y);
+      text('DIMS', g.mid.x, g.mid.y - 2, 4, App.dims.length(m));
+    });
+    push(0, 'ENDSEC', 0, 'EOF');
+    return L.join('\n') + '\n';
+  };
+
+  Ex.dxf = function () {
+    const state = App.store.get();
+    const s = Ex.dxfString(state);
+    const blob = new Blob([s], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = baseName(state) + '.dxf';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  };
 })(window);

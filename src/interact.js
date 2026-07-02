@@ -63,7 +63,8 @@
       tag: '',                          // 호기번호(선택) — 인스펙터에서 입력
       partName: part.name || '',
       terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
-      term: part.term ? App.clone(part.term) : null
+      term: part.term ? App.clone(part.term) : null,
+      img: part.img || null
     };
     App.store.commit(function (s) { s.components.push(comp); });
     selectOnly(comp.id);

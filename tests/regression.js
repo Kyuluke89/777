@@ -954,6 +954,49 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(sheets.keep, '시트2 내용 유지');
   assert(sheets.oneLeft, '시트 삭제');
 
+  // === DXF / 이미지 / 3D ===
+  // DXF 문자열 생성
+  const dxf = await page.evaluate(() => {
+    const s = App.exporter.dxfString(App.store.get());
+    return {
+      hasEnt: s.indexOf('ENTITIES') >= 0, hasEOF: s.indexOf('EOF') >= 0,
+      lines: (s.match(/\nLINE\n/g) || []).length,
+      circles: (s.match(/\nCIRCLE\n/g) || []).length,
+      texts: (s.match(/\nTEXT\n/g) || []).length
+    };
+  });
+  assert(dxf.hasEnt && dxf.hasEOF, 'DXF 구조(ENTITIES/EOF)');
+  assert(dxf.lines >= 8 && dxf.circles >= 4 && dxf.texts >= 2, 'DXF 엔티티 (' + dxf.lines + 'L/' + dxf.circles + 'C/' + dxf.texts + 'T)');
+
+  // 부품 이미지: img 지정 → 캔버스에 <image> 렌더 + 틴트 투명화
+  const imgTest = await page.evaluate(() => {
+    const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const c0 = App.store.get().components[0];
+    App.store.commit(s => { s.components.find(c => c.id === c0.id).img = PIX; });
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
+    const im = grp.querySelector('image');
+    App.store.commit(s => { s.components.find(c => c.id === c0.id).img = null; });
+    App.render.all();
+    return { has: !!im, href: im && (im.getAttribute('href') || '').indexOf('data:image/png') === 0 };
+  });
+  assert(imgTest.has && imgTest.href, '부품 이미지 렌더(<image>)');
+
+  // 3D 뷰: 열기 → 폴리곤(3면 박스) 렌더 → 닫기
+  await page.click('#act-3d');
+  const v3 = await page.evaluate(() => {
+    const open = getComputedStyle(document.getElementById('view3d-modal')).display !== 'none';
+    const polys = document.querySelectorAll('#view3d-svg polygon').length;
+    const wires3d = document.querySelectorAll('#view3d-svg polyline').length;
+    return { open, polys, wires3d };
+  });
+  assert(v3.open, '3D 모달 열림');
+  assert(v3.polys >= 9, '3D 박스 면 렌더 (' + v3.polys + 'polys)');
+  assert(v3.wires3d >= 1, '3D 배선 표시');
+  await page.keyboard.press('Escape');
+  const v3closed = await page.evaluate(() => getComputedStyle(document.getElementById('view3d-modal')).display === 'none');
+  assert(v3closed, '3D 모달 Esc 닫힘');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

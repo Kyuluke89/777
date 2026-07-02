@@ -170,9 +170,17 @@
       const color = App.typeColor(c.type);
       // 불투명 흰 배경(뒤 레일/덕트 가림) + 타입색 옅은 틴트
       App.el('rect', { x: c.x, y: c.y, width: c.widthMM, height: c.heightMM, rx: 2, fill: '#ffffff' }, grp);
+      // 부품 외형 이미지(있으면 실물 사진처럼 표시)
+      if (c.img) {
+        const im = App.el('image', {
+          x: c.x, y: c.y, width: c.widthMM, height: c.heightMM,
+          preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none'
+        }, grp);
+        im.setAttribute('href', c.img);
+      }
       App.el('rect', {
         x: c.x, y: c.y, width: c.widthMM, height: c.heightMM,
-        rx: 2, fill: over ? '#ef4444' : color, 'fill-opacity': over ? 0.22 : 0.16,
+        rx: 2, fill: over ? '#ef4444' : color, 'fill-opacity': c.img ? 0 : (over ? 0.22 : 0.16),
         stroke: over ? '#dc2626' : (isSelected(c.id) ? '#111827' : color),
         'stroke-width': isSelected(c.id) || over ? 2 : 1.2,
         'stroke-dasharray': over ? '4 2' : null

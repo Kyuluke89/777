@@ -45,6 +45,10 @@
     el('rect', { x: -pad, y: -pad, width: st.w + pad * 2, height: st.h + pad * 2, fill: 'url(#pe-grid)' }, peSvg);
     const color = App.typeColor(st.type);
     el('rect', { x: 0, y: 0, width: st.w, height: st.h, rx: 2, fill: color, 'fill-opacity': 0.12, stroke: color, 'stroke-width': 1 }, peSvg);
+    if (st.img) {
+      const im = el('image', { x: 0, y: 0, width: st.w, height: st.h, preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none' }, peSvg);
+      im.setAttribute('href', st.img);
+    }
     // 단자 (원형/사각형)
     st.terms.forEach(function (t, i) {
       const g = el('g', { 'data-ti': i, style: 'cursor:move' }, peSvg);
@@ -230,6 +234,8 @@
       st = { mode: 'new', partNo: '', name: '', type: 'TB', w: 60, h: 80, terms: [], nextName: 'A1', sel: -1 };
     }
     st.termShape = 'circle'; st.termW = 3.6; st.termH = 3.6; st.termLabelPos = 'top';
+    st.img = (opts.component && opts.component.img) || null;
+    if (PE.updateImgUI) PE.updateImgUI();
     st.selSet = new Set();
     $('pe-title').textContent = st.mode === 'component' ? '부품 크기·단자 편집' : '커스텀 부품 만들기';
     $('pe-name-in').value = st.name;
@@ -264,7 +270,7 @@
   function buildPart() {
     return { partNo: partNoOf(), manufacturer: '커스텀', type: st.type,
       name: st.name || '커스텀 부품', w: st.w, h: st.h, d: 60, terminals: st.terms.length,
-      term: App.clone(st.terms), custom: true };
+      term: App.clone(st.terms), img: st.img || undefined, custom: true };
   }
 
   // 배치된 동일 부품(같은 partNo) 전체를 새 정의로 갱신 (라벨/호기번호 등 인스턴스 값은 보존)
@@ -280,6 +286,7 @@
         if (c.label === c.partName || c.label === c.partNo) c.label = def.name;
         c.partName = def.name;
       }
+      c.img = def.img || null;
       n++;
     });
     return n;
@@ -288,7 +295,7 @@
   // 라이브러리 + 배치된 동일 부품 모두 한 번에 갱신
   function saveAll(updateEditedId) {
     const partNo = partNoOf();
-    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name };
+    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null };
     let cnt = 0;
     App.store.commit(function (s) {
       // 편집 중인 바로 그 부품(아직 partNo가 없을 수도 있음)도 확실히 반영
@@ -305,7 +312,7 @@
     });
     // 기본/사용자 라이브러리 업서트(부품번호 기준)
     App.userlib.add({ partNo: partNo, manufacturer: '커스텀', type: st.type,
-      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms) });
+      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined });
     if (App.palette) App.palette.reloadUser();
     return cnt;
   }
@@ -354,6 +361,35 @@
     ['pe-tshape', 'pe-tw', 'pe-th', 'pe-tlabel'].forEach(function (id) {
       const elx = $(id); if (elx) elx.addEventListener('change', applyTermControls);
     });
+    // 이미지 업로드(최대 512px 자동 축소) / 제거
+    function updateImgUI() {
+      const del = $('pe-img-del');
+      if (del) del.classList.toggle('hidden', !(st && st.img));
+      const btn = $('pe-img-btn');
+      if (btn) btn.textContent = (st && st.img) ? '📷 변경' : '📷 선택';
+    }
+    PE.updateImgUI = updateImgUI;
+    if ($('pe-img-btn')) $('pe-img-btn').onclick = function () { $('pe-img-file').click(); };
+    if ($('pe-img-del')) $('pe-img-del').onclick = function () { st.img = null; updateImgUI(); refresh(); };
+    if ($('pe-img-file')) $('pe-img-file').onchange = function () {
+      const f = this.files && this.files[0]; this.value = '';
+      if (!f || !st) return;
+      const r = new FileReader();
+      r.onload = function () {
+        const img = new Image();
+        img.onload = function () {
+          const MAX = 512;
+          const k = Math.min(1, MAX / Math.max(img.width, img.height));
+          const cv = document.createElement('canvas');
+          cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          st.img = cv.toDataURL('image/png');
+          updateImgUI(); refresh();
+        };
+        img.src = r.result;
+      };
+      r.readAsDataURL(f);
+    };
     window.addEventListener('keydown', onKey);
     $('pe-save').onclick = saveToLibrary;
     $('pe-apply').onclick = applyToComponent;

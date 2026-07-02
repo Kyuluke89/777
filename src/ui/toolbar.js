@@ -278,7 +278,9 @@
     $('act-bom').onclick = function () { const n = App.exporter.bom(); flash('BOM ' + n + '행 저장'); };
     $('act-wlist').onclick = function () { const n = App.exporter.wiringList(); flash('배선표 ' + n + '행 저장'); };
     $('act-png').onclick = function () { App.exporter.png(2); flash('PNG 내보내기'); };
+    if ($('act-dxf')) $('act-dxf').onclick = function () { App.exporter.dxf(); flash('DXF 내보내기'); };
     $('act-print').onclick = function () { App.exporter.print(); };
+    if ($('act-3d')) $('act-3d').onclick = function () { if (App.view3d) App.view3d.open(); };
 
     // 도움말 모달
     const helpModal = document.getElementById('help-modal');
