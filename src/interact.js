@@ -597,6 +597,15 @@
       selectOnly(id);
       const f = App.store.findById(id);
       if (f && App.partEditor) App.partEditor.open({ component: f.item });
+      return;
+    }
+    // 다른 요소(덕트/레일/치수 핸들 등) 위가 아니면: 빈 공간 더블클릭 → 화면 맞춤
+    const anyEl = pick('[data-id]') || pick('[data-seg]') || pick('[data-dim]');
+    if (!anyEl) {
+      const p = App.store.get().panel;
+      App.viewport.fitTo(p.widthMM, p.heightMM);
+      App.render.all();
+      if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
     }
   }
 

@@ -1013,6 +1013,23 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   const v3closed = await page.evaluate(() => getComputedStyle(document.getElementById('view3d-modal')).display === 'none');
   assert(v3closed, '3D 모달 Esc 닫힘');
 
+  // 패널 접기 토글 + 빈 공간 더블클릭 화면맞춤
+  await page.click('#toggle-left');
+  let leftHidden = await page.evaluate(() => document.getElementById('left-panel').style.display === 'none');
+  assert(leftHidden, '좌측 패널 접기');
+  await page.click('#toggle-left');
+  leftHidden = await page.evaluate(() => document.getElementById('left-panel').style.display === 'none');
+  assert(!leftHidden, '좌측 패널 펼치기');
+  await page.evaluate(() => { App.viewport.panBy(500, 500); }); // 화면 어긋내기
+  const fitBox = await page.evaluate(() => { const r = document.getElementById('canvas').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * 0.9 }; });
+  await page.mouse.dblclick(fitBox.x, fitBox.y);
+  const fitOK = await page.evaluate(() => {
+    const vb = App.viewport.getViewBox(); const p = App.store.get().panel;
+    const cx = vb.x + vb.w / 2;
+    return Math.abs(cx - p.widthMM / 2) < 5; // 패널 중앙 근처로 복귀
+  });
+  assert(fitOK, '빈 공간 더블클릭 → 화면 맞춤');
+
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

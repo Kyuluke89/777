@@ -282,6 +282,21 @@
     $('act-print').onclick = function () { App.exporter.print(); };
     if ($('act-3d')) $('act-3d').onclick = function () { if (App.view3d) App.view3d.open(); };
 
+    // 좌/우 패널 접기 (모바일·좁은 화면용)
+    function bindPanelToggle(btnId, panelId, openCh, closeCh) {
+      const btn = $(btnId), panel = document.getElementById(panelId);
+      if (!btn || !panel) return;
+      btn.onclick = function () {
+        const hidden = panel.style.display === 'none';
+        panel.style.display = hidden ? '' : 'none';
+        btn.textContent = hidden ? openCh : closeCh;
+        App.render.all(); // 캔버스 폭 변경 반영(핸들 크기 등)
+        Toolbar.updateZoomPct();
+      };
+    }
+    bindPanelToggle('toggle-left', 'left-panel', '◀', '▶');
+    bindPanelToggle('toggle-right', 'right-panel', '▶', '◀');
+
     // 도움말 모달
     const helpModal = document.getElementById('help-modal');
     function openHelp() { if (helpModal) helpModal.style.display = 'flex'; }

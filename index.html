@@ -147,7 +147,7 @@
 
     <div class="flex flex-1 min-h-0">
       <!-- 좌측: 부품 라이브러리 -->
-      <aside class="w-60 bg-white border-r border-slate-200 flex flex-col no-canvas">
+      <aside id="left-panel" class="w-60 bg-white border-r border-slate-200 flex flex-col no-canvas">
         <div class="px-3 py-2 border-b border-slate-100">
           <div class="flex items-center justify-between mb-1">
             <span class="text-xs font-bold text-slate-600">부품 라이브러리</span>
@@ -172,6 +172,10 @@
       <main class="flex-1 relative min-w-0">
         <svg id="canvas"></svg>
         <div id="sheet-tabs" class="absolute top-0 left-2 flex items-end gap-1 no-canvas"></div>
+        <button id="toggle-left" class="no-canvas" title="라이브러리 패널 접기/펼치기"
+          style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:16px;height:56px;border:1px solid #e2e8f0;border-left:none;border-radius:0 8px 8px 0;background:#fff;color:#94a3b8;font-size:10px;cursor:pointer;">◀</button>
+        <button id="toggle-right" class="no-canvas" title="설정/속성 패널 접기/펼치기"
+          style="position:absolute;right:0;top:50%;transform:translateY(-50%);width:16px;height:56px;border:1px solid #e2e8f0;border-right:none;border-radius:8px 0 0 8px;background:#fff;color:#94a3b8;font-size:10px;cursor:pointer;">▶</button>
         <div class="absolute bottom-2 left-2 text-[10px] text-slate-400 bg-white/80 px-2 py-1 rounded no-canvas">
           <span id="cursor-pos" class="text-slate-600 font-semibold" style="display:inline-block;min-width:90px">0, 0 mm</span> ·
           휠:줌 · Space/우클릭드래그:이동 · Shift드래그:수평/수직 · V/W/D:도구 · Ctrl+A:전체 · <span id="counts" class="text-slate-500 font-semibold"></span>
@@ -186,7 +190,7 @@
       </main>
 
       <!-- 우측: 전장 설정 + 인스펙터 -->
-      <aside class="w-56 bg-white border-l border-slate-200 flex flex-col no-canvas">
+      <aside id="right-panel" class="w-56 bg-white border-l border-slate-200 flex flex-col no-canvas">
         <div class="px-3 py-2 border-b border-slate-100">
           <div class="text-xs font-bold text-slate-600 mb-2">전장(플레이트) 설정</div>
           <label class="flex items-center justify-between py-0.5">
