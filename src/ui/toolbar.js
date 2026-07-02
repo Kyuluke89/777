@@ -22,6 +22,7 @@
     });
   };
 
+  Toolbar.setTool = setTool; // 단축키(V/W/D)에서 사용
   function setTool(t) {
     App.ui.tool = t;
     App.ui.placing = null;

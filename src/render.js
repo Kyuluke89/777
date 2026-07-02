@@ -446,6 +446,25 @@
     });
   }
 
+  // 스마트 정렬 가이드선(드래그 중) — 분홍 점선, 전장 범위 관통
+  Render.guides = function (lines) {
+    const g = App.viewport.layers().overlay;
+    let grp = g.querySelector('#smart-guides');
+    if (grp) grp.remove();
+    if (!lines || !lines.length) return;
+    grp = App.el('g', { id: 'smart-guides', 'pointer-events': 'none' }, g);
+    const p = App.store.get().panel;
+    const lw = App.viewport.pxToMM(1);
+    const dash = App.viewport.pxToMM(5) + ' ' + App.viewport.pxToMM(3);
+    lines.forEach(function (l) {
+      if (l.x != null) {
+        App.el('line', { x1: l.x, y1: -30, x2: l.x, y2: p.heightMM + 30, stroke: '#ec4899', 'stroke-width': lw, 'stroke-dasharray': dash }, grp);
+      } else {
+        App.el('line', { x1: -30, y1: l.y, x2: p.widthMM + 30, y2: l.y, stroke: '#ec4899', 'stroke-width': lw, 'stroke-dasharray': dash }, grp);
+      }
+    });
+  };
+
   // 미리보기(드래그 중 새 엔티티) 그리기 — overlay 사용
   Render.preview = function (rectMM) {
     const g = App.viewport.layers().overlay;

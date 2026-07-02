@@ -805,6 +805,75 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(dirty.clean && dirty.afterCommit && dirty.saved, '미저장 변경 추적(dirty→saved)');
 
+  // === CAD 편의 기능 ===
+  // 도구 단축키 V/W/D
+  await page.keyboard.press('w');
+  let toolNow = await page.evaluate(() => App.ui.tool);
+  assert(toolNow === 'wire', '단축키 W → 배선 도구 (' + toolNow + ')');
+  await page.keyboard.press('d');
+  toolNow = await page.evaluate(() => App.ui.tool);
+  assert(toolNow === 'dim', '단축키 D → 치수 도구');
+  await page.keyboard.press('v');
+  toolNow = await page.evaluate(() => App.ui.tool);
+  assert(toolNow === 'select', '단축키 V → 선택 도구');
+
+  // Ctrl+A 전체 선택
+  await page.keyboard.press('Control+a');
+  const selAll = await page.evaluate(() => {
+    const s = App.store.get();
+    const total = s.components.length + s.ducts.length + s.rails.length + s.wires.length + (s.dimensions || []).length;
+    return { sel: App.ui.selected.size, total };
+  });
+  assert(selAll.sel === selAll.total && selAll.total > 0, 'Ctrl+A 전체 선택 (' + selAll.sel + '/' + selAll.total + ')');
+  await page.keyboard.press('Escape');
+
+  // 마우스 좌표 표시
+  await page.mouse.move(cx, cy);
+  const posTxt = await page.evaluate(() => document.getElementById('cursor-pos').textContent);
+  assert(/-?\d+, -?\d+ mm/.test(posTxt), '마우스 좌표(mm) 표시 (' + posTxt + ')');
+
+  // 부품 더블클릭 → 크기·단자 편집 모달
+  const c0box = await page.evaluate(() => {
+    const c = App.store.get().components[0];
+    const grp = document.querySelector('#layer-components [data-id="' + c.id + '"] rect');
+    const r = grp.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await page.mouse.dblclick(c0box.x, c0box.y);
+  const peOpen = await page.evaluate(() => getComputedStyle(document.getElementById('part-editor')).display !== 'none');
+  assert(peOpen, '부품 더블클릭 → 편집 모달');
+  await page.keyboard.press('Escape');
+
+  // 스마트 정렬 가이드: 격자에 안 맞는 기준(y=303)에 드래그 시 자석 스냅
+  const smart = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.rails = []; // 레일 스냅 배제
+      s.components.push({ id: 'sm1', partNo: 'sm', type: 'TB', x: 100, y: 303, widthMM: 40, heightMM: 40, rotation: 0, label: 'ref', terminals: 0, term: null });
+      s.components.push({ id: 'sm2', partNo: 'sm', type: 'TB', x: 300, y: 400, widthMM: 40, heightMM: 40, rotation: 0, label: 'mv', terminals: 0, term: null });
+    });
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="sm2"] rect');
+    const r = grp.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, scale: App.viewport.scale() };
+  });
+  // sm2 를 y=303 근처(302)로 드래그: 격자 스냅(300/310)이 아닌 303 에 자석
+  const dyPx = (302 - 400) * smart.scale;
+  await page.mouse.move(smart.x, smart.y);
+  await page.mouse.down();
+  await page.mouse.move(smart.x + 3, smart.y + dyPx, { steps: 8 });
+  const guideShown = await page.evaluate(() => !!document.querySelector('#smart-guides line'));
+  await page.mouse.up();
+  const smartRes = await page.evaluate(() => {
+    const y = App.store.get().components.find(c => c.id === 'sm2').y;
+    const cleared = !document.querySelector('#smart-guides line');
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'sm1' && c.id !== 'sm2'); });
+    App.ui.selected.clear(); App.render.all();
+    return { y, cleared };
+  });
+  assert(guideShown, '드래그 중 스마트 가이드선 표시');
+  assert(smartRes.y === 303, '스마트 가이드 자석 스냅 (y=' + smartRes.y + ')');
+  assert(smartRes.cleared, '드래그 종료 시 가이드 제거');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

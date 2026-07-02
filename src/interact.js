@@ -175,8 +175,11 @@
   }
 
   function updateMove(cp) {
-    const dx = cp.x - gesture.sp.x;
-    const dy = cp.y - gesture.sp.y;
+    let dx = cp.x - gesture.sp.x;
+    let dy = cp.y - gesture.sp.y;
+    if (gesture.constrain) { // Shift: 수평/수직 제한(우세 축만)
+      if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0;
+    }
     if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) gesture.moved = true;
     const state = App.store.get();
     for (const id in gesture.origPos) {
@@ -190,11 +193,53 @@
         if (rt != null) f.item.y = rt;
       }
     }
+    // 스마트 정렬 가이드 — 단일 부품 이동 시 다른 부품/전장 모서리·중심에 자석
+    let guides = null;
+    const ids = Object.keys(gesture.origPos);
+    if (ids.length === 1) {
+      const f1 = App.store.findById(ids[0]);
+      if (f1 && f1.kind === 'components') guides = smartAlign(state, f1.item);
+    }
     App.store.touch();
+    if (App.render.guides) App.render.guides(guides); // touch 재렌더 후 그려야 유지됨
+  }
+
+  // 이동 중인 부품 m 을 다른 부품/전장의 모서리·중심에 스냅하고 가이드선 반환
+  function smartAlign(state, m) {
+    const tol = App.viewport.pxToMM(6);
+    const p = state.panel;
+    const lines = [];
+    const xTargets = [0, p.widthMM, p.widthMM / 2];
+    const yTargets = [0, p.heightMM, p.heightMM / 2];
+    state.components.forEach(function (o) {
+      if (o.id === m.id) return;
+      xTargets.push(o.x, o.x + o.widthMM, o.x + o.widthMM / 2);
+      yTargets.push(o.y, o.y + o.heightMM, o.y + o.heightMM / 2);
+    });
+    const xCands = [{ off: 0 }, { off: m.widthMM }, { off: m.widthMM / 2 }];
+    const yCands = [{ off: 0 }, { off: m.heightMM }, { off: m.heightMM / 2 }];
+    let best = null;
+    xCands.forEach(function (c) {
+      xTargets.forEach(function (t) {
+        const d = Math.abs((m.x + c.off) - t);
+        if (d <= tol && (!best || d < best.d)) best = { d: d, t: t, off: c.off };
+      });
+    });
+    if (best) { m.x = best.t - best.off; lines.push({ x: best.t }); }
+    best = null;
+    yCands.forEach(function (c) {
+      yTargets.forEach(function (t) {
+        const d = Math.abs((m.y + c.off) - t);
+        if (d <= tol && (!best || d < best.d)) best = { d: d, t: t, off: c.off };
+      });
+    });
+    if (best) { m.y = best.t - best.off; lines.push({ y: best.t }); }
+    return lines.length ? lines : null;
   }
 
   function finishMove() {
     if (gesture.moved) App.store.pushUndo(gesture.snap);
+    if (App.render.guides) App.render.guides(null);
     if (App.inspector) App.inspector.update();
   }
 
@@ -381,7 +426,17 @@
     if (App.inspector) App.inspector.update();
   }
 
+  let posEl = null; // 좌표 표시(캐시)
   function onPointerMove(e) {
+    // 마우스 좌표(mm) 실시간 표시
+    if (posEl !== false) {
+      if (!posEl) posEl = document.getElementById('cursor-pos') || false;
+      if (posEl) {
+        const w = App.viewport.clientToWorld(e.clientX, e.clientY);
+        posEl.textContent = Math.round(w.x) + ', ' + Math.round(w.y) + ' mm';
+      }
+    }
+    if (gesture) gesture.constrain = e.shiftKey; // Shift 드래그: 수평/수직 제한
     // 치수 도구 미리보기 + 스냅 (버튼 안 눌러도)
     if (App.ui.tool === 'dim') {
       const state = App.store.get();
@@ -518,11 +573,30 @@
   }
 
   function onDblClick(e) {
-    const wireGrp = e.target.closest && e.target.closest('[data-kind="wires"]');
-    if (!wireGrp) return;
-    const id = wireGrp.getAttribute('data-id');
-    selectOnly(id);
-    addBendAt(id, App.viewport.clientToWorld(e.clientX, e.clientY));
+    // 클릭 지점 스택에서 탐색(선택 시 뜨는 투명 핸들에 가려져도 동작)
+    const stack = (document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target]);
+    function pick(selq) {
+      for (let i = 0; i < stack.length; i++) {
+        const m = stack[i].closest && stack[i].closest(selq);
+        if (m) return m;
+      }
+      return null;
+    }
+    const wireGrp = pick('[data-kind="wires"]');
+    if (wireGrp) {
+      const id = wireGrp.getAttribute('data-id');
+      selectOnly(id);
+      addBendAt(id, App.viewport.clientToWorld(e.clientX, e.clientY));
+      return;
+    }
+    // 부품 더블클릭 → 크기·단자 편집 (CAD 관례)
+    const compGrp = pick('[data-kind="components"]');
+    if (compGrp) {
+      const id = compGrp.getAttribute('data-id');
+      selectOnly(id);
+      const f = App.store.findById(id);
+      if (f && App.partEditor) App.partEditor.open({ component: f.item });
+    }
   }
 
   function deleteSelected() {
@@ -615,8 +689,26 @@
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
       e.preventDefault(); App.store.redo(); App.render.all(); return;
     }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { // 전체 선택
+      e.preventDefault();
+      const s = App.store.get();
+      App.ui.selected = new Set(
+        [].concat(s.components, s.ducts, s.rails, s.wires, s.dimensions || [])
+          .map(function (it) { return it.id; })
+      );
+      App.render.all();
+      if (App.inspector) App.inspector.update();
+      return;
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
     if (e.key === 'r' || e.key === 'R') { rotateSelected(); return; }
+    // 도구 단축키 (CAD 관례): V=선택, W=배선, D=치수
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && App.toolbar && App.toolbar.setTool) {
+      const k = e.key.toLowerCase();
+      if (k === 'v') { App.toolbar.setTool('select'); return; }
+      if (k === 'w') { App.toolbar.setTool('wire'); return; }
+      if (k === 'd') { App.toolbar.setTool('dim'); return; }
+    }
     if (e.key === 'Escape') {
       App.ui.placing = null;
       App.ui.wireStart = null;
