@@ -84,6 +84,11 @@
       e.textContent = s;
     }
     txt(X + W / 2, Y + H / 4, p.title || '', 7, true);
+    // 시트명 · 페이지 (여러 시트일 때)
+    if (state.sheets && state.sheets.length > 1) {
+      const i = state.activeSheet || 0;
+      txt(X + W - 3, Y + H / 4, (state.sheets[i] ? state.sheets[i].name : '') + ' (' + (i + 1) + '/' + state.sheets.length + ')', 3.4, false, 'end');
+    }
     const labels = ['도번', '작성자', '날짜', 'REV'];
     const vals = [tb.docNo, tb.author, tb.date, tb.rev];
     for (let i = 0; i < 4; i++) {

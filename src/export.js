@@ -34,13 +34,14 @@
     const map = {};
     state.components.forEach(function (c) {
       const k = c.partNo || '(미지정)';
-      if (!map[k]) map[k] = { partNo: k, type: c.type || '', w: c.widthMM, h: c.heightMM, qty: 0 };
+      if (!map[k]) map[k] = { partNo: k, name: c.partName || c.label || '', type: c.type || '', w: c.widthMM, h: c.heightMM, qty: 0, tags: [] };
       map[k].qty += 1;
+      if (c.tag) map[k].tags.push(c.tag);
     });
-    const rows = [['부품번호', '타입', '수량', '가로(mm)', '세로(mm)']];
+    const rows = [['부품번호', '품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호']];
     Object.keys(map).sort().forEach(function (k) {
       const r = map[k];
-      rows.push([r.partNo, r.type, r.qty, r.w, r.h]);
+      rows.push([r.partNo, r.name, r.type, r.qty, r.w, r.h, r.tags.join(' ')]);
     });
     return rows;
   };
@@ -52,16 +53,16 @@
       const c = state.components.find(function (x) { return x.id === id; });
       return (c && (c.label || c.partNo)) || '?';
     }
-    const rows = [['라인번호', '시작부품', '시작단자', '끝부품', '끝단자', '길이(mm)', 'SQ', 'AWG', '색상']];
+    const rows = [['라인번호', '시작부품', '시작단자', '끝부품', '끝단자', '길이(mm)', 'SQ', 'AWG', '전원', '색상']];
     let total = 0;
     state.wires.slice().sort(function (a, b) {
       return String(a.label || '').localeCompare(String(b.label || ''), undefined, { numeric: true });
     }).forEach(function (w) {
       const len = App.wires.length(state, w);
       total += len;
-      rows.push([w.label, label(w.fromComp), w.fromTerm, label(w.toComp), w.toTerm, len, w.sq || '', w.awg || '', w.color || '']);
+      rows.push([w.label, label(w.fromComp), w.fromTerm, label(w.toComp), w.toTerm, len, w.sq || '', w.awg || '', w.acdc || '', w.color || '']);
     });
-    rows.push(['합계', '', '', '', '', total, '', '', '']);
+    rows.push(['합계', '', '', '', '', total, '', '', '', '']);
     return rows;
   };
 
@@ -163,10 +164,17 @@
       else line('RAILS', r.x + w / 2, r.y, r.x + w / 2, r.y + h);
     });
     (state.components || []).forEach(function (c) {
-      rect('PARTS', c.x, c.y, c.widthMM, c.heightMM);
-      const cy = c.y + c.heightMM / 2;
-      text('TEXT', c.x + 2, cy, 4, c.label || c.partName || c.partNo || '');
-      if (c.tag) text('TEXT', c.x + 2, c.y + 7, 4, c.tag);
+      // 90/270도 회전은 가로세로 스왑(중심 유지)
+      const rot = ((c.rotation || 0) % 180 + 180) % 180;
+      let bx = c.x, by = c.y, bw = c.widthMM, bh = c.heightMM;
+      if (rot === 90) {
+        const ccx = bx + bw / 2, ccy = by + bh / 2;
+        bw = c.heightMM; bh = c.widthMM; bx = ccx - bw / 2; by = ccy - bh / 2;
+      }
+      rect('PARTS', bx, by, bw, bh);
+      const cy = by + bh / 2;
+      text('TEXT', bx + 2, cy, 4, c.label || c.partName || c.partNo || '');
+      if (c.tag) text('TEXT', bx + 2, by + 7, 4, c.tag);
       App.terminals.world(c).forEach(function (t) {
         circle('TERMS', t.x, t.y, (t.w || 3.6) / 2);
         if (t.name) text('TERMS', t.x + 2.4, t.y - 2.4, 2.5, t.name);

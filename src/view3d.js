@@ -6,9 +6,10 @@
   const V3 = (App.view3d = {});
 
   let modal, svg;
-  // 깊이 1mm 당 화면 오프셋 (위-오른쪽 방향)
-  const KX = 0.5, KY = -0.35;
+  // 깊이 1mm 당 화면 오프셋 (위-오른쪽 방향) — 드래그로 시점 변경
+  let KX = 0.5, KY = -0.35;
   let depthScale = 1; // 깊이 과장 배율
+  let zoomK = 1;      // 휠 줌 배율
 
   function el(name, attrs, parent) {
     const n = document.createElementNS(App.SVGNS, name);
@@ -94,8 +95,15 @@
       items.push({ x: r.x, y: r.y, w: w, h: h, d: 8, color: '#94a3b8', label: null });
     });
     (s.components || []).forEach(function (c) {
+      // 90/270도 회전은 가로세로 스왑(중심 유지)해 반영
+      const rot = ((c.rotation || 0) % 180 + 180) % 180;
+      let x = c.x, y = c.y, w = c.widthMM, h = c.heightMM;
+      if (rot === 90) {
+        const cx = x + w / 2, cy = y + h / 2;
+        w = c.heightMM; h = c.widthMM; x = cx - w / 2; y = cy - h / 2;
+      }
       items.push({
-        x: c.x, y: c.y, w: c.widthMM, h: c.heightMM,
+        x: x, y: y, w: w, h: h,
         d: c.d || 60, color: faceColor(c.type), label: c.label || c.partNo || '', img: c.img || null
       });
     });
@@ -107,11 +115,17 @@
     const maxD = 80 * depthScale;
     const pad = 40;
     const x0 = -pad, y0 = maxD * -KY * -1 - pad - 40, x1 = p.widthMM + maxD * KX + pad, y1 = p.heightMM + pad;
-    svg.setAttribute('viewBox', x0 + ' ' + (-(40 + maxD * 0.4) - pad) + ' ' + (x1 - x0) + ' ' + (y1 + pad + 40 + maxD * 0.4));
+    let vw = (x1 - x0), vh = (y1 + pad + 40 + maxD * 0.4);
+    let vx = x0, vy = -(40 + maxD * 0.4) - pad;
+    // 휠 줌: 중심 기준 축소/확대
+    const cx0 = vx + vw / 2, cy0 = vy + vh / 2;
+    vw /= zoomK; vh /= zoomK;
+    svg.setAttribute('viewBox', (cx0 - vw / 2) + ' ' + (cy0 - vh / 2) + ' ' + vw + ' ' + vh);
   };
 
   V3.open = function () {
     if (!modal) return;
+    zoomK = 1;
     modal.style.display = 'flex';
     V3.render();
   };
@@ -133,5 +147,28 @@
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && V3.isOpen()) V3.close();
     });
+    // 드래그: 투영 각도(시점) 변경 · 휠: 줌
+    let drag = null;
+    if (svg) {
+      svg.style.cursor = 'grab';
+      svg.style.touchAction = 'none';
+      svg.addEventListener('pointerdown', function (e) {
+        drag = { x: e.clientX, y: e.clientY, kx: KX, ky: KY };
+        svg.style.cursor = 'grabbing';
+        try { svg.setPointerCapture(e.pointerId); } catch (x) {}
+      });
+      svg.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        KX = Math.max(0.1, Math.min(1.0, drag.kx + (e.clientX - drag.x) * 0.003));
+        KY = Math.max(-0.8, Math.min(-0.08, drag.ky - (e.clientY - drag.y) * 0.003));
+        V3.render();
+      });
+      svg.addEventListener('pointerup', function () { drag = null; svg.style.cursor = 'grab'; });
+      svg.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        zoomK = Math.max(0.4, Math.min(8, zoomK * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+        V3.render();
+      }, { passive: false });
+    }
   };
 })(window);

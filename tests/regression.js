@@ -190,7 +190,9 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     bom: App.exporter.bomRows(),
     wl: App.exporter.wiringRows()
   }));
-  assert(rows.bom.length === 2 && rows.bom[1][2] === 2, 'BOM 집계 (수량 2)');
+  assert(rows.bom.length === 2 && rows.bom[1][3] === 2, 'BOM 집계 (수량 2)');
+  assert(rows.bom[0][1] === '품명' && rows.bom[0][6] === '호기번호', 'BOM 품명·호기 컬럼');
+  assert(rows.wl[0].indexOf('전원') >= 0, '배선표 전원 컬럼');
   assert(rows.wl[1][0] === 'W1', '배선표 행 W1');
   // 배선 길이: 인스펙터/배선표/총길이
   const wlen = await page.evaluate(() => {
@@ -993,6 +995,20 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(v3.open, '3D 모달 열림');
   assert(v3.polys >= 9, '3D 박스 면 렌더 (' + v3.polys + 'polys)');
   assert(v3.wires3d >= 1, '3D 배선 표시');
+  // 3D 드래그 회전(시점) + 휠 줌 → 뷰 변경
+  const v3b = await page.evaluate(() => {
+    const r = document.getElementById('view3d-svg').getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, vb0: document.getElementById('view3d-svg').getAttribute('viewBox') };
+  });
+  await page.mouse.move(v3b.x, v3b.y);
+  await page.mouse.down();
+  await page.mouse.move(v3b.x + 80, v3b.y - 40, { steps: 4 });
+  await page.mouse.up();
+  await page.mouse.move(v3b.x, v3b.y);
+  await page.mouse.wheel(0, -240);
+  await page.waitForTimeout(50);
+  const v3after = await page.evaluate(() => document.getElementById('view3d-svg').getAttribute('viewBox'));
+  assert(v3after !== v3b.vb0, '3D 드래그 회전/휠 줌으로 뷰 변경');
   await page.keyboard.press('Escape');
   const v3closed = await page.evaluate(() => getComputedStyle(document.getElementById('view3d-modal')).display === 'none');
   assert(v3closed, '3D 모달 Esc 닫힘');
