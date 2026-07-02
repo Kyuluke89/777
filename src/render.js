@@ -62,6 +62,34 @@
       'font-size': 18, fill: '#334155', 'pointer-events': 'none'
     }, g);
     t.textContent = p.widthMM + ' × ' + p.heightMM + ' mm';
+    renderTitleBlock(state, g);
+  }
+
+  // 표제란 — 전장 우하단 바깥에 도번/작성자/날짜/리비전 (인쇄·PNG에 포함)
+  function renderTitleBlock(state, g) {
+    const tb = state.titleBlock;
+    if (!tb || tb.show === false) return;
+    if (!(tb.docNo || tb.author || tb.date || tb.rev || state.panel.title)) return;
+    const p = state.panel;
+    const W = 170, H = 34, X = p.widthMM - W, Y = p.heightMM + 6;
+    const grp = App.el('g', { 'pointer-events': 'none' }, g);
+    App.el('rect', { x: X, y: Y, width: W, height: H, fill: '#ffffff', stroke: '#334155', 'stroke-width': 0.8 }, grp);
+    // 칸: 제목(위 전체) / 도번·작성자·날짜·리비전(아래 4칸)
+    App.el('line', { x1: X, y1: Y + H / 2, x2: X + W, y2: Y + H / 2, stroke: '#334155', 'stroke-width': 0.5 }, grp);
+    const cw = W / 4;
+    for (let i = 1; i < 4; i++) App.el('line', { x1: X + cw * i, y1: Y + H / 2, x2: X + cw * i, y2: Y + H, stroke: '#334155', 'stroke-width': 0.5 }, grp);
+    function txt(x, y, s, size, bold, anchor) {
+      if (!s) return;
+      const e = App.el('text', { x: x, y: y, 'font-size': size, fill: '#1e293b', 'text-anchor': anchor || 'middle', 'dominant-baseline': 'central', 'font-weight': bold ? 'bold' : null }, grp);
+      e.textContent = s;
+    }
+    txt(X + W / 2, Y + H / 4, p.title || '', 7, true);
+    const labels = ['도번', '작성자', '날짜', 'REV'];
+    const vals = [tb.docNo, tb.author, tb.date, tb.rev];
+    for (let i = 0; i < 4; i++) {
+      txt(X + cw * i + cw / 2, Y + H * 0.62, labels[i], 3.2);
+      txt(X + cw * i + cw / 2, Y + H * 0.85, vals[i] || '-', 4.2);
+    }
   }
 
   function renderDucts(state) {

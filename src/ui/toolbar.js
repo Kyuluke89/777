@@ -140,6 +140,37 @@
     const pManage = $('wire-preset-manage');
     if (pManage) pManage.onclick = function () { App.wirePresets.open(); };
 
+    // 라인번호 일괄 재부여
+    const renum = $('wire-renum');
+    if (renum) renum.onclick = function () {
+      const s = App.store.get();
+      if (!s.wires.length) { flash('배선이 없습니다'); return; }
+      const start = ($('wire-next') && $('wire-next').value.trim()) || 'W1';
+      if (!confirm('모든 라인번호를 "' + start + '"부터 위→아래, 왼→오 순서로 재부여할까요?')) return;
+      let n = 0;
+      App.store.commit(function (ss) { n = App.wires.renumber(ss, start); });
+      App.render.all();
+      flash('라인번호 ' + n + '개 재부여');
+    };
+
+    // 도면 정보(표제란)
+    function applyTitleBlock() {
+      App.store.commit(function (s) {
+        s.titleBlock = {
+          show: $('tb-show') ? $('tb-show').checked : true,
+          docNo: $('tb-docno') ? $('tb-docno').value.trim() : '',
+          author: $('tb-author') ? $('tb-author').value.trim() : '',
+          date: $('tb-date') ? $('tb-date').value.trim() : '',
+          rev: $('tb-rev') ? $('tb-rev').value.trim() : ''
+        };
+      });
+      App.render.all();
+    }
+    ['tb-docno', 'tb-author', 'tb-date', 'tb-rev', 'tb-show'].forEach(function (id) {
+      const el = $(id);
+      if (el) el.addEventListener('change', applyTitleBlock);
+    });
+
     // 정렬/균등 간격
     [['al-left', 'left'], ['al-right', 'right'], ['al-top', 'top'], ['al-bottom', 'bottom'],
      ['al-hcenter', 'hcenter'], ['al-vcenter', 'vcenter']].forEach(function (pair) {
@@ -297,5 +328,11 @@
       if ($('font-' + k)) $('font-' + k).value = f[k] || f.comp || 1;
     });
     if ($('wire-label-px')) $('wire-label-px').value = f.wirePx || 11;
+    const tb = s.titleBlock || {};
+    if ($('tb-docno')) $('tb-docno').value = tb.docNo || '';
+    if ($('tb-author')) $('tb-author').value = tb.author || '';
+    if ($('tb-date')) $('tb-date').value = tb.date || '';
+    if ($('tb-rev')) $('tb-rev').value = tb.rev || '';
+    if ($('tb-show')) $('tb-show').checked = tb.show !== false;
   };
 })(window);

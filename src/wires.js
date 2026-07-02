@@ -19,13 +19,33 @@
     return { x: p.x, y: p.y + (p.side === 'top' ? -STUB : STUB) };
   }
 
+  // 가로 덕트 중심선으로 배선 경유(자동 라우팅).
+  // 두 스터브 사이의 덕트 우선, 없으면 근처(150mm 이내) 덕트로 우회.
+  function ductMidY(state, sa, sb) {
+    const lo = Math.min(sa.y, sb.y), hi = Math.max(sa.y, sb.y);
+    const xlo = Math.min(sa.x, sb.x), xhi = Math.max(sa.x, sb.x);
+    const mid = (lo + hi) / 2;
+    let best = null, bestScore = Infinity;
+    (state.ducts || []).forEach(function (d) {
+      if (d.orient !== 'h') return;
+      if (d.x + d.lengthMM < xlo || d.x > xhi) return;    // 가로로 겹쳐야
+      const cy = d.y + d.widthMM / 2;
+      const out = (cy >= lo && cy <= hi) ? 0 : Math.min(Math.abs(cy - lo), Math.abs(cy - hi));
+      if (out > 150) return;                              // 너무 먼 덕트는 제외
+      const score = out * 1000 + Math.abs(cy - mid);      // 사이 덕트 우선, 그다음 가까운 순
+      if (score < bestScore) { bestScore = score; best = cy; }
+    });
+    return best != null ? Math.round(best) : null;
+  }
+
   // 기본 꺾임점 (Z자). stub 점도 꼭짓점으로 포함 → 단자에서 나오는 수직선도
   // 좌우로 움직일 수 있게 됨(편집 가능한 세그먼트가 됨).
   function defaultCorners(state, wire) {
     const a = term(state, wire, 'from'), b = term(state, wire, 'to');
     if (!a || !b) return [];
     const sa = stub(a), sb = stub(b);
-    const midY = (wire.midY != null) ? wire.midY : Math.round((sa.y + sb.y) / 2);
+    let midY = (wire.midY != null) ? wire.midY : ductMidY(state, sa, sb);
+    if (midY == null) midY = Math.round((sa.y + sb.y) / 2);
     return [
       { x: sa.x, y: sa.y },   // A 단자 스터브
       { x: sa.x, y: midY },   // 좌 수직선 ↔ 좌우 이동
@@ -162,6 +182,27 @@
       const xj = x + JOG;
       corners.splice(k + 1, 0, { x: x, y: cy }, { x: xj, y: cy }, { x: xj, y: y2 });
     }
+  };
+
+  // 라벨 자동 증가 (자릿수 유지: 001→002, W9→W10)
+  W.incLabel = function (s) {
+    const m = /^(.*?)(\d+)$/.exec(s || '');
+    if (!m) return (s || 'W') + '1';
+    let n = String(parseInt(m[2], 10) + 1);
+    while (n.length < m[2].length) n = '0' + n;
+    return m[1] + n;
+  };
+
+  // 라인번호 일괄 재부여 — 시작점 위치(위→아래, 왼→오) 순서로 start 부터 증가
+  W.renumber = function (state, start) {
+    const items = state.wires.map(function (w) {
+      const r = W.route(state, w);
+      return { w: w, p: r ? r[0] : { x: 0, y: 0 } };
+    });
+    items.sort(function (A, B) { return (A.p.y - B.p.y) || (A.p.x - B.p.x); });
+    let cur = (start || 'W1');
+    items.forEach(function (it) { it.w.label = cur; cur = W.incLabel(cur); });
+    return items.length;
   };
 
   // 다음 와이어 번호 (W1, W2, …)

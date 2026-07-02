@@ -88,6 +88,13 @@
     applyViewBox();
   };
 
+  // 특정 월드 좌표를 화면 중앙으로
+  Viewport.centerOn = function (xMM, yMM) {
+    vb.x = xMM - vb.w / 2;
+    vb.y = yMM - vb.h / 2;
+    applyViewBox();
+  };
+
   function buildDefs() {
     const defs = App.el('defs', null, svg);
     // 보조 격자 (10mm)

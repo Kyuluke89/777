@@ -874,6 +874,61 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(smartRes.y === 303, '스마트 가이드 자석 스냅 (y=' + smartRes.y + ')');
   assert(smartRes.cleared, '드래그 종료 시 가이드 제거');
 
+  // === 배선 자동화 + 표제란 ===
+  // 덕트 경유 자동 라우팅: 두 단자 사이 가로 덕트 중심선으로 배선
+  const ductRoute = await page.evaluate(() => {
+    const s = App.store.get();
+    const w0 = s.wires[0];
+    const r0 = App.wires.route(s, w0);
+    const lo = Math.min(r0[0].y, r0[r0.length - 1].y);
+    App.store.commit(ss => { ss.ducts.push({ id: 'dd1', orient: 'h', x: 0, y: lo - 120, lengthMM: 600, widthMM: 60 }); });
+    // corners 없는 새 배선이 덕트 중심(y = lo-120+30)으로 지나가는지
+    const s2 = App.store.get();
+    const w = App.wires.create(s2, { compId: w0.fromComp, index: w0.fromTerm }, { compId: w0.toComp, index: w0.toTerm });
+    const r = App.wires.route(s2, w);
+    const ductCy = Math.round(lo - 120 + 30);
+    const passes = r.some(p => Math.abs(p.y - ductCy) < 1);
+    App.store.commit(ss => { ss.ducts = ss.ducts.filter(d => d.id !== 'dd1'); });
+    return { passes, ductCy };
+  });
+  assert(ductRoute.passes, '덕트 경유 자동 라우팅 (y=' + ductRoute.ductCy + ')');
+
+  // 라인번호 일괄 재부여
+  const renum = await page.evaluate(() => {
+    App.store.commit(s => { App.wires.renumber(s, '101'); });
+    const labels = App.store.get().wires.map(w => w.label);
+    const inc = App.wires.incLabel('009');
+    App.store.commit(s => { App.wires.renumber(s, 'W1'); });
+    return { first: labels[0], inc };
+  });
+  assert(renum.first === '101', '라인번호 재부여 시작값 (' + renum.first + ')');
+  assert(renum.inc === '010', 'incLabel 자릿수 유지 (' + renum.inc + ')');
+
+  // 배선 목록 패널: 행 표시 + 클릭 시 선택/화면이동
+  const wl = await page.evaluate(() => {
+    App.wireList.render();
+    const rows = document.querySelectorAll('#wire-list > div');
+    const n = App.store.get().wires.length;
+    if (rows.length !== n) return { rows: rows.length, n };
+    const vb0 = App.viewport.getViewBox().x;
+    rows[0].click();
+    return { rows: rows.length, n, selected: App.ui.selected.size === 1, moved: App.viewport.getViewBox().x !== vb0 };
+  });
+  assert(wl.rows === wl.n && wl.rows > 0, '배선 목록 행 수 (' + wl.rows + ')');
+  assert(wl.selected, '목록 클릭 → 배선 선택');
+  await page.evaluate(() => { App.ui.selected.clear(); const p = App.store.get().panel; App.viewport.fitTo(p.widthMM, p.heightMM); App.render.all(); });
+
+  // 표제란: 도번 입력 → 캔버스 우하단에 렌더
+  await page.fill('#tb-docno', 'DWG-001');
+  await page.evaluate(() => document.getElementById('tb-docno').dispatchEvent(new Event('change')));
+  const tbR = await page.evaluate(() => {
+    const texts = Array.from(document.querySelectorAll('#layer-panel text')).map(t => t.textContent);
+    const saved = App.store.get().titleBlock;
+    return { has: texts.indexOf('DWG-001') >= 0, saved: saved && saved.docNo === 'DWG-001' };
+  });
+  assert(tbR.has && tbR.saved, '표제란 렌더 + 저장 (DWG-001)');
+  await page.evaluate(() => { App.store.commit(s => { s.titleBlock = { show: false }; }); App.render.all(); });
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 
