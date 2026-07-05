@@ -47,11 +47,24 @@
     el('rect', { x: 0, y: 0, width: st.w, height: st.h, rx: 2, fill: color, 'fill-opacity': 0.12, stroke: color, 'stroke-width': 1 }, peSvg);
     if (st.img) {
       const isc = st.imgS || 1;
+      const ix = st.imgX || 0, iy = st.imgY || 0, iw = st.w * isc, ih = st.h * isc;
+      if (st.imgCW) { // 자르기 클립
+        const cp = el('clipPath', { id: 'pe-clip' }, defs);
+        el('rect', { x: st.imgCX, y: st.imgCY, width: st.imgCW, height: st.imgCH }, cp);
+      }
       const im = el('image', {
-        x: st.imgX || 0, y: st.imgY || 0, width: st.w * isc, height: st.h * isc,
-        preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none'
+        x: ix, y: iy, width: iw, height: ih,
+        preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none',
+        opacity: st.imgO != null ? st.imgO : 1,
+        'clip-path': st.imgCW ? 'url(#pe-clip)' : null
       }, peSvg);
       im.setAttribute('href', st.img);
+      if (st.mode2 === 'img') { // 모서리 리사이즈 핸들 + 외곽선
+        el('rect', { x: ix, y: iy, width: iw, height: ih, fill: 'none', stroke: '#2563eb', 'stroke-width': 0.6, 'stroke-dasharray': '3 2', 'pointer-events': 'none' }, peSvg);
+        [['tl', ix, iy], ['tr', ix + iw, iy], ['bl', ix, iy + ih], ['br', ix + iw, iy + ih]].forEach(function (hd) {
+          el('rect', { x: hd[1] - 3, y: hd[2] - 3, width: 6, height: 6, fill: '#fff', stroke: '#2563eb', 'stroke-width': 0.8, 'data-ih': hd[0], style: 'cursor:nwse-resize' }, peSvg);
+        });
+      }
     }
     // 단자 (원형/사각형)
     st.terms.forEach(function (t, i) {
@@ -156,8 +169,17 @@
   }
 
   function onDown(e) {
-    const g = e.target.closest && e.target.closest('[data-ti]');
     const p = clientToMM(e);
+    // 이미지 모서리 리사이즈 핸들
+    const ih = e.target.closest && e.target.closest('[data-ih]');
+    if (ih && st.mode2 === 'img' && st.img) {
+      const isc = st.imgS || 1;
+      peG = { type: 'imgresize', corner: ih.getAttribute('data-ih'),
+        ix: st.imgX || 0, iy: st.imgY || 0, iw: st.w * isc, ih2: st.h * isc };
+      return;
+    }
+    if (st.cropping && st.img) { peG = { type: 'imgcrop', sp: p }; return; }
+    const g = e.target.closest && e.target.closest('[data-ti]');
     if (g) {
       const idx = +g.getAttribute('data-ti');
       if (!st.selSet.has(idx)) {
@@ -190,6 +212,23 @@
         st.terms[i].ry = clamp(snap(peG.orig[i].ry + dy), 0, st.h);
       }
       renderPreview();
+      return;
+    }
+    if (peG.type === 'imgresize') {
+      const c = peG.corner;
+      const ax = (c === 'tl' || c === 'bl') ? peG.ix + peG.iw : peG.ix;  // 반대편 x 고정
+      const ay = (c === 'tl' || c === 'tr') ? peG.iy + peG.ih2 : peG.iy; // 반대편 y 고정
+      const ns = Math.max(0.1, Math.min(6, Math.abs(p.x - ax) / st.w));
+      st.imgS = Math.round(ns * 100) / 100;
+      const niw = st.w * st.imgS, nih = st.h * st.imgS;
+      st.imgX = Math.round((c === 'tl' || c === 'bl') ? ax - niw : ax);
+      st.imgY = Math.round((c === 'tl' || c === 'tr') ? ay - nih : ay);
+      renderPreview();
+      return;
+    }
+    if (peG.type === 'imgcrop') {
+      drawMarquee({ x: Math.min(peG.sp.x, p.x), y: Math.min(peG.sp.y, p.y), w: Math.abs(p.x - peG.sp.x), h: Math.abs(p.y - peG.sp.y) });
+      peG.last = p;
       return;
     }
     if (peG.type === 'imgmove') {
@@ -225,6 +264,15 @@
         st.selSet = new Set(); st.sel = -1; st.selExplicit = false; // 선택 모드: 빈 곳 클릭=해제
       }
     }
+    if (peG.type === 'imgcrop' && peG.last) {
+      st.imgCX = Math.round(Math.min(peG.sp.x, peG.last.x));
+      st.imgCY = Math.round(Math.min(peG.sp.y, peG.last.y));
+      st.imgCW = Math.round(Math.abs(peG.last.x - peG.sp.x));
+      st.imgCH = Math.round(Math.abs(peG.last.y - peG.sp.y));
+      if (st.imgCW < 3 || st.imgCH < 3) { st.imgCW = 0; } // 너무 작으면 취소
+      st.cropping = false;
+      if (PE.updateImgUI) PE.updateImgUI();
+    }
     drawMarquee(null);
     peG = null;
     refresh();
@@ -255,6 +303,12 @@
     st.imgX = (opts.component && opts.component.imgX) || 0;
     st.imgY = (opts.component && opts.component.imgY) || 0;
     st.imgS = (opts.component && opts.component.imgS) || 1;
+    st.imgO = (opts.component && opts.component.imgO != null) ? opts.component.imgO : 1;
+    st.imgCX = (opts.component && opts.component.imgCX) || 0;
+    st.imgCY = (opts.component && opts.component.imgCY) || 0;
+    st.imgCW = (opts.component && opts.component.imgCW) || 0;
+    st.imgCH = (opts.component && opts.component.imgCH) || 0;
+    st.cropping = false;
     st.mode2 = 'select';
     if (PE.updateImgUI) PE.updateImgUI();
     if (PE.updateModeUI) PE.updateModeUI();
@@ -292,7 +346,7 @@
   function buildPart() {
     return { partNo: partNoOf(), manufacturer: '커스텀', type: st.type,
       name: st.name || '커스텀 부품', w: st.w, h: st.h, d: 60, terminals: st.terms.length,
-      term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, custom: true };
+      term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, custom: true };
   }
 
   // 배치된 동일 부품(같은 partNo) 전체를 새 정의로 갱신 (라벨/호기번호 등 인스턴스 값은 보존)
@@ -308,7 +362,7 @@
         if (c.label === c.partName || c.label === c.partNo) c.label = def.name;
         c.partName = def.name;
       }
-      c.img = def.img || null; c.imgX = def.imgX || 0; c.imgY = def.imgY || 0; c.imgS = def.imgS || 1;
+      c.img = def.img || null; c.imgX = def.imgX || 0; c.imgY = def.imgY || 0; c.imgS = def.imgS || 1; c.imgO = def.imgO != null ? def.imgO : 1; c.imgCX = def.imgCX || 0; c.imgCY = def.imgCY || 0; c.imgCW = def.imgCW || 0; c.imgCH = def.imgCH || 0;
       n++;
     });
     return n;
@@ -317,7 +371,7 @@
   // 라이브러리 + 배치된 동일 부품 모두 한 번에 갱신
   function saveAll(updateEditedId) {
     const partNo = partNoOf();
-    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1 };
+    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 };
     let cnt = 0;
     App.store.commit(function (s) {
       // 편집 중인 바로 그 부품(아직 partNo가 없을 수도 있음)도 확실히 반영
@@ -334,7 +388,7 @@
     });
     // 기본/사용자 라이브러리 업서트(부품번호 기준)
     App.userlib.add({ partNo: partNo, manufacturer: '커스텀', type: st.type,
-      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1 });
+      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 });
     if (App.palette) App.palette.reloadUser();
     return cnt;
   }
@@ -389,6 +443,9 @@
       if (del) del.classList.toggle('hidden', !(st && st.img));
       const btn = $('pe-img-btn');
       if (btn) btn.textContent = (st && st.img) ? '📷 변경' : '📷 선택';
+      const uc = $('pe-img-uncrop');
+      if (uc) uc.classList.toggle('hidden', !(st && st.imgCW));
+      if ($('pe-img-op') && st) $('pe-img-op').value = Math.round((st.imgO != null ? st.imgO : 1) * 100);
     }
     PE.updateImgUI = updateImgUI;
     if ($('pe-img-btn')) $('pe-img-btn').onclick = function () { $('pe-img-file').click(); };
@@ -428,8 +485,21 @@
       if (b) b.onclick = function () {
         if (!st) return;
         if (pr[1] === 'img' && !st.img) { alert('먼저 📷 이미지를 선택하세요.'); return; }
-        st.mode2 = pr[1]; updateModeUI();
+        st.mode2 = pr[1]; updateModeUI(); renderPreview();
       };
+    });
+    // 자르기/해제/투명도
+    if ($('pe-img-cropbtn')) $('pe-img-cropbtn').onclick = function () {
+      if (!st || !st.img) { alert('먼저 📷 이미지를 선택하세요.'); return; }
+      st.mode2 = 'img'; if (PE.updateModeUI) PE.updateModeUI();
+      st.cropping = true;
+      if (App.toolbar) App.toolbar.flash('이미지 위를 드래그해 남길 영역을 지정하세요');
+    };
+    if ($('pe-img-uncrop')) $('pe-img-uncrop').onclick = function () {
+      if (!st) return; st.imgCW = 0; st.imgCH = 0; refresh(); if (PE.updateImgUI) PE.updateImgUI();
+    };
+    if ($('pe-img-op')) $('pe-img-op').addEventListener('input', function () {
+      if (!st) return; st.imgO = Math.max(0.1, Math.min(1, (parseFloat(this.value) || 100) / 100)); renderPreview();
     });
     // 이미지 조절 모드: 휠로 크기
     peSvg.addEventListener('wheel', function (e) {

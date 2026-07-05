@@ -64,7 +64,7 @@
       partName: part.name || '',
       terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null,
-      img: part.img || null, imgX: part.imgX || 0, imgY: part.imgY || 0, imgS: part.imgS || 1
+      img: part.img || null, imgX: part.imgX || 0, imgY: part.imgY || 0, imgS: part.imgS || 1, imgO: part.imgO != null ? part.imgO : 1, imgCX: part.imgCX || 0, imgCY: part.imgCY || 0, imgCW: part.imgCW || 0, imgCH: part.imgCH || 0
     };
     App.store.commit(function (s) { s.components.push(comp); });
     selectOnly(comp.id);

@@ -9,7 +9,7 @@
   <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260705e"></script>
+  <script src="vendor/fflate.min.js?v=20260705f"></script>
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -299,6 +299,13 @@
                 <button id="pe-img-del" class="toolbtn bg-white text-red-500 hidden" title="이미지 제거">✕</button>
               </span></label>
             <input id="pe-img-file" type="file" accept="image/*" class="hidden" />
+            <label class="flex items-center justify-between"><span class="text-xs text-slate-500">이미지 편집</span>
+              <span class="flex items-center gap-1">
+                <button id="pe-img-cropbtn" class="toolbtn bg-white text-slate-600" title="드래그로 남길 영역 지정(자르기)">✂ 자르기</button>
+                <button id="pe-img-uncrop" class="toolbtn bg-white text-slate-600 hidden" title="자르기 해제">해제</button>
+              </span></label>
+            <label class="flex items-center justify-between"><span class="text-xs text-slate-500">투명도</span>
+              <input id="pe-img-op" type="range" min="10" max="100" step="5" value="100" style="width:8rem" title="이미지 투명도" /></label>
             <div class="border-t border-slate-100 pt-2 mt-1">
               <label class="flex items-center justify-between"><span class="text-xs text-slate-500">단자 모양</span>
                 <select id="pe-tshape" class="w-32 px-1 py-1 text-xs border border-slate-300 rounded">
@@ -424,33 +431,33 @@
   </div>
 
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260705e"></script>
-  <script src="src/terminals.js?v=20260705e"></script>
-  <script src="src/wires.js?v=20260705e"></script>
-  <script src="src/dims.js?v=20260705e"></script>
-  <script src="src/geom.js?v=20260705e"></script>
-  <script src="src/viewport.js?v=20260705e"></script>
-  <script src="src/render.js?v=20260705e"></script>
-  <script src="src/persistence.js?v=20260705e"></script>
-  <script src="src/sheets.js?v=20260705e"></script>
-  <script src="vendor/three.min.js?v=20260705e"></script>
-  <script src="vendor/OrbitControls.js?v=20260705e"></script>
-  <script src="src/view3d.js?v=20260705e"></script>
-  <script src="src/export.js?v=20260705e"></script>
-  <script src="src/library/seed.js?v=20260705e"></script>
-  <script src="src/library/parts-builtin.js?v=20260705e"></script>
-  <script src="src/library/parts-ls.js?v=20260705e"></script>
-  <script src="src/library/parts-dwg.js?v=20260705e"></script>
-  <script src="src/library/userlib.js?v=20260705e"></script>
-  <script src="src/library/types.js?v=20260705e"></script>
-  <script src="src/library/edz.js?v=20260705e"></script>
-  <script src="src/library/palette.js?v=20260705e"></script>
-  <script src="src/interact.js?v=20260705e"></script>
-  <script src="src/ui/toolbar.js?v=20260705e"></script>
-  <script src="src/ui/inspector.js?v=20260705e"></script>
-  <script src="src/ui/part-editor.js?v=20260705e"></script>
-  <script src="src/ui/wire-presets.js?v=20260705e"></script>
-  <script src="src/ui/wire-list.js?v=20260705e"></script>
-  <script src="src/main.js?v=20260705e"></script>
+  <script src="src/store.js?v=20260705f"></script>
+  <script src="src/terminals.js?v=20260705f"></script>
+  <script src="src/wires.js?v=20260705f"></script>
+  <script src="src/dims.js?v=20260705f"></script>
+  <script src="src/geom.js?v=20260705f"></script>
+  <script src="src/viewport.js?v=20260705f"></script>
+  <script src="src/render.js?v=20260705f"></script>
+  <script src="src/persistence.js?v=20260705f"></script>
+  <script src="src/sheets.js?v=20260705f"></script>
+  <script src="vendor/three.min.js?v=20260705f"></script>
+  <script src="vendor/OrbitControls.js?v=20260705f"></script>
+  <script src="src/view3d.js?v=20260705f"></script>
+  <script src="src/export.js?v=20260705f"></script>
+  <script src="src/library/seed.js?v=20260705f"></script>
+  <script src="src/library/parts-builtin.js?v=20260705f"></script>
+  <script src="src/library/parts-ls.js?v=20260705f"></script>
+  <script src="src/library/parts-dwg.js?v=20260705f"></script>
+  <script src="src/library/userlib.js?v=20260705f"></script>
+  <script src="src/library/types.js?v=20260705f"></script>
+  <script src="src/library/edz.js?v=20260705f"></script>
+  <script src="src/library/palette.js?v=20260705f"></script>
+  <script src="src/interact.js?v=20260705f"></script>
+  <script src="src/ui/toolbar.js?v=20260705f"></script>
+  <script src="src/ui/inspector.js?v=20260705f"></script>
+  <script src="src/ui/part-editor.js?v=20260705f"></script>
+  <script src="src/ui/wire-presets.js?v=20260705f"></script>
+  <script src="src/ui/wire-list.js?v=20260705f"></script>
+  <script src="src/main.js?v=20260705f"></script>
 </body>
 </html>

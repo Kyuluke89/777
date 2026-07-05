@@ -1003,6 +1003,29 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(face.hasFace, '실물풍 앞면 디테일 렌더(.part-face)');
   assert(face.hiddenWithImg, '사진 있으면 벡터 디테일 대신 사진');
 
+  // 이미지 투명도/자르기(클립) 도면 반영 + 편집기 모서리 핸들
+  const imgAdj = await page.evaluate(() => {
+    const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    App.store.commit(s => { s.components.push({ id: 'imgc', partNo: 'IMG', type: 'TB', x: 460, y: 500, widthMM: 40, heightMM: 40, rotation: 0, label: 'i', terminals: 0, term: null, img: PIX, imgO: 0.5, imgCX: 5, imgCY: 5, imgCW: 20, imgCH: 20 }); });
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="imgc"]');
+    const im = grp.querySelector('image');
+    const op = im && im.getAttribute('opacity');
+    const clip = im && (im.getAttribute('clip-path') || '').indexOf('imclip_imgc') >= 0;
+    // 편집기: 이미지 모드에서 모서리 핸들 4개
+    App.ui.selected = new Set(['imgc']); App.inspector.update();
+    App.partEditor.open({ component: App.store.get().components.find(c => c.id === 'imgc') });
+    document.getElementById('pe-mode-img').click();
+    const handles = document.querySelectorAll('#pe-canvas [data-ih]').length;
+    App.partEditor.close();
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'imgc'); });
+    App.ui.selected.clear(); App.render.all();
+    return { op, clip, handles };
+  });
+  assert(imgAdj.op === '0.5', '이미지 투명도 도면 반영 (' + imgAdj.op + ')');
+  assert(imgAdj.clip, '이미지 자르기(클립) 도면 반영');
+  assert(imgAdj.handles === 4, '이미지 모서리 핸들 4개 (' + imgAdj.handles + ')');
+
   // 3D 뷰(WebGL): 열기 → 메쉬 렌더 → 궤도 회전/줌 → 닫기
   await page.click('#act-3d');
   await page.waitForTimeout(300);

@@ -231,10 +231,18 @@
       // 부품 외형 이미지(있으면 실물 사진처럼 표시)
       if (c.img) {
         const isc = c.imgS || 1;
+        let clipId = null;
+        if (c.imgCW) { // 자르기: 부품 로컬 클립을 절대좌표로
+          clipId = 'imclip_' + c.id;
+          const cp = App.el('clipPath', { id: clipId }, grp);
+          App.el('rect', { x: c.x + c.imgCX, y: c.y + c.imgCY, width: c.imgCW, height: c.imgCH }, cp);
+        }
         const im = App.el('image', {
           x: c.x + (c.imgX || 0), y: c.y + (c.imgY || 0),
           width: c.widthMM * isc, height: c.heightMM * isc,
-          preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none'
+          preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none',
+          opacity: c.imgO != null ? c.imgO : 1,
+          'clip-path': clipId ? ('url(#' + clipId + ')') : null
         }, grp);
         im.setAttribute('href', c.img);
       }
