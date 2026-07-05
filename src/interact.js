@@ -334,6 +334,17 @@
       return;
     }
 
+    // 자유 텍스트 도구: 클릭 지점에 주석 텍스트 배치
+    if (tool === 'text') {
+      const tid = App.uid('txt');
+      App.store.commit(function (s) {
+        s.texts = s.texts || [];
+        s.texts.push({ id: tid, x: sp.x, y: sp.y, text: '텍스트', size: 8, color: '#0f172a' });
+      });
+      selectOnly(tid);
+      return;
+    }
+
     if (tool === 'duct-h') { startDraw('h', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'duct-v') { startDraw('v', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'rail-h') { startDraw('h', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
@@ -418,8 +429,8 @@
     if (!r || (r.w < 1 && r.h < 1)) return;
     const state = App.store.get();
     const hit = [];
-    ['components', 'ducts', 'rails', 'wires', 'dimensions'].forEach(function (k) {
-      state[k].forEach(function (it) {
+    ['components', 'ducts', 'rails', 'wires', 'dimensions', 'texts'].forEach(function (k) {
+      (state[k] || []).forEach(function (it) {
         if (rectsIntersect(r, App.geom.bounds(k, it))) hit.push(it.id);
       });
     });
@@ -594,6 +605,25 @@
       addBendAt(id, App.viewport.clientToWorld(e.clientX, e.clientY));
       return;
     }
+    // 자유 텍스트 더블클릭 → 내용 즉시 편집
+    const txtEl = pick('[data-kind="texts"]');
+    if (txtEl) {
+      const id = txtEl.getAttribute('data-id');
+      selectOnly(id);
+      const f = App.store.findById(id);
+      if (f) {
+        const nv = prompt('텍스트 내용', f.item.text || '');
+        if (nv != null) {
+          App.store.commit(function (s) {
+            const f2 = App.store.findById(id);
+            if (f2) f2.item.text = nv;
+          });
+          App.render.all();
+          if (App.inspector) App.inspector.update();
+        }
+      }
+      return;
+    }
     // 부품 더블클릭 → 크기·단자 편집 (CAD 관례)
     const compGrp = pick('[data-kind="components"]');
     if (compGrp) {
@@ -617,8 +647,8 @@
     if (!App.ui.selected.size) return;
     const ids = Array.from(App.ui.selected);
     App.store.commit(function (s) {
-      ['ducts', 'rails', 'components', 'wires', 'dimensions'].forEach(function (k) {
-        s[k] = s[k].filter(function (it) { return ids.indexOf(it.id) < 0; });
+      ['ducts', 'rails', 'components', 'wires', 'dimensions', 'texts'].forEach(function (k) {
+        if (s[k]) s[k] = s[k].filter(function (it) { return ids.indexOf(it.id) < 0; });
       });
       // 삭제된 부품에 연결된 와이어도 제거
       s.wires = s.wires.filter(function (w) {
@@ -716,12 +746,13 @@
     }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
     if (e.key === 'r' || e.key === 'R') { rotateSelected(); return; }
-    // 도구 단축키 (CAD 관례): V=선택, W=배선, D=치수
+    // 도구 단축키 (CAD 관례): V=선택, W=배선, D=치수, T=텍스트
     if (!e.ctrlKey && !e.metaKey && !e.altKey && App.toolbar && App.toolbar.setTool) {
       const k = e.key.toLowerCase();
       if (k === 'v') { App.toolbar.setTool('select'); return; }
       if (k === 'w') { App.toolbar.setTool('wire'); return; }
       if (k === 'd') { App.toolbar.setTool('dim'); return; }
+      if (k === 't') { App.toolbar.setTool('text'); return; }
     }
     if (e.key === 'Escape') {
       App.ui.placing = null;

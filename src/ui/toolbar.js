@@ -4,7 +4,7 @@
   const App = (global.App = global.App || {});
   const Toolbar = (App.toolbar = {});
 
-  const TOOLS = ['select', 'duct-h', 'duct-v', 'rail-h', 'rail-v', 'wire', 'dim'];
+  const TOOLS = ['select', 'duct-h', 'duct-v', 'rail-h', 'rail-v', 'wire', 'dim', 'text'];
 
   function $(id) { return document.getElementById(id); }
 

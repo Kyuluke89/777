@@ -1351,6 +1351,102 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(round2.tb, '라운드트립: 표제란 보존');
   assert(round2.img, '라운드트립: 부품 이미지 보존');
 
+  // === CAD 4차: 자유 텍스트 / 도곽 구역참조 / 심볼 크로스레퍼런스 ===
+  // 텍스트 도구: 툴바 버튼 → 캔버스 클릭으로 주석 배치
+  await page.click('#tool-text');
+  const t4tool = await page.evaluate(() => App.ui.tool === 'text');
+  assert(t4tool, '텍스트 도구 선택(툴바 버튼)');
+  {
+    const box = await page.evaluate(() => {
+      const r = document.getElementById('canvas').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    await page.mouse.click(box.x, box.y);
+  }
+  const t4place = await page.evaluate(() => {
+    const s = App.store.get();
+    const t = (s.texts || [])[0];
+    const node = document.querySelector('#layer-texts [data-kind="texts"]');
+    return { n: (s.texts || []).length, hasNode: !!node, sel: t && App.ui.selected.has(t.id) };
+  });
+  assert(t4place.n === 1 && t4place.hasNode, '텍스트 클릭 배치 + SVG 렌더');
+  assert(t4place.sel, '배치 직후 선택 상태');
+  // 인스펙터로 내용/크기 수정 → 저장·렌더 반영
+  const t4edit = await page.evaluate(() => {
+    App.inspector.update();
+    const inp = document.querySelector('#inspector [data-field="text"]');
+    if (!inp) return { ok: false };
+    inp.value = '주의: 메인 차단기';
+    inp.dispatchEvent(new Event('change'));
+    const sz = document.querySelector('#inspector [data-field="size"]');
+    sz.value = '12';
+    sz.dispatchEvent(new Event('change'));
+    const t = App.store.get().texts[0];
+    const node = document.querySelector('#layer-texts [data-kind="texts"]');
+    return { ok: t.text === '주의: 메인 차단기' && t.size === 12 && node.textContent === '주의: 메인 차단기' };
+  });
+  assert(t4edit.ok, '텍스트 인스펙터 편집(내용/크기)');
+  // 시트 팩/언팩 + 저장 라운드트립에 texts 보존
+  const t4rt = await page.evaluate(() => {
+    App.sheetsMgr.add('TXT-RT');            // 전환: texts 는 시트0에 보관됨
+    const empty = (App.store.get().texts || []).length === 0;
+    App.sheetsMgr.switchTo(0);
+    App.sheetsMgr.remove(1);
+    const back = App.store.get().texts.length === 1 && App.store.get().texts[0].text === '주의: 메인 차단기';
+    const json = JSON.stringify(App.store.get());
+    App.store.replace(App.createEmptyProject());
+    App.store.replace(JSON.parse(json));
+    const rt = App.store.get().texts.length === 1;
+    return { empty, back, rt };
+  });
+  assert(t4rt.empty && t4rt.back, '시트 전환 시 텍스트 팩/언팩 보존');
+  assert(t4rt.rt, '저장 라운드트립: 텍스트 보존');
+  // DXF에 NOTES 레이어 TEXT로 포함
+  const t4dxf = await page.evaluate(() => App.exporter.dxfString(App.store.get()).indexOf('NOTES') >= 0);
+  assert(t4dxf, 'DXF 내보내기에 텍스트(NOTES) 포함');
+  // 삭제(Del 경로)
+  const t4del = await page.evaluate(() => {
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set([App.store.get().texts[0].id]);
+    App.interact.deleteSelected();
+    return (App.store.get().texts || []).length === 0;
+  });
+  assert(t4del, '텍스트 삭제');
+
+  // 도곽 구역참조: frame 켜면 열번호 1..8 + 행문자 A.. 표기
+  const t4zone = await page.evaluate(() => {
+    App.store.commit(s => { s.panel.frame = true; });
+    App.render.all();
+    const fr = document.getElementById('sheet-frame');
+    const txts = fr ? Array.from(fr.querySelectorAll('text')).map(e => e.textContent) : [];
+    App.store.commit(s => { s.panel.frame = false; });
+    App.render.all();
+    return { has1: txts.indexOf('1') >= 0, has8: txts.indexOf('8') >= 0, hasA: txts.indexOf('A') >= 0 };
+  });
+  assert(t4zone.has1 && t4zone.has8 && t4zone.hasA, '도곽 구역참조(열 1-8/행 A..) 렌더');
+
+  // 크로스레퍼런스: 같은 라벨(K1) 심볼끼리 점프 버튼
+  const t4xref = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const mc = lib.find(p => p.partNo === 'SYM-MC');
+    const no = lib.find(p => p.partNo === 'SYM-AUXA') || mc; // 보조접점 a(NO)
+    App.store.commit(s => {
+      s.components.push({ id: 'xr1', partNo: mc.partNo, type: 'SYM', sym: mc.sym, x: 60, y: 1200, widthMM: mc.w, heightMM: mc.h, rotation: 0, label: 'K1', terminals: 2, term: JSON.parse(JSON.stringify(mc.term)) });
+      s.components.push({ id: 'xr2', partNo: no.partNo, type: 'SYM', sym: no.sym, x: 260, y: 1200, widthMM: no.w, heightMM: no.h, rotation: 0, label: 'K1', terminals: 2, term: JSON.parse(JSON.stringify(no.term)) });
+    });
+    App.ui.selected = new Set(['xr1']);
+    App.inspector.update();
+    const btns = Array.from(document.querySelectorAll('#inspector .insp-xref'));
+    const hasBtn = btns.length === 1 && btns[0].getAttribute('data-cid') === 'xr2';
+    if (btns[0]) btns[0].click();
+    const jumped = App.ui.selected.has('xr2');
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'xr1' && c.id !== 'xr2'); });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { hasBtn, jumped };
+  });
+  assert(t4xref.hasBtn, '크로스레퍼런스 버튼(같은 라벨 심볼) 노출');
+  assert(t4xref.jumped, '크로스레퍼런스 점프(선택 이동)');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

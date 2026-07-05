@@ -70,6 +70,32 @@
       const fr = App.el('g', { id: 'sheet-frame', 'pointer-events': 'none' }, g);
       App.el('rect', { x: fx, y: fy, width: fw, height: fh, fill: 'none', stroke: '#334155', 'stroke-width': 1.6 }, fr);
       App.el('rect', { x: fx + 5, y: fy + 5, width: fw - 10, height: fh - 10, fill: 'none', stroke: '#334155', 'stroke-width': 0.6 }, fr);
+      // 구역 참조(EPLAN식): 상하 열번호 1..8, 좌우 행문자 A..
+      const NC = 8, NR = Math.max(3, Math.round(fh / (fw / NC)));
+      for (let i = 1; i < NC; i++) {
+        const zx = fx + (fw / NC) * i;
+        App.el('line', { x1: zx, y1: fy, x2: zx, y2: fy + 5, stroke: '#334155', 'stroke-width': 0.5 }, fr);
+        App.el('line', { x1: zx, y1: fy + fh - 5, x2: zx, y2: fy + fh, stroke: '#334155', 'stroke-width': 0.5 }, fr);
+      }
+      for (let i = 0; i < NC; i++) {
+        const zx = fx + (fw / NC) * (i + 0.5);
+        [fy + 2.6, fy + fh - 2.6].forEach(function (zy) {
+          const tt = App.el('text', { x: zx, y: zy, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 3.4, fill: '#334155' }, fr);
+          tt.textContent = String(i + 1);
+        });
+      }
+      for (let i = 1; i < NR; i++) {
+        const zy = fy + (fh / NR) * i;
+        App.el('line', { x1: fx, y1: zy, x2: fx + 5, y2: zy, stroke: '#334155', 'stroke-width': 0.5 }, fr);
+        App.el('line', { x1: fx + fw - 5, y1: zy, x2: fx + fw, y2: zy, stroke: '#334155', 'stroke-width': 0.5 }, fr);
+      }
+      for (let i = 0; i < NR; i++) {
+        const zy = fy + (fh / NR) * (i + 0.5);
+        [fx + 2.6, fx + fw - 2.6].forEach(function (zx) {
+          const tt = App.el('text', { x: zx, y: zy, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 3.4, fill: '#334155' }, fr);
+          tt.textContent = String.fromCharCode(65 + i);
+        });
+      }
     }
     // 기계(필드) 영역 — 전장 위쪽에 센서/모터 등 기계측 기기 배치 구역
     if (p.fieldZone) {
@@ -554,6 +580,22 @@
     });
   }
 
+  // 자유 텍스트(주석) — 선택/드래그/편집 가능
+  function renderTexts(state) {
+    const g = App.viewport.layers().texts;
+    clear(g);
+    (state.texts || []).forEach(function (t) {
+      const sel = isSelected(t.id);
+      const e = App.el('text', {
+        x: t.x, y: t.y, 'font-size': t.size || 8,
+        fill: sel ? '#2563eb' : (t.color || '#0f172a'),
+        'font-weight': t.bold ? 'bold' : null,
+        'data-id': t.id, 'data-kind': 'texts', style: 'cursor:move'
+      }, g);
+      e.textContent = t.text || '';
+    });
+  }
+
   function renderOverlay(state) {
     const g = App.viewport.layers().overlay;
     clear(g);
@@ -636,6 +678,7 @@
     renderComponents(state);
     renderWires(state);
     renderDims(state);
+    renderTexts(state);
     renderOverlay(state);
     renderTopHandles(state);
     if (App.minimap) App.minimap.update(state); // 뷰포트 표시 동기화

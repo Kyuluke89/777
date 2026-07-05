@@ -6,7 +6,7 @@
   const SH = (App.sheetsMgr = {});
 
   // 시트로 저장/복원되는 필드
-  const FIELDS = ['panel', 'ducts', 'rails', 'components', 'wires', 'dimensions', 'fonts', 'titleBlock'];
+  const FIELDS = ['panel', 'ducts', 'rails', 'components', 'wires', 'dimensions', 'texts', 'fonts', 'titleBlock'];
 
   function packCurrent(s) {
     const d = {};

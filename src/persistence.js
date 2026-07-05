@@ -46,6 +46,7 @@
           data.components = data.components || [];
           data.wires = data.wires || [];
           data.dimensions = data.dimensions || [];
+          data.texts = data.texts || [];
           data.fonts = data.fonts || { comp: 1, term: 1, wire: 1, dim: 1 };
           data.labels = data.labels || [];
           data.meta = data.meta || {};

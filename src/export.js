@@ -315,6 +315,9 @@
       line('DIMS', g.a1.x, g.a1.y, g.a2.x, g.a2.y);
       text('DIMS', g.mid.x, g.mid.y - 2, 4, App.dims.length(m));
     });
+    (state.texts || []).forEach(function (t) {
+      text('NOTES', t.x, t.y, t.size || 8, t.text);
+    });
     push(0, 'ENDSEC', 0, 'EOF');
     return L.join('\n') + '\n';
   };

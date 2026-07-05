@@ -20,7 +20,7 @@
     App.store.commit(function (s) {
       const f = App.store.findById(id);
       if (!f) return;
-      if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg' || field === 'acdc') {
+      if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg' || field === 'acdc' || field === 'text') {
         f.item[field] = value;
         // SQ 선택 시 AWG 자동 채움
         if (field === 'sq' && App.wires.SQ_AWG[value]) { f.item.awg = App.wires.SQ_AWG[value]; refresh = true; }
@@ -120,6 +120,23 @@
       return;
     }
 
+    if (f.kind === 'texts') {
+      html = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">자유 텍스트</div>';
+      html += row('내용', '<input data-field="text" type="text" value="' + App.esc(it.text || '') +
+        '" class="w-32 px-2 py-1 text-xs border border-slate-300 rounded" />');
+      html += row('크기(mm)', numInput('size', it.size || 8));
+      html += row('색상', '<input data-field="color" type="color" value="' + (it.color || '#0f172a') +
+        '" class="w-12 h-7 border border-slate-300 rounded" />');
+      html += row('X (mm)', numInput('x', Math.round(it.x)));
+      html += row('Y (mm)', numInput('y', Math.round(it.y)));
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">더블클릭으로도 내용을 바로 수정할 수 있습니다.</div>';
+      root.innerHTML = html;
+      root.querySelectorAll('[data-field]').forEach(function (inp) {
+        inp.addEventListener('change', function () { commitField(id, inp.getAttribute('data-field'), inp.value); });
+      });
+      return;
+    }
+
     if (f.kind === 'wires') {
       html += row('라인번호', '<input data-field="label" type="text" value="' + App.esc(it.label || '') +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
@@ -200,6 +217,23 @@
         });
         html += row('배치 연동', '<select id="insp-link" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' + lopts + '</select>');
         html += '<button id="insp-link-go" class="mt-1 w-full px-2 py-1 text-xs rounded bg-blue-600 text-white" style="background:#2563eb;color:#fff">↪ 연동 부품으로 이동</button>';
+        // 크로스레퍼런스 — 같은 라벨의 심볼(코일↔접점 등)로 점프 (EPLAN 방식)
+        if (it.label) {
+          const xrefs = [];
+          shs.forEach(function (sh2, si2) {
+            (sh2.st.components || []).forEach(function (c5) {
+              if (!c5.sym || c5.id === it.id || (c5.label || '') !== it.label) return;
+              xrefs.push({ si: si2, cid: c5.id, name: (sh2.name ? sh2.name + ' · ' : '') + (c5.partNo || c5.sym) });
+            });
+          });
+          if (xrefs.length) {
+            html += '<div class="text-[10px] text-slate-500 px-1 mt-2 font-semibold">크로스레퍼런스 (' + App.esc(it.label) + ')</div>';
+            xrefs.forEach(function (x) {
+              html += '<button class="insp-xref mt-1 w-full px-2 py-1 text-[11px] rounded border border-slate-300 bg-white text-slate-700 text-left" ' +
+                'data-si="' + x.si + '" data-cid="' + App.esc(x.cid) + '">⇄ ' + App.esc(x.name) + '</button>';
+            });
+          }
+        }
       }
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + App.esc(it.partNo || '') + '</div>';
       html += '<button id="insp-edit-part" class="mt-2 w-full px-2 py-1 text-xs rounded bg-teal-600 text-white">✎ 크기·단자 편집</button>';
@@ -277,6 +311,21 @@
       Inspector.update();
       if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
     };
+    // 크로스레퍼런스 점프 — 같은 라벨 심볼로 이동
+    root.querySelectorAll('.insp-xref').forEach(function (btn) {
+      btn.onclick = function () {
+        const si = parseInt(btn.getAttribute('data-si'), 10);
+        const cid = btn.getAttribute('data-cid');
+        if (App.store.get().activeSheet !== si && App.sheetsMgr) App.sheetsMgr.switchTo(si);
+        const tgt = App.store.get().components.find(function (c6) { return c6.id === cid; });
+        if (!tgt) { if (App.toolbar) App.toolbar.flash('대상 심볼을 찾을 수 없습니다'); return; }
+        App.ui.selected = new Set([tgt.id]);
+        App.viewport.centerOn(tgt.x + tgt.widthMM / 2, tgt.y + tgt.heightMM / 2);
+        App.render.all();
+        Inspector.update();
+        if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
+      };
+    });
     // 글자 방향(가로/세로)
     const dirSel = root.querySelector('#insp-textdir');
     if (dirSel) dirSel.onchange = function () {

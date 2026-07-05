@@ -130,6 +130,7 @@
       components: App.el('g', { id: 'layer-components' }, svg),
       wires: App.el('g', { id: 'layer-wires' }, svg),
       dims: App.el('g', { id: 'layer-dims' }, svg),
+      texts: App.el('g', { id: 'layer-texts' }, svg),
       overlay: App.el('g', { id: 'layer-overlay', 'pointer-events': 'none' }, svg),
       tophit: App.el('g', { id: 'layer-tophit' }, svg)
     };

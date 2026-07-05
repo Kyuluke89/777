@@ -11,6 +11,11 @@
 
   // 엔티티의 화면상 경계 박스 (회전 미반영, MVP 충분)
   Geom.bounds = function (kind, item) {
+    if (kind === 'texts') {
+      const sz = item.size || 8;
+      const w = Math.max(10, String(item.text || '').length * sz * 0.62);
+      return { x: item.x, y: item.y - sz, w: w, h: sz * 1.5 };
+    }
     if (kind === 'ducts') {
       const w = item.orient === 'h' ? item.lengthMM : item.widthMM;
       const h = item.orient === 'h' ? item.widthMM : item.lengthMM;
