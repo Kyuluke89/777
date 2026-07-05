@@ -35,6 +35,7 @@
     App.toolbar.init();
     if (App.sheetsMgr) App.sheetsMgr.init();
     if (App.view3d) App.view3d.init();
+    if (App.minimap) App.minimap.init();
 
     // 상태 변경 → 자동 재렌더 (반응형)
     App.store.subscribe(function () { App.render.all(); });

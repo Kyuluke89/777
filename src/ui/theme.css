@@ -210,3 +210,14 @@ main .absolute.bottom-2 { box-shadow: var(--shadow-2); border-radius: 10px; }
 header label, aside label{white-space:nowrap}
 header h1{white-space:nowrap}
 aside label{display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* ── 미니맵 ── */
+#minimap {
+  position: absolute; right: 8px; top: 8px;
+  width: 148px; height: 168px;
+  background: rgba(255, 255, 255, .92);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  overflow: hidden; cursor: crosshair;
+  backdrop-filter: blur(3px);
+}

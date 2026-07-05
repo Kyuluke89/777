@@ -38,8 +38,67 @@
       return;
     }
     if (sel.size > 1) {
-      root.innerHTML = '<p class="text-xs text-slate-500 px-1 py-2">' + sel.size + '개 선택됨<br>' +
-        '<span class="text-slate-400">R: 회전 · Del: 삭제</span></p>';
+      // 다중선택 일괄 편집 — 같은 종류끼리는 공통 속성 일괄 변경
+      const finds = Array.from(sel).map(function (i) { return App.store.findById(i); }).filter(Boolean);
+      const kinds = {};
+      finds.forEach(function (f) { kinds[f.kind] = 1; });
+      const kindList = Object.keys(kinds);
+      let mh = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">' + sel.size + '개 선택 (일괄 편집)</div>';
+      const onlyWires = kindList.length === 1 && kindList[0] === 'wires';
+      const onlyComps = kindList.length === 1 && kindList[0] === 'components';
+      if (onlyWires) {
+        let sw2 = '<div class="flex flex-wrap gap-1 px-1 mb-1">';
+        App.wires.COLORS.forEach(function (c) {
+          sw2 += '<button type="button" class="mw-color" data-color="' + c.v + '" title="' + c.n + '" ' +
+            'style="width:18px;height:18px;border-radius:4px;background:' + c.v + ';border:1px solid #cbd5e1;cursor:pointer;font-size:9px;color:' +
+            (c.n === '흰' || c.n === '황' ? '#334155' : '#fff') + '">' + c.n + '</button>';
+        });
+        sw2 += '</div>';
+        mh += row('색상 일괄', '') + sw2;
+        let sqO = '<option value="">-</option>';
+        App.wires.SQ_LIST.forEach(function (v) { sqO += '<option value="' + v + '">' + v + ' SQ</option>'; });
+        mh += row('규격(SQ)', '<select data-mf="sq" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + sqO + '</select>');
+        mh += row('두께(mm)', '<input data-mf="width" type="number" step="0.2" min="0.2" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+        mh += row('전원구분', '<select data-mf="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="">없음</option><option value="AC">AC</option><option value="DC">DC</option></select>');
+      } else if (onlyComps) {
+        mh += row('타입 일괄', '<select data-mf="type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option>' + App.types.optionsHtml('').replace('<option value="__new__">＋ 새 타입…</option>', '') + '</select>');
+        mh += row('글자 방향', '<select data-mf="textVert" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="h">가로</option><option value="v">세로</option></select>');
+        mh += '<label class="flex items-center gap-1 mt-1 text-xs text-slate-600"><input id="insp-lock-multi" type="checkbox" /> 전체 잠금</label>';
+      } else {
+        mh += '<div class="text-[10px] text-slate-400 px-1">서로 다른 종류가 섞여 있습니다.</div>';
+      }
+      mh += '<button id="insp-del-multi" class="mt-2 w-full px-2 py-1 text-xs rounded bg-red-500 text-white" style="background:#ef4444;color:#fff">🗑 선택 항목 모두 삭제</button>';
+      root.innerHTML = mh;
+      function applyAll(fn) {
+        App.store.commit(function (s2) {
+          Array.from(sel).forEach(function (i) {
+            const f2 = App.store.findById(i);
+            if (f2) fn(f2.item, f2.kind);
+          });
+        });
+        App.render.all();
+      }
+      root.querySelectorAll('.mw-color').forEach(function (b) {
+        b.onclick = function () { const v = b.getAttribute('data-color'); applyAll(function (it, k) { if (k === 'wires') it.color = v; }); };
+      });
+      root.querySelectorAll('[data-mf]').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+          const f3 = inp.getAttribute('data-mf');
+          const v = inp.value;
+          if (v === '__keep__') return;
+          applyAll(function (it, k) {
+            if (f3 === 'sq') { if (v) { it.sq = v; if (App.wires.SQ_AWG[v]) it.awg = App.wires.SQ_AWG[v]; } }
+            else if (f3 === 'width') { const n = parseFloat(v); if (n) it.width = n; }
+            else if (f3 === 'acdc') it.acdc = v;
+            else if (f3 === 'type') it.type = v;
+            else if (f3 === 'textVert') it.textVert = (v === 'v');
+          });
+        });
+      });
+      const lockM = root.querySelector('#insp-lock-multi');
+      if (lockM) lockM.onchange = function () { const on = lockM.checked; applyAll(function (it) { it.locked = on; }); };
+      const delM = root.querySelector('#insp-del-multi');
+      if (delM) delM.onclick = function () { App.interact.deleteSelected(); };
       return;
     }
     const id = Array.from(sel)[0];

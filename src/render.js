@@ -63,6 +63,14 @@
     }, g);
     t.textContent = p.widthMM + ' × ' + p.heightMM + ' mm';
     renderTitleBlock(state, g);
+    // 도면 프레임(2중 테두리) — 전장+표제란(+기계영역) 감싸는 도곽
+    if (p.frame) {
+      const topEx = p.fieldZone ? ((p.fieldH || 220) + 60) : 0;
+      const fx = -22, fy = -52 - topEx, fw = p.widthMM + 44, fh = p.heightMM + 52 + topEx + 52;
+      const fr = App.el('g', { id: 'sheet-frame', 'pointer-events': 'none' }, g);
+      App.el('rect', { x: fx, y: fy, width: fw, height: fh, fill: 'none', stroke: '#334155', 'stroke-width': 1.6 }, fr);
+      App.el('rect', { x: fx + 5, y: fy + 5, width: fw - 10, height: fh - 10, fill: 'none', stroke: '#334155', 'stroke-width': 0.6 }, fr);
+    }
     // 기계(필드) 영역 — 전장 위쪽에 센서/모터 등 기계측 기기 배치 구역
     if (p.fieldZone) {
       const fh = p.fieldH || 220, gap = 60;
@@ -230,6 +238,29 @@
       L(m, 2, m, h * 0.25);
       C(m, h * 0.55, w * 0.32); T(m, h * 0.55, 'A', w * 0.34);
       L(m, h * 0.87, m, h - 2);
+    } else if (s === 'auxa') {           // a접점(NO)
+      L(m, 2, m, h * 0.32);
+      L(m, h * 0.32, w * 0.85, h * 0.6);
+      L(m, h * 0.64, m, h - 2);
+    } else if (s === 'auxb') {           // b접점(NC) — 사선 + 가로 차단바
+      L(m, 2, m, h * 0.32);
+      L(m, h * 0.32, w * 0.85, h * 0.6);
+      L(w * 0.32, h * 0.3, w * 0.72, h * 0.3);
+      L(m, h * 0.64, m, h - 2);
+    } else if (s === 'coil') {           // 코일
+      L(m, 2, m, h * 0.28);
+      C(m, h * 0.5, w * 0.28);
+      L(m, h * 0.72, m, h - 2);
+    } else if (s === 'pb') {             // 누름버튼(NO)
+      L(m, 2, m, h * 0.4); L(m, h * 0.6, m, h - 2);
+      L(w * 0.28, h * 0.45, w * 0.72, h * 0.45);       // 브리지
+      L(m, h * 0.45, m, h * 0.24);                      // 스템
+      L(w * 0.36, h * 0.24, w * 0.64, h * 0.24);        // 버튼 캡
+    } else if (s === 'ph3') {            // 3상 표시(사선 3개)
+      L(m, 2, m, h - 2);
+      for (let i = 0; i < 3; i++) L(w * 0.3, h * (0.32 + i * 0.14), w * 0.7, h * (0.22 + i * 0.14));
+    } else if (s === 'bus') {            // 버스바(모선) — 굵은 바
+      App.el('rect', { x: x + 1, y: y + h * 0.25, width: w - 2, height: h * 0.5, fill: COL, rx: 1, 'pointer-events': 'none' }, g);
     }
   }
 
@@ -550,6 +581,7 @@
     renderDims(state);
     renderOverlay(state);
     renderTopHandles(state);
+    if (App.minimap) App.minimap.update(state); // 뷰포트 표시 동기화
   };
 
   // 선택된 항목의 라벨 위에 최상위 드래그 핸들(투명) — 선/도형 위에서도 잡히게

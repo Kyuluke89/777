@@ -1200,6 +1200,55 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(io.header && io.ok, 'PLC I/O 리스트(연결 기기 매핑)');
 
+  // === CAD 2차: 심볼확장/프레임/일괄편집/미니맵 ===
+  const round2b = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const coil = lib.find(p => p.partNo === 'SYM-COIL');
+    const bus = lib.find(p => p.partNo === 'SYM-BUS');
+    // 도면 프레임
+    App.store.commit(s => { s.panel.frame = true; });
+    App.render.all();
+    const frame = !!document.querySelector('#sheet-frame rect');
+    App.store.commit(s => { s.panel.frame = false; });
+    App.render.all();
+    // 미니맵: 부품 사각형 + 뷰포트 표시
+    const mm = document.querySelector('#minimap svg');
+    const mmRects = mm ? mm.querySelectorAll('rect').length : 0;
+    const vb0 = App.viewport.getViewBox();
+    App.minimap.jump(150, 400);
+    const vb1 = App.viewport.getViewBox();
+    const jumped = Math.abs((vb1.x + vb1.w / 2) - 150) < 2 && Math.abs((vb1.y + vb1.h / 2) - 400) < 2;
+    App.viewport.fitTo(App.store.get().panel.widthMM, App.store.get().panel.heightMM); App.render.all();
+    return { coil: !!coil, bus: !!bus, frame, mmRects, jumped };
+  });
+  assert(round2b.coil && round2b.bus, '확장 심볼(코일/버스바) 라이브러리');
+  assert(round2b.frame, '도면 프레임 렌더');
+  assert(round2b.mmRects >= 3, '미니맵 렌더 (' + round2b.mmRects + 'rect)');
+  assert(round2b.jumped, '미니맵 점프(centerOn)');
+
+  // 다중선택 일괄 편집(배선 2개 → SQ 일괄)
+  const multi = await page.evaluate(() => {
+    const s0 = App.store.get();
+    const w0 = s0.wires[0];
+    App.store.commit(s => {
+      const w = App.wires.create(s, { compId: w0.fromComp, index: w0.fromTerm }, { compId: w0.toComp, index: w0.toTerm });
+      w.label = 'MULTI2'; s.wires.push(w);
+    });
+    const ids = [App.store.get().wires[0].id, App.store.get().wires.find(w => w.label === 'MULTI2').id];
+    App.ui.selected = new Set(ids);
+    App.inspector.update();
+    const sqSel = document.querySelector('#inspector [data-mf="sq"]');
+    const hasUI = !!sqSel && !!document.querySelector('#inspector .mw-color');
+    sqSel.value = '5.5';
+    sqSel.dispatchEvent(new Event('change'));
+    const both = ids.every(i => { const f = App.store.findById(i); return f.item.sq === '5.5' && f.item.awg === '10'; });
+    App.store.commit(s => { s.wires = s.wires.filter(w => w.label !== 'MULTI2'); });
+    App.ui.selected.clear(); App.inspector.update(); App.render.all();
+    return { hasUI, both };
+  });
+  assert(multi.hasUI, '다중선택 일괄 편집 UI');
+  assert(multi.both, '배선 SQ/AWG 일괄 적용');
+
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

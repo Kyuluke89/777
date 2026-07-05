@@ -31,7 +31,15 @@
     symPart('SYM-SW', '개폐기(단로기)', 'sw'),
     symPart('SYM-EARTH', '접지', 'earth', 30, { term: [{ name: '1', rx: 12, ry: 2 }], terminals: 1 }),
     symPart('SYM-CT', '변류기(CT)', 'ct', 36),
-    symPart('SYM-METER', '계측기(A/V)', 'meter', 32)
+    symPart('SYM-METER', '계측기(A/V)', 'meter', 32),
+    symPart('SYM-AUXA', '보조접점 a(NO)', 'auxa', 34),
+    symPart('SYM-AUXB', '보조접점 b(NC)', 'auxb', 34),
+    symPart('SYM-COIL', '코일(릴레이/MC)', 'coil', 36),
+    symPart('SYM-PB', '누름버튼(PB)', 'pb', 36),
+    symPart('SYM-3PH', '3상 표시', 'ph3', 34),
+    { partNo: 'SYM-BUS', manufacturer: '심볼', type: 'SYM', sym: 'bus', name: '버스바(모선)',
+      w: 120, h: 12, d: 1, terminals: 4,
+      term: [{ name: '1', rx: 15, ry: 6 }, { name: '2', rx: 45, ry: 6 }, { name: '3', rx: 75, ry: 6 }, { name: '4', rx: 105, ry: 6 }] }
   ];
   App.seedParts = (App.seedParts || []).concat(BUILTIN, FIELD, SYMBOLS);
 })(window);
