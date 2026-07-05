@@ -13,5 +13,25 @@
     { partNo: 'FLD-LAMP', manufacturer: '필드', type: 'LAMP', name: '표시등', w: 25, h: 25, d: 30, terminals: 2, term: [{name:'+',rx:7,ry:21},{name:'-',rx:18,ry:21}] },
     { partNo: 'FLD-SW', manufacturer: '필드', type: 'SW', name: '푸시버튼/스위치', w: 25, h: 30, d: 35, terminals: 2, term: [{name:'1',rx:7,ry:26},{name:'2',rx:18,ry:26}] }
   ];
-  App.seedParts = (App.seedParts || []).concat(BUILTIN, FIELD);
+  // 계통도(단선도) 심볼 — 자체 벡터(sym 키), 위/아래 단자로 세로 결선
+  function symPart(no, name, sym, h, extra) {
+    return Object.assign({ partNo: no, manufacturer: '심볼', type: 'SYM', sym: sym, name: name,
+      w: 24, h: h || 44, d: 1, terminals: 2,
+      term: [{ name: '1', rx: 12, ry: 2 }, { name: '2', rx: 12, ry: (h || 44) - 2 }] }, extra || {});
+  }
+  const SYMBOLS = [
+    symPart('SYM-MCCB', '배선용차단기', 'mccb'),
+    symPart('SYM-ELCB', '누전차단기', 'elcb'),
+    symPart('SYM-FUSE', '퓨즈', 'fuse', 36),
+    symPart('SYM-MC', '전자접촉기(주접점)', 'mc'),
+    symPart('SYM-THR', '열동계전기(THR/EOCR)', 'thr', 36),
+    symPart('SYM-TR', '변압기', 'tr', 48),
+    symPart('SYM-MOTOR', '모터(M)', 'motor', 40, { term: [{ name: '1', rx: 12, ry: 2 }], terminals: 1 }),
+    symPart('SYM-LAMP', '표시등', 'lamp', 32),
+    symPart('SYM-SW', '개폐기(단로기)', 'sw'),
+    symPart('SYM-EARTH', '접지', 'earth', 30, { term: [{ name: '1', rx: 12, ry: 2 }], terminals: 1 }),
+    symPart('SYM-CT', '변류기(CT)', 'ct', 36),
+    symPart('SYM-METER', '계측기(A/V)', 'meter', 32)
+  ];
+  App.seedParts = (App.seedParts || []).concat(BUILTIN, FIELD, SYMBOLS);
 })(window);

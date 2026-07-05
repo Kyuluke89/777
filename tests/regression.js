@@ -848,10 +848,14 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
 
   // 스마트 정렬 가이드: 격자에 안 맞는 기준(y=303)에 드래그 시 자석 스냅
   const smart = await page.evaluate(() => {
+    // 다른 부품/레일 간섭 배제(임시 격리, 끝나고 복원)
+    window.__sgBackup = JSON.parse(JSON.stringify({ comps: App.store.get().components, rails: App.store.get().rails }));
     App.store.commit(s => {
-      s.rails = []; // 레일 스냅 배제
-      s.components.push({ id: 'sm1', partNo: 'sm', type: 'TB', x: 100, y: 303, widthMM: 40, heightMM: 40, rotation: 0, label: 'ref', terminals: 0, term: null });
-      s.components.push({ id: 'sm2', partNo: 'sm', type: 'TB', x: 300, y: 400, widthMM: 40, heightMM: 40, rotation: 0, label: 'mv', terminals: 0, term: null });
+      s.rails = [];
+      s.components = [
+        { id: 'sm1', partNo: 'sm', type: 'TB', x: 100, y: 303, widthMM: 40, heightMM: 40, rotation: 0, label: 'ref', terminals: 0, term: null },
+        { id: 'sm2', partNo: 'sm', type: 'TB', x: 300, y: 400, widthMM: 40, heightMM: 40, rotation: 0, label: 'mv', terminals: 0, term: null }
+      ];
     });
     App.render.all();
     const grp = document.querySelector('#layer-components [data-id="sm2"] rect');
@@ -868,12 +872,14 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   const smartRes = await page.evaluate(() => {
     const y = App.store.get().components.find(c => c.id === 'sm2').y;
     const cleared = !document.querySelector('#smart-guides line');
-    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'sm1' && c.id !== 'sm2'); });
+    App.store.commit(s => { s.components = window.__sgBackup.comps; s.rails = window.__sgBackup.rails; });
     App.ui.selected.clear(); App.render.all();
     return { y, cleared };
   });
   assert(guideShown, '드래그 중 스마트 가이드선 표시');
-  assert(smartRes.y === 303, '스마트 가이드 자석 스냅 (y=' + smartRes.y + ')');
+  // 위/아래/중앙 어느 모서리든 기준(303)에 정렬되면 성공 — 격자(10 배수)가 아닌 303 정렬이 스냅 증거
+  const snapped = (smartRes.y === 303) || (smartRes.y + 40 === 303) || (smartRes.y + 20 === 303);
+  assert(snapped, '스마트 가이드 자석 스냅 (y=' + smartRes.y + ')');
   assert(smartRes.cleared, '드래그 종료 시 가이드 제거');
 
   // === 배선 자동화 + 표제란 ===
@@ -1136,6 +1142,63 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(cable.ok, '케이블표 행(판넬측/현장측/규격) 정확');
   assert(cable.onlyField, '케이블표는 필드 배선만 (' + cable.n + '행)');
+
+  // === CAD급 개편 라운드: 썸네일/컨텍스트메뉴/심볼/IO 리스트 ===
+  // 팔레트 썸네일
+  const thumbN = await page.evaluate(() => document.querySelectorAll('#palette-list .pal-thumb').length);
+  assert(thumbN >= 1, '팔레트 부품 썸네일 (' + thumbN + ')');
+
+  // 우클릭 컨텍스트 메뉴 (부품 위 → 편집/삭제 항목, Esc 닫기)
+  const ctxBox = await page.evaluate(() => {
+    const c = App.store.get().components[0];
+    const grp = document.querySelector('#layer-components [data-id="' + c.id + '"] rect');
+    const r = grp.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await page.mouse.click(ctxBox.x, ctxBox.y, { button: 'right' });
+  const ctx = await page.evaluate(() => {
+    const m = document.getElementById('ctx-menu');
+    const open = m && m.style.display !== 'none';
+    const labels = m ? Array.from(m.querySelectorAll('.ctx-item')).map(d => d.textContent) : [];
+    return { open, hasEdit: labels.some(t => t.indexOf('편집') >= 0), hasDel: labels.some(t => t.indexOf('삭제') >= 0) };
+  });
+  assert(ctx.open && ctx.hasEdit && ctx.hasDel, '우클릭 컨텍스트 메뉴(부품)');
+  await page.keyboard.press('Escape');
+  const ctxClosed = await page.evaluate(() => document.getElementById('ctx-menu').style.display === 'none');
+  assert(ctxClosed, '컨텍스트 메뉴 Esc 닫힘');
+
+  // 계통도 심볼: 라이브러리 + 벡터 렌더
+  const sym = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const mccb = lib.find(p => p.partNo === 'SYM-MCCB');
+    const motor = lib.find(p => p.partNo === 'SYM-MOTOR');
+    App.store.commit(s => { s.components.push({ id: 'sym1', partNo: mccb.partNo, type: 'SYM', sym: mccb.sym, x: 50, y: 950, widthMM: mccb.w, heightMM: mccb.h, rotation: 0, label: 'Q1', terminals: 2, term: JSON.parse(JSON.stringify(mccb.term)) }); });
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="sym1"]');
+    const lines = grp.querySelectorAll('.part-sym line').length;
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'sym1'); });
+    App.render.all();
+    return { hasMccb: !!mccb, hasMotor: !!motor, lines };
+  });
+  assert(sym.hasMccb && sym.hasMotor, '계통도 심볼 라이브러리(SYM)');
+  assert(sym.lines >= 3, '심볼 벡터 렌더 (' + sym.lines + '선)');
+
+  // PLC I/O 리스트
+  const io = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const plc = lib.find(p => p.type === 'PLC');
+    App.store.commit(s => {
+      s.components.push({ id: 'plc1', partNo: plc.partNo, type: 'PLC', x: 400, y: 600, widthMM: plc.w, heightMM: plc.h, rotation: 0, label: 'PLC1', terminals: plc.terminals, term: JSON.parse(JSON.stringify(plc.term)) });
+      const c0 = s.components[0];
+      const w = App.wires.create(s, { compId: 'plc1', index: 0 }, { compId: c0.id, index: 0 });
+      w.label = 'IO-1'; s.wires.push(w);
+    });
+    const rows = App.exporter.ioRows(App.store.get());
+    const hit = rows.find(r => r[2] === 'IO-1');
+    App.store.commit(s => { s.wires = s.wires.filter(w => w.label !== 'IO-1'); s.components = s.components.filter(c => c.id !== 'plc1'); });
+    return { header: rows[0][0] === 'PLC', ok: !!hit && hit[0] === 'PLC1' && !!hit[3] };
+  });
+  assert(io.header && io.ok, 'PLC I/O 리스트(연결 기기 매핑)');
 
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {

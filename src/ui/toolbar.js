@@ -283,6 +283,7 @@
     $('act-bom').onclick = function () { const n = App.exporter.bom(); flash('BOM ' + n + '행 저장'); };
     $('act-wlist').onclick = function () { const n = App.exporter.wiringList(); flash('배선표 ' + n + '행 저장'); };
     $('act-png').onclick = function () { App.exporter.png(2); flash('PNG 내보내기'); };
+    if ($('act-io')) $('act-io').onclick = function () { const n = App.exporter.ioList(); flash('I/O 리스트 ' + n + '행 저장'); };
     if ($('act-cable')) $('act-cable').onclick = function () { const n = App.exporter.cableList(); flash('케이블표 ' + n + '행 저장'); };
     if ($('act-dxf')) $('act-dxf').onclick = function () { App.exporter.dxf(); flash('DXF 내보내기'); };
     $('act-print').onclick = function () { App.exporter.print(); };

@@ -5,7 +5,8 @@
   const Interact = (App.interact = {});
 
   let svg;
-  let gesture = null; // { type, sp, snap, origPos, orient, kind }
+  let gesture = null;
+  let lastPanDist = 0; // 우클릭 팬 이동량(컨텍스트 메뉴 억제용) // { type, sp, snap, origPos, orient, kind }
 
   function snapV(v) {
     return App.geom.snap(v, App.store.get().panel.gridMM);
@@ -64,7 +65,8 @@
       partName: part.name || '',
       terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null,
-      img: part.img || null, imgX: part.imgX || 0, imgY: part.imgY || 0, imgS: part.imgS || 1, imgO: part.imgO != null ? part.imgO : 1, imgCX: part.imgCX || 0, imgCY: part.imgCY || 0, imgCW: part.imgCW || 0, imgCH: part.imgCH || 0
+      sym: part.sym || null,
+      img: part.img || null, imgX: part.imgX || 0, imgY: part.imgY || 0, imgS: part.imgS || 1, imgAR: part.imgAR || 0, imgO: part.imgO != null ? part.imgO : 1, imgCX: part.imgCX || 0, imgCY: part.imgCY || 0, imgCW: part.imgCW || 0, imgCH: part.imgCH || 0
     };
     App.store.commit(function (s) { s.components.push(comp); });
     selectOnly(comp.id);
@@ -250,7 +252,7 @@
     const panKey = e.button === 1 || e.button === 2 || App.ui.spaceDown;
 
     if (panKey) {
-      gesture = { type: 'pan', last: { x: e.clientX, y: e.clientY } };
+      gesture = { type: 'pan', last: { x: e.clientX, y: e.clientY }, dist: 0 };
       svg.setPointerCapture(e.pointerId);
       e.preventDefault();
       return;
@@ -470,6 +472,7 @@
       const dyPx = e.clientY - gesture.last.y;
       const s = App.viewport.scale();
       App.viewport.panBy(dxPx / s, dyPx / s);
+      gesture.dist = (gesture.dist || 0) + Math.abs(dxPx) + Math.abs(dyPx);
       gesture.last = { x: e.clientX, y: e.clientY };
       App.render.all(); // overlay 핸들 크기 갱신용
       return;
@@ -487,6 +490,7 @@
   function onPointerUp(e) {
     if (!gesture) return;
     try { svg.releasePointerCapture(e.pointerId); } catch (x) {}
+    if (gesture.type === 'pan') lastPanDist = gesture.dist || 0;
     if (gesture.type === 'draw') finishDraw();
     else if (gesture.type === 'move') finishMove();
     else if (gesture.type === 'wireseg') {
@@ -816,13 +820,60 @@
   Interact.duplicateSelected = duplicateSelected;
   Interact.cancelGesture = cancelGesture;
 
+  // 우클릭 메뉴 구성 — 대상(부품/덕트·레일/배선/빈곳)에 따라 항목 변경
+  function openContextMenu(e) {
+    if (!App.ctxMenu) return;
+    const stack = (document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target]);
+    let hit = null;
+    for (let i = 0; i < stack.length; i++) {
+      const m = stack[i].closest && stack[i].closest('[data-id][data-kind]');
+      if (m) { hit = m; break; }
+    }
+    const items = [];
+    if (hit) {
+      const id = hit.getAttribute('data-id'), kind = hit.getAttribute('data-kind');
+      if (!App.ui.selected.has(id)) selectOnly(id);
+      const f = App.store.findById(id);
+      if (kind === 'components') {
+        items.push({ icon: '✎', label: '크기·단자 편집', fn: function () { App.partEditor.open({ component: f.item }); } });
+        items.push({ icon: '⟳', label: '회전', key: 'R', fn: rotateSelected });
+      }
+      if (kind !== 'wires') {
+        items.push({ icon: '⎘', label: '복제', key: 'Ctrl+D', fn: duplicateSelected });
+        items.push({ icon: '🔒', label: (f && f.item.locked) ? '잠금 해제' : '잠금', fn: toggleLock });
+      }
+      items.push('sep');
+      items.push({ icon: '🗑', label: '삭제', key: 'Del', danger: true, fn: deleteSelected });
+    } else {
+      items.push({ icon: '📋', label: '붙여넣기', key: 'Ctrl+V', fn: paste });
+      items.push({ icon: '⬚', label: '전체 선택', key: 'Ctrl+A', fn: function () {
+        const s = App.store.get();
+        App.ui.selected = new Set([].concat(s.components, s.ducts, s.rails, s.wires, s.dimensions || []).map(function (it) { return it.id; }));
+        App.render.all(); if (App.inspector) App.inspector.update();
+      } });
+      items.push('sep');
+      items.push({ icon: '⛶', label: '화면 맞춤', fn: function () {
+        const p = App.store.get().panel;
+        App.viewport.fitTo(p.widthMM, p.heightMM);
+        App.render.all();
+        if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
+      } });
+    }
+    App.ctxMenu.show(e.clientX, e.clientY, items);
+  }
+
   Interact.init = function (svgEl) {
     svg = svgEl;
     svg.addEventListener('pointerdown', onPointerDown);
     svg.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     svg.addEventListener('dblclick', onDblClick);
-    svg.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    svg.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+      if (lastPanDist > 6) { lastPanDist = 0; return; } // 우드래그(팬)였으면 메뉴 생략
+      lastPanDist = 0;
+      openContextMenu(e);
+    });
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
   };

@@ -8,7 +8,7 @@
   let library = [];
   let filter = '';
   // 카테고리(type) 표시 순서
-  const TYPE_ORDER = ['MCCB', 'MCB', 'ELCB', 'MC', 'NF', 'CP', 'SMPS', 'PLC', 'RELAY', 'TB', 'STOP', 'ETC'];
+  const TYPE_ORDER = ['MCCB', 'MCB', 'ELCB', 'MC', 'NF', 'CP', 'SMPS', 'PLC', 'RELAY', 'TB', 'STOP', 'SENSOR', 'MOTOR', 'SOL', 'LAMP', 'SW', 'SYM', 'ETC'];
   const collapsed = {}; // type → 접힘 여부 (기본 접힘)
 
   Palette.getLibrary = function () { return library; };
@@ -58,8 +58,15 @@
     const color = App.typeColor(p.type);
     const placing = App.ui && App.ui.placing && App.ui.placing.partNo === p.partNo;
     if (placing) item.className += ' ring-2 ring-blue-500 bg-blue-50';
+    // 부품 미리보기 썸네일(외곽 + 단자 위치)
+    let thumb = '<svg class="pal-thumb" viewBox="' + (-p.w * 0.06) + ' ' + (-p.h * 0.06) + ' ' + (p.w * 1.12) + ' ' + (p.h * 1.12) + '" preserveAspectRatio="xMidYMid meet">' +
+      '<rect x="0" y="0" width="' + p.w + '" height="' + p.h + '" rx="' + (Math.min(p.w, p.h) * 0.05) + '" fill="' + color + '" fill-opacity="0.14" stroke="' + color + '" stroke-width="' + (Math.max(p.w, p.h) * 0.025 + 0.4) + '"/>';
+    (p.term || []).slice(0, 20).forEach(function (t) {
+      thumb += '<circle cx="' + t.rx + '" cy="' + t.ry + '" r="' + Math.max(1.4, Math.min(p.w, p.h) * 0.05) + '" fill="#fff" stroke="' + color + '" stroke-width="' + (Math.max(p.w, p.h) * 0.02 + 0.3) + '"/>';
+    });
+    thumb += '</svg>';
     item.innerHTML =
-      '<span class="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:' + color + '"></span>' +
+      thumb +
       '<span class="flex-1 min-w-0">' +
       '<span class="block text-xs font-semibold text-slate-700 truncate">' + App.esc(p.partNo) + (p.custom ? ' <span class="text-[9px] text-teal-600">★내부품</span>' : '') + '</span>' +
       '<span class="block text-[10px] text-slate-400 truncate">' + App.esc(p.name || '') + ' · ' + (p.est ? '≈' : '') + p.w + '×' + p.h + 'mm' + (p.est ? ' (추정)' : '') + '</span>' +

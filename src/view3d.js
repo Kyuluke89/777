@@ -68,11 +68,31 @@
     // 조명
     scene.add(new THREE.AmbientLight(0xffffff, 0.65));
     const key = new THREE.DirectionalLight(0xffffff, 0.75);
-    key.position.set(W * 0.6, H * 0.4, Math.max(W, H));
+    key.position.set(W * 0.6, H * 0.5, Math.max(W, H));
+    key.castShadow = true;
+    const S0 = Math.max(W, H);
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.left = -S0; key.shadow.camera.right = S0 * 1.4;
+    key.shadow.camera.top = S0; key.shadow.camera.bottom = -S0 * 1.6;
+    key.shadow.camera.near = 1; key.shadow.camera.far = S0 * 4;
+    key.target.position.set(W / 2, -H / 2, 0);
+    scene.add(key.target);
     scene.add(key);
     const fill = new THREE.DirectionalLight(0xffffff, 0.25);
     fill.position.set(-W * 0.5, -H * 0.6, Math.max(W, H) * 0.6);
     scene.add(fill);
+
+    // 바닥(그리드 + 그림자 받는 면)
+    const S1 = Math.max(W, H);
+    const grid = new THREE.GridHelper(S1 * 3, 30, 0xb6c2d1, 0xdde4ec);
+    grid.position.set(W / 2, -H - 1, 0);
+    scene.add(grid);
+    const groundGeo = new THREE.PlaneGeometry(S1 * 4, S1 * 4);
+    const ground = new THREE.Mesh(groundGeo, new THREE.ShadowMaterial({ opacity: 0.16 }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(W / 2, -H - 1.01, 0);
+    ground.receiveShadow = true;
+    scene.add(ground);
 
     // 플레이트(뒤판) + 외곽 프레임 느낌의 테두리
     const plate = box(W, H, 4, 0xd7dee8, null);
@@ -168,6 +188,8 @@
       } catch (e) { alert('이 기기에서 WebGL(3D)을 사용할 수 없습니다.'); modal.style.display = 'none'; return; }
       renderer.setPixelRatio(global.devicePixelRatio || 1);
       renderer.setClearColor(0xf1f5f9);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       host.appendChild(renderer.domElement);
       renderer.domElement.style.width = '100%';
       renderer.domElement.style.height = '100%';

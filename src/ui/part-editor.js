@@ -47,7 +47,8 @@
     el('rect', { x: 0, y: 0, width: st.w, height: st.h, rx: 2, fill: color, 'fill-opacity': 0.12, stroke: color, 'stroke-width': 1 }, peSvg);
     if (st.img) {
       const isc = st.imgS || 1;
-      const ix = st.imgX || 0, iy = st.imgY || 0, iw = st.w * isc, ih = st.h * isc;
+      const ix = st.imgX || 0, iy = st.imgY || 0, iw = st.w * isc;
+      const ih = st.imgAR ? iw / st.imgAR : st.h * isc;    // 이미지 실제 비율 유지
       if (st.imgCW) { // 자르기 클립
         const cp = el('clipPath', { id: 'pe-clip' }, defs);
         el('rect', { x: st.imgCX, y: st.imgCY, width: st.imgCW, height: st.imgCH }, cp);
@@ -59,9 +60,12 @@
         'clip-path': st.imgCW ? 'url(#pe-clip)' : null
       }, peSvg);
       im.setAttribute('href', st.img);
-      if (st.mode2 === 'img') { // 모서리 리사이즈 핸들 + 외곽선
-        el('rect', { x: ix, y: iy, width: iw, height: ih, fill: 'none', stroke: '#2563eb', 'stroke-width': 0.6, 'stroke-dasharray': '3 2', 'pointer-events': 'none' }, peSvg);
-        [['tl', ix, iy], ['tr', ix + iw, iy], ['bl', ix, iy + ih], ['br', ix + iw, iy + ih]].forEach(function (hd) {
+      if (st.mode2 === 'img') {
+        // 조절 대상 = 보이는 영역(크롭이 있으면 크롭 사각형에 맞춤)
+        const vx = st.imgCW ? st.imgCX : ix, vy = st.imgCW ? st.imgCY : iy;
+        const vw = st.imgCW ? st.imgCW : iw, vh = st.imgCW ? st.imgCH : ih;
+        el('rect', { x: vx, y: vy, width: vw, height: vh, fill: 'none', stroke: '#2563eb', 'stroke-width': 0.6, 'stroke-dasharray': '3 2', 'pointer-events': 'none' }, peSvg);
+        [['tl', vx, vy], ['tr', vx + vw, vy], ['bl', vx, vy + vh], ['br', vx + vw, vy + vh]].forEach(function (hd) {
           el('rect', { x: hd[1] - 3, y: hd[2] - 3, width: 6, height: 6, fill: '#fff', stroke: '#2563eb', 'stroke-width': 0.8, 'data-ih': hd[0], style: 'cursor:nwse-resize' }, peSvg);
         });
       }
@@ -174,8 +178,13 @@
     const ih = e.target.closest && e.target.closest('[data-ih]');
     if (ih && st.mode2 === 'img' && st.img) {
       const isc = st.imgS || 1;
+      const fiw = st.w * isc, fih = st.imgAR ? fiw / st.imgAR : st.h * isc;
+      const vx = st.imgCW ? st.imgCX : (st.imgX || 0), vy = st.imgCW ? st.imgCY : (st.imgY || 0);
+      const vw = st.imgCW ? st.imgCW : fiw, vh = st.imgCW ? st.imgCH : fih;
       peG = { type: 'imgresize', corner: ih.getAttribute('data-ih'),
-        ix: st.imgX || 0, iy: st.imgY || 0, iw: st.w * isc, ih2: st.h * isc };
+        vx: vx, vy: vy, vw: vw, vh: vh,
+        ix: st.imgX || 0, iy: st.imgY || 0, s0: isc,
+        cx: st.imgCX || 0, cy: st.imgCY || 0, cw: st.imgCW || 0, ch: st.imgCH || 0 };
       return;
     }
     if (st.cropping && st.img) { peG = { type: 'imgcrop', sp: p }; return; }
@@ -194,8 +203,8 @@
       peG = { type: 'move', sp: p, orig: orig, moved: false };
       refresh();
     } else if (st.mode2 === 'img' && st.img) {
-      // 이미지 조절: 드래그로 위치 이동
-      peG = { type: 'imgmove', sp: p, ox: st.imgX || 0, oy: st.imgY || 0 };
+      // 이미지 조절: 드래그로 위치 이동(크롭도 함께 이동)
+      peG = { type: 'imgmove', sp: p, ox: st.imgX || 0, oy: st.imgY || 0, ocx: st.imgCX || 0, ocy: st.imgCY || 0 };
     } else {
       // 빈 곳: 드래그=마퀴 선택 · 클릭='단자 추가' 모드일 때만 단자 추가
       peG = { type: 'empty', sp: p, sc: { x: e.clientX, y: e.clientY }, moved: false, shift: e.shiftKey, allowAdd: st.mode2 === 'add' };
@@ -216,13 +225,19 @@
     }
     if (peG.type === 'imgresize') {
       const c = peG.corner;
-      const ax = (c === 'tl' || c === 'bl') ? peG.ix + peG.iw : peG.ix;  // 반대편 x 고정
-      const ay = (c === 'tl' || c === 'tr') ? peG.iy + peG.ih2 : peG.iy; // 반대편 y 고정
-      const ns = Math.max(0.1, Math.min(6, Math.abs(p.x - ax) / st.w));
-      st.imgS = Math.round(ns * 100) / 100;
-      const niw = st.w * st.imgS, nih = st.h * st.imgS;
-      st.imgX = Math.round((c === 'tl' || c === 'bl') ? ax - niw : ax);
-      st.imgY = Math.round((c === 'tl' || c === 'tr') ? ay - nih : ay);
+      const ax = (c === 'tl' || c === 'bl') ? peG.vx + peG.vw : peG.vx;  // 보이는 영역 반대 모서리 고정
+      const ay = (c === 'tl' || c === 'tr') ? peG.vy + peG.vh : peG.vy;
+      const k = Math.max(0.05, Math.min(10, Math.abs(p.x - ax) / Math.max(1, peG.vw)));
+      st.imgS = Math.round(peG.s0 * k * 1000) / 1000;
+      // 이미지·크롭 모두 앵커 기준 동일 배율로 변환 → 보이는 영역이 핸들을 따라감
+      st.imgX = Math.round(ax + (peG.ix - ax) * k);
+      st.imgY = Math.round(ay + (peG.iy - ay) * k);
+      if (peG.cw) {
+        st.imgCX = Math.round(ax + (peG.cx - ax) * k);
+        st.imgCY = Math.round(ay + (peG.cy - ay) * k);
+        st.imgCW = Math.round(peG.cw * k);
+        st.imgCH = Math.round(peG.ch * k);
+      }
       renderPreview();
       return;
     }
@@ -232,8 +247,10 @@
       return;
     }
     if (peG.type === 'imgmove') {
-      st.imgX = Math.round(peG.ox + (p.x - peG.sp.x));
-      st.imgY = Math.round(peG.oy + (p.y - peG.sp.y));
+      const dx = p.x - peG.sp.x, dy = p.y - peG.sp.y;
+      st.imgX = Math.round(peG.ox + dx);
+      st.imgY = Math.round(peG.oy + dy);
+      if (st.imgCW) { st.imgCX = Math.round(peG.ocx + dx); st.imgCY = Math.round(peG.ocy + dy); }
       renderPreview();
       return;
     }
@@ -304,6 +321,7 @@
     st.imgY = (opts.component && opts.component.imgY) || 0;
     st.imgS = (opts.component && opts.component.imgS) || 1;
     st.imgO = (opts.component && opts.component.imgO != null) ? opts.component.imgO : 1;
+    st.imgAR = (opts.component && opts.component.imgAR) || 0;
     st.imgCX = (opts.component && opts.component.imgCX) || 0;
     st.imgCY = (opts.component && opts.component.imgCY) || 0;
     st.imgCW = (opts.component && opts.component.imgCW) || 0;
@@ -346,7 +364,7 @@
   function buildPart() {
     return { partNo: partNoOf(), manufacturer: '커스텀', type: st.type,
       name: st.name || '커스텀 부품', w: st.w, h: st.h, d: 60, terminals: st.terms.length,
-      term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, custom: true };
+      term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, custom: true };
   }
 
   // 배치된 동일 부품(같은 partNo) 전체를 새 정의로 갱신 (라벨/호기번호 등 인스턴스 값은 보존)
@@ -362,7 +380,7 @@
         if (c.label === c.partName || c.label === c.partNo) c.label = def.name;
         c.partName = def.name;
       }
-      c.img = def.img || null; c.imgX = def.imgX || 0; c.imgY = def.imgY || 0; c.imgS = def.imgS || 1; c.imgO = def.imgO != null ? def.imgO : 1; c.imgCX = def.imgCX || 0; c.imgCY = def.imgCY || 0; c.imgCW = def.imgCW || 0; c.imgCH = def.imgCH || 0;
+      c.img = def.img || null; c.imgX = def.imgX || 0; c.imgY = def.imgY || 0; c.imgS = def.imgS || 1; c.imgAR = def.imgAR || 0; c.imgO = def.imgO != null ? def.imgO : 1; c.imgCX = def.imgCX || 0; c.imgCY = def.imgCY || 0; c.imgCW = def.imgCW || 0; c.imgCH = def.imgCH || 0;
       n++;
     });
     return n;
@@ -371,7 +389,7 @@
   // 라이브러리 + 배치된 동일 부품 모두 한 번에 갱신
   function saveAll(updateEditedId) {
     const partNo = partNoOf();
-    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 };
+    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 };
     let cnt = 0;
     App.store.commit(function (s) {
       // 편집 중인 바로 그 부품(아직 partNo가 없을 수도 있음)도 확실히 반영
@@ -388,7 +406,7 @@
     });
     // 기본/사용자 라이브러리 업서트(부품번호 기준)
     App.userlib.add({ partNo: partNo, manufacturer: '커스텀', type: st.type,
-      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 });
+      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 });
     if (App.palette) App.palette.reloadUser();
     return cnt;
   }
@@ -463,6 +481,12 @@
           cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
           cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
           st.img = cv.toDataURL('image/png');
+          st.imgAR = cv.width / cv.height;                 // 이미지 실제 비율
+          const iw0 = Math.min(st.w, st.h * st.imgAR);     // 박스 안 최대 맞춤
+          st.imgS = Math.round((iw0 / st.w) * 100) / 100;
+          st.imgX = Math.round((st.w - iw0) / 2);
+          st.imgY = Math.round((st.h - iw0 / st.imgAR) / 2);
+          st.imgCW = 0; st.imgCH = 0;                      // 크롭 리셋
           updateImgUI(); refresh();
         };
         img.src = r.result;

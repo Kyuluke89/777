@@ -8,12 +8,12 @@
     MCCB: '#1d4ed8', MCB: '#2563eb', ELCB: '#1e40af',
     MC: '#0d9488', CP: '#7c3aed', SMPS: '#ea580c',
     PLC: '#15803d', TB: '#64748b', RELAY: '#db2777', STOP: '#0f766e', NF: '#0e7490',
-    SENSOR: '#ca8a04', MOTOR: '#b91c1c', SOL: '#7e22ce', LAMP: '#f59e0b', SW: '#334155', ETC: '#475569'
+    SENSOR: '#ca8a04', MOTOR: '#b91c1c', SOL: '#7e22ce', LAMP: '#f59e0b', SW: '#334155', SYM: '#0f172a', ETC: '#475569'
   };
   const LABELS = {
     TB: '단자대 TB', RELAY: '릴레이', MCCB: 'MCCB', MCB: 'MCB', ELCB: 'ELCB',
     MC: 'MC', CP: 'CP', SMPS: 'SMPS', PLC: 'PLC', NF: '노이즈필터 NF', STOP: '스토퍼',
-    SENSOR: '센서', MOTOR: '모터', SOL: '솔레노이드', LAMP: '램프', SW: '스위치', ETC: '기타'
+    SENSOR: '센서', MOTOR: '모터', SOL: '솔레노이드', LAMP: '램프', SW: '스위치', SYM: '계통도 심볼', ETC: '기타'
   };
   const PALETTE = ['#0891b2', '#9333ea', '#c2410c', '#4d7c0f', '#be123c', '#0369a1', '#7c3aed', '#0f766e', '#a16207', '#334155'];
   const KEY = 'panel-custom-types';

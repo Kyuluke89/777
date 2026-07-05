@@ -164,6 +164,39 @@
     img.src = svg64;
   };
 
+  // PLC I/O 리스트 — PLC 단자별 연결 배선/기기 집계 (테스트 가능)
+  Ex.ioRows = function (state) {
+    state = state || App.store.get();
+    const rows = [['PLC', '주소(단자)', '라인번호', '연결 기기', '기기 단자', '기기 타입']];
+    state.components.filter(function (c) { return c.type === 'PLC'; }).forEach(function (plc) {
+      const terms = App.terminals.world(plc);
+      terms.forEach(function (t, idx) {
+        const hits = state.wires.filter(function (w) {
+          return (w.fromComp === plc.id && w.fromTerm === idx) || (w.toComp === plc.id && w.toTerm === idx);
+        });
+        if (!hits.length) {
+          rows.push([plc.label || plc.partNo, t.name || idx, '', '', '', '']);
+          return;
+        }
+        hits.forEach(function (w) {
+          const otherId = w.fromComp === plc.id ? w.toComp : w.fromComp;
+          const otherT = w.fromComp === plc.id ? w.toTerm : w.fromTerm;
+          const o = state.components.find(function (x) { return x.id === otherId; });
+          const oTerms = o ? App.terminals.world(o) : [];
+          rows.push([plc.label || plc.partNo, t.name || idx, w.label || '',
+            o ? (o.label || o.partNo) : '?', (oTerms[otherT] && oTerms[otherT].name) || otherT, o ? o.type : '']);
+        });
+      });
+    });
+    return rows;
+  };
+  Ex.ioList = function (state) {
+    state = state || App.store.get();
+    const rows = Ex.ioRows(state);
+    download(baseName(state) + '_IO리스트.csv', toCsv(rows));
+    return rows.length - 1;
+  };
+
   // 케이블표 — 전장↔기계(필드) 배선만 집계 (테스트 가능)
   const FIELD_TYPES = { SENSOR: 1, MOTOR: 1, SOL: 1, LAMP: 1, SW: 1 };
   Ex.cableRows = function (state) {

@@ -172,6 +172,67 @@
     return set;
   }
 
+  // 계통도 심볼(단선도) 벡터 렌더 — c.sym 키별 표준 심볼
+  function drawSym(grp, c) {
+    const x = c.x, y = c.y, w = c.widthMM, h = c.heightMM;
+    const cx = x + w / 2;
+    const g = App.el('g', { 'class': 'part-sym', 'pointer-events': 'none' }, grp);
+    const SW = 1.4, COL = '#0f172a';
+    function L(x1, y1, x2, y2) { App.el('line', { x1: x + x1, y1: y + y1, x2: x + x2, y2: y + y2, stroke: COL, 'stroke-width': SW, 'stroke-linecap': 'round' }, g); }
+    function C(ccx, ccy, r) { App.el('circle', { cx: x + ccx, cy: y + ccy, r: r, fill: '#fff', stroke: COL, 'stroke-width': SW }, g); }
+    function T(tx, ty, s, size) { const e = App.el('text', { x: x + tx, y: y + ty, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': size || 8, 'font-weight': 'bold', fill: COL }, g); e.textContent = s; }
+    const m = w / 2, s = c.sym;
+    if (s === 'mccb' || s === 'elcb') {
+      L(m, 2, m, h * 0.32);                       // 위 리드
+      L(m, h * 0.32, w * 0.88, h * 0.6);          // 개방 접점(사선)
+      L(m, h * 0.62, m, h - 2);                   // 아래 리드
+      L(w * 0.3, h * 0.32, w * 0.7, h * 0.32);    // 고정 접점 바
+      if (s === 'elcb') { C(m, h * 0.47, w * 0.16); T(m, h * 0.47, 'E', w * 0.24); }
+    } else if (s === 'fuse') {
+      L(m, 2, m, h - 2);
+      App.el('rect', { x: x + w * 0.3, y: y + h * 0.25, width: w * 0.4, height: h * 0.5, fill: '#fff', stroke: COL, 'stroke-width': SW }, g);
+    } else if (s === 'mc') {
+      L(m, 2, m, h * 0.3);
+      L(m, h * 0.3, w * 0.88, h * 0.58);
+      L(m, h * 0.62, m, h - 2);
+      C(m, h * 0.3, w * 0.07); C(m, h * 0.62, w * 0.07);
+    } else if (s === 'thr') {
+      L(m, 2, m, h * 0.22);
+      // 히터(ㄷ자 꺾임)
+      L(m, h * 0.22, w * 0.75, h * 0.22); L(w * 0.75, h * 0.22, w * 0.75, h * 0.5);
+      L(w * 0.75, h * 0.5, w * 0.25, h * 0.5); L(w * 0.25, h * 0.5, w * 0.25, h * 0.78);
+      L(w * 0.25, h * 0.78, m, h * 0.78);
+      L(m, h * 0.78, m, h - 2);
+    } else if (s === 'tr') {
+      L(m, 2, m, h * 0.22);
+      C(m, h * 0.38, w * 0.24); C(m, h * 0.62, w * 0.24);
+      L(m, h * 0.78, m, h - 2);
+    } else if (s === 'motor') {
+      L(m, 2, m, h * 0.3);
+      C(m, h * 0.62, w * 0.36); T(m, h * 0.62, 'M', w * 0.4);
+    } else if (s === 'lamp') {
+      L(m, 2, m, h * 0.28);
+      C(m, h * 0.55, w * 0.3);
+      const r0 = w * 0.3 * 0.7;
+      L(m - r0, h * 0.55 - r0, m + r0, h * 0.55 + r0); L(m - r0, h * 0.55 + r0, m + r0, h * 0.55 - r0);
+      L(m, h * 0.82, m, h - 2);
+    } else if (s === 'sw') {
+      L(m, 2, m, h * 0.32); L(m, h * 0.32, w * 0.85, h * 0.62); L(m, h * 0.65, m, h - 2);
+    } else if (s === 'earth') {
+      L(m, 2, m, h * 0.55);
+      L(w * 0.15, h * 0.55, w * 0.85, h * 0.55);
+      L(w * 0.28, h * 0.7, w * 0.72, h * 0.7);
+      L(w * 0.4, h * 0.85, w * 0.6, h * 0.85);
+    } else if (s === 'ct') {
+      L(m, 2, m, h - 2);
+      C(m, h * 0.5, w * 0.3);
+    } else if (s === 'meter') {
+      L(m, 2, m, h * 0.25);
+      C(m, h * 0.55, w * 0.32); T(m, h * 0.55, 'A', w * 0.34);
+      L(m, h * 0.87, m, h - 2);
+    }
+  }
+
   // 타입별 실물풍 앞면 디테일(벡터) — 사진(img) 없을 때만. 저작권 무관 자체 그래픽.
   function drawFace(grp, c, color) {
     const x = c.x, y = c.y, w = c.widthMM, h = c.heightMM;
@@ -237,9 +298,11 @@
           const cp = App.el('clipPath', { id: clipId }, grp);
           App.el('rect', { x: c.x + c.imgCX, y: c.y + c.imgCY, width: c.imgCW, height: c.imgCH }, cp);
         }
+        const imW = c.widthMM * isc;
+        const imH = c.imgAR ? imW / c.imgAR : c.heightMM * isc; // 이미지 실제 비율 유지
         const im = App.el('image', {
           x: c.x + (c.imgX || 0), y: c.y + (c.imgY || 0),
-          width: c.widthMM * isc, height: c.heightMM * isc,
+          width: imW, height: imH,
           preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none',
           opacity: c.imgO != null ? c.imgO : 1,
           'clip-path': clipId ? ('url(#' + clipId + ')') : null
@@ -248,12 +311,14 @@
       }
       App.el('rect', {
         x: c.x, y: c.y, width: c.widthMM, height: c.heightMM,
-        rx: 2, fill: over ? '#ef4444' : color, 'fill-opacity': c.img ? 0 : (over ? 0.22 : 0.16),
-        stroke: over ? '#dc2626' : (isSelected(c.id) ? '#111827' : color),
+        rx: 2, fill: over ? '#ef4444' : color,
+        'fill-opacity': (c.img || c.sym) ? 0 : (over ? 0.22 : 0.16),
+        stroke: over ? '#dc2626' : (isSelected(c.id) ? '#111827' : (c.sym ? 'none' : color)),
         'stroke-width': isSelected(c.id) || over ? 2 : 1.2,
-        'stroke-dasharray': over ? '4 2' : null
+        'stroke-dasharray': (over || (c.sym && isSelected(c.id))) ? '4 2' : null
       }, grp);
-      if (!c.img && !over) drawFace(grp, c, color); // 타입별 실물풍 디테일(사진 없을 때)
+      if (c.sym && !over) drawSym(grp, c);                 // 계통도 심볼
+      else if (!c.img && !over) drawFace(grp, c, color);   // 타입별 실물풍 디테일(사진 없을 때)
       // 글자 방향(가로/세로) — true면 텍스트를 -90° 회전(각 앵커 기준)
       const vert = !!c.textVert;
       function vrot(x, y) { return vert ? ('rotate(-90 ' + x + ' ' + y + ')') : null; }
@@ -267,20 +332,25 @@
         }, grp);
         tg.textContent = c.tag;
       }
-      // 타입 배지(카테고리) — 위치 이동 가능
-      const bx = cx + (c.typeDx || 0), by = cy - 2 + (c.typeDy || 0);
-      const badge = App.el('text', {
-        x: bx, y: by, 'text-anchor': 'middle',
-        'font-size': Math.min(12, c.heightMM * 0.22) * F.ctype, fill: color,
-        'font-weight': 'bold', 'pointer-events': 'none', transform: vrot(bx, by)
-      }, grp);
-      badge.textContent = c.type || '';
+      // 타입 배지(카테고리) — 위치 이동 가능(계통도 심볼은 생략)
+      if (!c.sym) {
+        const bx = cx + (c.typeDx || 0), by = cy - 2 + (c.typeDy || 0);
+        const badge = App.el('text', {
+          x: bx, y: by, 'text-anchor': 'middle',
+          'font-size': Math.min(12, c.heightMM * 0.22) * F.ctype, fill: color,
+          'font-weight': 'bold', 'pointer-events': 'none', transform: vrot(bx, by)
+        }, grp);
+        badge.textContent = c.type || '';
+      }
       // 품명 — 기본 크기 × 배율, 선택 시 드래그로 위치 이동
       const txt = c.label || c.partName || c.partNo || '';
       const fit = LABEL_BASE * F.cname;
-      const lx = cx + (c.labelDx || 0), ly = cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0);
+      const lx = c.sym ? (c.x + c.widthMM + 3 + (c.labelDx || 0)) : (cx + (c.labelDx || 0));
+      const ly = c.sym ? (cy + (c.labelDy || 0)) : (cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0));
       const lab = App.el('text', {
-        x: lx, y: ly, 'text-anchor': 'middle', 'font-size': fit, fill: '#334155',
+        x: lx, y: ly, 'text-anchor': c.sym ? 'start' : 'middle',
+        'dominant-baseline': c.sym ? 'central' : null,
+        'font-size': fit, fill: '#334155',
         'pointer-events': 'none', transform: vrot(lx, ly)
       }, grp);
       lab.textContent = txt;
@@ -496,7 +566,8 @@
     state.components.forEach(function (c) {
       if (!isSelected(c.id)) return;
       const cx = c.x + c.widthMM / 2, cy = c.y + c.heightMM / 2;
-      const lx = cx + (c.labelDx || 0), ly = cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0);
+      const lx = c.sym ? (c.x + c.widthMM + 3 + (c.labelDx || 0)) : (cx + (c.labelDx || 0));
+      const ly = c.sym ? (cy + (c.labelDy || 0)) : (cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0));
       const p = rotPt(lx, ly, cx, cy, c.rotation || 0);
       const txt = c.label || c.partName || c.partNo || '';
       const fit = LABEL_BASE * F.cname;
