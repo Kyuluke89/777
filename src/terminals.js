@@ -20,10 +20,13 @@
     // 1) 부품이 실제 단자 좌표(term: [{name,rx,ry}])를 가지면 그대로 사용 (DXF/EDZ 유래)
     if (comp.term && comp.term.length) {
       return comp.term.map(function (t, i) {
+        // fx/fy: 부품 크기 비율 좌표(모선처럼 크기 변경 시 단자가 따라 퍼지는 부품용)
+        const lx = (t.fx != null) ? t.fx * comp.widthMM : t.rx;
+        const ly = (t.fy != null) ? t.fy * comp.heightMM : t.ry;
         return {
           index: i, name: t.name,
-          x: comp.x + t.rx, y: comp.y + t.ry,
-          side: (t.ry <= comp.heightMM / 2) ? 'top' : 'bottom',
+          x: comp.x + lx, y: comp.y + ly,
+          side: (ly <= comp.heightMM / 2) ? 'top' : 'bottom',
           shape: t.shape || 'circle', w: t.w || 3.6, h: t.h || 3.6, lp: t.lp || null
         };
       });

@@ -188,10 +188,13 @@
     function C(cx, cy, r0) { CS.push([cx, cy, r0]); }
     function T(tx, ty, str, size) { TS.push([tx, ty, str, size || 8]); }
     if (s === 'mccb' || s === 'elcb') {
+      // IEC 60617 차단기: 개방 접점 + 고정접점의 X 표시
       L(m, 2, m, h * 0.32);
       L(m, h * 0.32, w * 0.88, h * 0.6);
       L(m, h * 0.62, m, h - 2);
-      L(w * 0.3, h * 0.32, w * 0.7, h * 0.32);
+      const xr = w * 0.09;
+      L(m - xr, h * 0.32 - xr, m + xr, h * 0.32 + xr);
+      L(m - xr, h * 0.32 + xr, m + xr, h * 0.32 - xr);
       if (s === 'elcb') { C(m, h * 0.47, w * 0.16); T(m, h * 0.47, 'E', w * 0.24); }
     } else if (s === 'fuse') {
       L(m, 2, m, h - 2);
@@ -260,6 +263,37 @@
       // 굵은 바(사각) — DXF에선 외곽선
       L(1, h * 0.25, w - 1, h * 0.25); L(w - 1, h * 0.25, w - 1, h * 0.75);
       L(w - 1, h * 0.75, 1, h * 0.75); L(1, h * 0.75, 1, h * 0.25);
+    } else if (s === 'rail2') {
+      // AC 전원 모선 2선(L/N) — 계통도 시작 라인
+      L(0, h * 0.25, w, h * 0.25);
+      L(0, h * 0.75, w, h * 0.75);
+      T(-7, h * 0.25, 'L', 7); T(-7, h * 0.75, 'N', 7);
+    } else if (s === 'rail3') {
+      // 3상 전원 모선(R/S/T)
+      L(0, h * 0.17, w, h * 0.17); L(0, h * 0.5, w, h * 0.5); L(0, h * 0.83, w, h * 0.83);
+      T(-7, h * 0.17, 'R', 6.5); T(-7, h * 0.5, 'S', 6.5); T(-7, h * 0.83, 'T', 6.5);
+    } else if (s === 'm3') {
+      L(m, 2, m, h * 0.28);
+      C(m, h * 0.6, w * 0.38); T(m, h * 0.52, 'M', w * 0.32); T(m, h * 0.74, '3~', w * 0.22);
+    } else if (s === 'gen') {
+      L(m, 2, m, h * 0.28);
+      C(m, h * 0.6, w * 0.38); T(m, h * 0.6, 'G', w * 0.36);
+    } else if (s === 'vmeter') {
+      L(m, 2, m, h * 0.25);
+      C(m, h * 0.55, w * 0.32); T(m, h * 0.55, 'V', w * 0.34);
+      L(m, h * 0.87, m, h - 2);
+    } else if (s === 'tona') {
+      // 한시동작 a접점: 접점 + 지연 반원(∪)
+      L(m, 2, m, h * 0.3);
+      L(m, h * 0.3, w * 0.85, h * 0.55);
+      L(m, h * 0.6, m, h - 2);
+      L(w * 0.3, h * 0.72, w * 0.42, h * 0.8); L(w * 0.42, h * 0.8, w * 0.58, h * 0.8); L(w * 0.58, h * 0.8, w * 0.7, h * 0.72);
+    } else if (s === 'inv') {
+      // 인버터(VFD): 사각 + 대각선 + V/f
+      L(3, 5, w - 3, 5); L(w - 3, 5, w - 3, h - 5); L(w - 3, h - 5, 3, h - 5); L(3, h - 5, 3, 5);
+      L(3, h - 5, w - 3, 5);
+      T(w * 0.32, h * 0.32, '~', 7); T(w * 0.68, h * 0.7, '=', 7);
+      L(m, 2, m, 5); L(m, h - 5, m, h - 2);
     }
     return { lines: LS, circles: CS, texts: TS };
   };
@@ -268,7 +302,8 @@
   function drawSym(grp, c) {
     const x = c.x, y = c.y;
     const g = App.el('g', { 'class': 'part-sym', 'pointer-events': 'none' }, grp);
-    const SW = 1.4, COL = '#0f172a';
+    const isRail = (c.sym === 'rail2' || c.sym === 'rail3');
+    const SW = isRail ? 2.6 : 1.4, COL = '#0f172a';
     const geo = App.symGeo(c);
     if (c.sym === 'bus') { // 버스바는 채운 바로
       App.el('rect', { x: x + 1, y: y + c.heightMM * 0.25, width: c.widthMM - 2, height: c.heightMM * 0.5, fill: COL, rx: 1 }, g);

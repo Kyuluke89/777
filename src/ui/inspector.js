@@ -185,6 +185,22 @@
       html += row('글자 방향', '<select id="insp-textdir" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
         '<option value="h"' + (it.textVert ? '' : ' selected') + '>가로</option>' +
         '<option value="v"' + (it.textVert ? ' selected' : '') + '>세로</option></select>');
+      // 계통도 심볼 ↔ 배치도 부품 연동
+      if (it.sym) {
+        let lopts = '<option value="">(연동 안함)</option>';
+        const shs = App.exporter.allSheets(App.store.get());
+        shs.forEach(function (sh, si) {
+          (sh.st.components || []).forEach(function (c2) {
+            if (c2.sym) return;
+            const v = si + ':' + c2.id;
+            const on = (it.linkSheet === si && it.linkId === c2.id);
+            lopts += '<option value="' + v + '"' + (on ? ' selected' : '') + '>' +
+              App.esc((sh.name ? sh.name + ' · ' : '') + (c2.label || c2.partNo)) + '</option>';
+          });
+        });
+        html += row('배치 연동', '<select id="insp-link" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' + lopts + '</select>');
+        html += '<button id="insp-link-go" class="mt-1 w-full px-2 py-1 text-xs rounded bg-blue-600 text-white" style="background:#2563eb;color:#fff">↪ 연동 부품으로 이동</button>';
+      }
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + App.esc(it.partNo || '') + '</div>';
       html += '<button id="insp-edit-part" class="mt-2 w-full px-2 py-1 text-xs rounded bg-teal-600 text-white">✎ 크기·단자 편집</button>';
       html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
@@ -223,6 +239,43 @@
       App.store.commit(function () { const fnd = App.store.findById(id); if (fnd) fnd.item.type = v; });
       App.render.all();
       Inspector.update();
+    };
+    // 심볼 ↔ 배치 부품 연동
+    const linkSel = root.querySelector('#insp-link');
+    if (linkSel) linkSel.onchange = function () {
+      const v = linkSel.value;
+      App.store.commit(function () {
+        const fnd = App.store.findById(id);
+        if (!fnd) return;
+        if (!v) { fnd.item.linkSheet = null; fnd.item.linkId = null; return; }
+        const parts = v.split(':');
+        fnd.item.linkSheet = parseInt(parts[0], 10);
+        fnd.item.linkId = parts.slice(1).join(':');
+        // 연동 시 심볼 라벨을 배치 부품 라벨(호기)로 동기화
+        const shs = App.exporter.allSheets(App.store.get());
+        const sh = shs[fnd.item.linkSheet];
+        const tgt = sh && (sh.st.components || []).find(function (c3) { return c3.id === fnd.item.linkId; });
+        if (tgt && tgt.label) fnd.item.label = tgt.label;
+      });
+      App.render.all();
+      Inspector.update();
+    };
+    const linkGo = root.querySelector('#insp-link-go');
+    if (linkGo) linkGo.onclick = function () {
+      const fnd = App.store.findById(id);
+      if (!fnd || fnd.item.linkId == null || fnd.item.linkSheet == null) {
+        if (App.toolbar) App.toolbar.flash('먼저 "배치 연동"에서 부품을 선택하세요');
+        return;
+      }
+      const ls = fnd.item.linkSheet, lid = fnd.item.linkId;
+      if (App.store.get().activeSheet !== ls && App.sheetsMgr) App.sheetsMgr.switchTo(ls);
+      const tgt = App.store.get().components.find(function (c4) { return c4.id === lid; });
+      if (!tgt) { if (App.toolbar) App.toolbar.flash('연동 부품을 찾을 수 없습니다'); return; }
+      App.ui.selected = new Set([tgt.id]);
+      App.viewport.centerOn(tgt.x + tgt.widthMM / 2, tgt.y + tgt.heightMM / 2);
+      App.render.all();
+      Inspector.update();
+      if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
     };
     // 글자 방향(가로/세로)
     const dirSel = root.querySelector('#insp-textdir');

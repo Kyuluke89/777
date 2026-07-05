@@ -1259,6 +1259,71 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(multi.hasUI, '다중선택 일괄 편집 UI');
   assert(multi.both, '배선 SQ/AWG 일괄 적용');
 
+  // === CAD 3차: 팔레트 탭 / 전원 모선(fx) / IEC 심볼 / 배치도 연동 ===
+  // 팔레트 탭: 심볼 탭 → SYM만, 부품 탭 → SYM 제외
+  await page.click('#lib-tab-syms');
+  const tabSym = await page.evaluate(() => {
+    const pn = Array.from(document.querySelectorAll('#palette-list .pal-item .font-semibold')).map(e => e.textContent);
+    return { n: pn.length, allSym: pn.length > 0 && pn.every(t => t.indexOf('SYM-') === 0) };
+  });
+  await page.click('#lib-tab-parts');
+  const tabPart = await page.evaluate(() => {
+    const pn = Array.from(document.querySelectorAll('#palette-list .pal-item .font-semibold')).map(e => e.textContent);
+    return { n: pn.length, noSym: pn.every(t => t.indexOf('SYM-') !== 0) };
+  });
+  assert(tabSym.allSym, '심볼 탭: SYM만 표시 (' + tabSym.n + ')');
+  assert(tabPart.n > 0 && tabPart.noSym, '부품 탭: 심볼 제외 (' + tabPart.n + ')');
+
+  // 전원 모선: 폭을 늘리면 탭 단자(fx)가 따라 퍼짐 + IEC 추가 심볼 존재
+  const rail = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const r2 = lib.find(p => p.partNo === 'SYM-RAIL2');
+    const iec = ['SYM-RAIL3', 'SYM-M3', 'SYM-GEN', 'SYM-V', 'SYM-TON', 'SYM-INV'].every(k => lib.some(p => p.partNo === k));
+    App.store.commit(s => { s.components.push({ id: 'rl1', partNo: r2.partNo, type: 'SYM', sym: r2.sym, x: 20, y: 1050, widthMM: r2.w, heightMM: r2.h, rotation: 0, label: 'AC모선', terminals: r2.terminals, term: JSON.parse(JSON.stringify(r2.term)) }); });
+    const c = App.store.get().components.find(x => x.id === 'rl1');
+    const xs1 = App.terminals.world(c).map(t => t.x);
+    const spread1 = Math.max.apply(null, xs1) - Math.min.apply(null, xs1);
+    App.store.commit(s => { s.components.find(x => x.id === 'rl1').widthMM = 600; });
+    const xs2 = App.terminals.world(App.store.get().components.find(x => x.id === 'rl1')).map(t => t.x);
+    const spread2 = Math.max.apply(null, xs2) - Math.min.apply(null, xs2);
+    // 모선 렌더(2줄)
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="rl1"]');
+    const railLines = grp.querySelectorAll('.part-sym line').length;
+    App.store.commit(s => { s.components = s.components.filter(x => x.id !== 'rl1'); });
+    App.render.all();
+    return { iec, spread1: Math.round(spread1), spread2: Math.round(spread2), railLines };
+  });
+  assert(rail.iec, 'IEC 추가 심볼(모선3상/M3/G/V/TON/INV)');
+  assert(rail.spread2 > rail.spread1 * 1.3, '모선 폭 확대 시 탭 단자 확산 (' + rail.spread1 + '→' + rail.spread2 + ')');
+  assert(rail.railLines >= 2, '모선 2줄 렌더');
+
+  // 배치도 연동: 계통도 심볼 → 배치 부품 선택/이동
+  const link = await page.evaluate(() => {
+    const target = App.store.get().components.find(c => !c.sym); // 배치 부품(시트0)
+    const tid = target.id;
+    App.sheetsMgr.add('계통도T');                                  // 시트1 생성·전환
+    const lib = App.palette.getLibrary();
+    const mc = lib.find(p => p.partNo === 'SYM-MC');
+    App.store.commit(s => { s.components.push({ id: 'lk1', partNo: mc.partNo, type: 'SYM', sym: mc.sym, x: 100, y: 100, widthMM: mc.w, heightMM: mc.h, rotation: 0, label: 'K1', terminals: 2, term: JSON.parse(JSON.stringify(mc.term)) }); });
+    App.ui.selected = new Set(['lk1']);
+    App.inspector.update();
+    const sel = document.getElementById('insp-link');
+    const hasOpt = sel && Array.from(sel.options).some(o => o.value === '0:' + tid);
+    sel.value = '0:' + tid;
+    sel.dispatchEvent(new Event('change'));
+    const it = App.store.get().components.find(c => c.id === 'lk1');
+    const linked = it.linkSheet === 0 && it.linkId === tid;
+    document.getElementById('insp-link-go').click();
+    const jumped = App.store.get().activeSheet === 0 && App.ui.selected.has(tid);
+    App.sheetsMgr.remove(1);                                        // 정리
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { hasOpt, linked, jumped };
+  });
+  assert(link.hasOpt, '연동 드롭다운에 배치 부품 노출');
+  assert(link.linked, '심볼-배치 부품 연동 저장');
+  assert(link.jumped, '연동 부품으로 시트 전환+선택+이동');
+
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

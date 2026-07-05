@@ -7,6 +7,7 @@
   let listEl, searchEl, countEl;
   let library = [];
   let filter = '';
+  let mode = 'parts'; // 'parts' | 'syms' — 부품/심볼 탭
   // 카테고리(type) 표시 순서
   const TYPE_ORDER = ['MCCB', 'MCB', 'ELCB', 'MC', 'NF', 'CP', 'SMPS', 'PLC', 'RELAY', 'TB', 'STOP', 'SENSOR', 'MOTOR', 'SOL', 'LAMP', 'SW', 'SYM', 'ETC'];
   const collapsed = {}; // type → 접힘 여부 (기본 접힘)
@@ -42,6 +43,8 @@
   };
 
   function matches(p) {
+    // 탭 필터: 심볼(SYM)은 심볼 탭에서만, 나머지는 부품 탭에서만
+    if ((mode === 'syms') !== (p.type === 'SYM')) return false;
     if (!filter) return true;
     const s = (p.partNo + ' ' + p.name + ' ' + p.type).toLowerCase();
     return s.indexOf(filter) >= 0;
@@ -61,8 +64,10 @@
     // 부품 미리보기 썸네일(외곽 + 단자 위치)
     let thumb = '<svg class="pal-thumb" viewBox="' + (-p.w * 0.06) + ' ' + (-p.h * 0.06) + ' ' + (p.w * 1.12) + ' ' + (p.h * 1.12) + '" preserveAspectRatio="xMidYMid meet">' +
       '<rect x="0" y="0" width="' + p.w + '" height="' + p.h + '" rx="' + (Math.min(p.w, p.h) * 0.05) + '" fill="' + color + '" fill-opacity="0.14" stroke="' + color + '" stroke-width="' + (Math.max(p.w, p.h) * 0.025 + 0.4) + '"/>';
-    (p.term || []).slice(0, 20).forEach(function (t) {
-      thumb += '<circle cx="' + t.rx + '" cy="' + t.ry + '" r="' + Math.max(1.4, Math.min(p.w, p.h) * 0.05) + '" fill="#fff" stroke="' + color + '" stroke-width="' + (Math.max(p.w, p.h) * 0.02 + 0.3) + '"/>';
+    (p.term || []).slice(0, 24).forEach(function (t) {
+      const tx = (t.fx != null) ? t.fx * p.w : t.rx;   // fx/fy: 크기 비율 단자(모선)
+      const ty = (t.fy != null) ? t.fy * p.h : t.ry;
+      thumb += '<circle cx="' + tx + '" cy="' + ty + '" r="' + Math.max(1.4, Math.min(p.w, p.h) * 0.05) + '" fill="#fff" stroke="' + color + '" stroke-width="' + (Math.max(p.w, p.h) * 0.02 + 0.3) + '"/>';
     });
     thumb += '</svg>';
     item.innerHTML =
@@ -145,7 +150,8 @@
     if (!listEl) return;
     listEl.innerHTML = '';
     const shown = library.filter(matches);
-    countEl.textContent = shown.length + ' / ' + library.length;
+    const base = library.filter(function (q) { return (mode === 'syms') === (q.type === 'SYM'); });
+    countEl.textContent = shown.length + ' / ' + base.length;
 
     // 카테고리(type)별 그룹화
     const groups = {};
@@ -191,10 +197,28 @@
   }
   Palette.refresh = render;
 
+  Palette.setMode = function (m) {
+    mode = m;
+    const tp = document.getElementById('lib-tab-parts');
+    const ts = document.getElementById('lib-tab-syms');
+    [[tp, m === 'parts'], [ts, m === 'syms']].forEach(function (pr) {
+      if (!pr[0]) return;
+      pr[0].classList.toggle('bg-blue-600', pr[1]);
+      pr[0].classList.toggle('text-white', pr[1]);
+      pr[0].classList.toggle('bg-white', !pr[1]);
+      pr[0].classList.toggle('text-slate-600', !pr[1]);
+    });
+    render();
+  };
+
   Palette.init = function (opts) {
     listEl = opts.list;
     searchEl = opts.search;
     countEl = opts.count;
+    const tp = document.getElementById('lib-tab-parts');
+    const ts = document.getElementById('lib-tab-syms');
+    if (tp) tp.onclick = function () { Palette.setMode('parts'); };
+    if (ts) ts.onclick = function () { Palette.setMode('syms'); };
     searchEl.addEventListener('input', function () {
       filter = searchEl.value.trim().toLowerCase();
       render();

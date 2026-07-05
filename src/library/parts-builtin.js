@@ -31,7 +31,7 @@
     symPart('SYM-SW', '개폐기(단로기)', 'sw'),
     symPart('SYM-EARTH', '접지', 'earth', 30, { term: [{ name: '1', rx: 12, ry: 2 }], terminals: 1 }),
     symPart('SYM-CT', '변류기(CT)', 'ct', 36),
-    symPart('SYM-METER', '계측기(A/V)', 'meter', 32),
+    symPart('SYM-METER', '전류계(A)', 'meter', 32),
     symPart('SYM-AUXA', '보조접점 a(NO)', 'auxa', 34),
     symPart('SYM-AUXB', '보조접점 b(NC)', 'auxb', 34),
     symPart('SYM-COIL', '코일(릴레이/MC)', 'coil', 36),
@@ -39,7 +39,27 @@
     symPart('SYM-3PH', '3상 표시', 'ph3', 34),
     { partNo: 'SYM-BUS', manufacturer: '심볼', type: 'SYM', sym: 'bus', name: '버스바(모선)',
       w: 120, h: 12, d: 1, terminals: 4,
-      term: [{ name: '1', rx: 15, ry: 6 }, { name: '2', rx: 45, ry: 6 }, { name: '3', rx: 75, ry: 6 }, { name: '4', rx: 105, ry: 6 }] }
+      term: [{ name: '1', rx: 15, ry: 6 }, { name: '2', rx: 45, ry: 6 }, { name: '3', rx: 75, ry: 6 }, { name: '4', rx: 105, ry: 6 }] },
+    // 전원 모선 — 계통도 시작 라인. 가로 크기를 늘리면 탭 단자(fx)가 따라 퍼짐
+    (function () {
+      const term = [];
+      for (let i = 0; i < 11; i++) term.push({ name: 'L' + (i + 1), fx: 0.04 + i * 0.092, fy: 0.25 });
+      for (let i = 0; i < 11; i++) term.push({ name: 'N' + (i + 1), fx: 0.04 + i * 0.092, fy: 0.75 });
+      return { partNo: 'SYM-RAIL2', manufacturer: '심볼', type: 'SYM', sym: 'rail2',
+        name: 'AC 전원 모선 2선(L/N)', w: 400, h: 24, d: 1, terminals: term.length, term: term };
+    })(),
+    (function () {
+      const term = [];
+      const ph = ['R', 'S', 'T'];
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 8; i++) term.push({ name: ph[r] + (i + 1), fx: 0.05 + i * 0.128, fy: 0.17 + r * 0.33 });
+      return { partNo: 'SYM-RAIL3', manufacturer: '심볼', type: 'SYM', sym: 'rail3',
+        name: '3상 전원 모선(R/S/T)', w: 400, h: 36, d: 1, terminals: term.length, term: term };
+    })(),
+    symPart('SYM-M3', '3상 유도전동기(M 3~)', 'm3', 40, { term: [{ name: 'U', rx: 12, ry: 2 }], terminals: 1 }),
+    symPart('SYM-GEN', '발전기(G)', 'gen', 40, { term: [{ name: '1', rx: 12, ry: 2 }], terminals: 1 }),
+    symPart('SYM-V', '전압계(V)', 'vmeter', 32),
+    symPart('SYM-TON', '한시동작 a접점(TON)', 'tona', 38),
+    symPart('SYM-INV', '인버터(VFD)', 'inv', 40)
   ];
   App.seedParts = (App.seedParts || []).concat(BUILTIN, FIELD, SYMBOLS);
 })(window);
