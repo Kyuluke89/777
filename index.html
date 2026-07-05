@@ -9,7 +9,7 @@
   <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260705c"></script>
+  <script src="vendor/fflate.min.js?v=20260705d"></script>
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -209,6 +209,8 @@
             <span class="text-xs text-slate-500">격자(mm)</span>
             <input id="panel-grid" type="number" class="w-20 px-2 py-1 text-xs border border-slate-300 rounded text-right" />
           </label>
+          <label class="flex items-center gap-1 mt-1 text-xs text-slate-600" title="전장 위쪽에 기계측(센서·모터) 배치 구역 표시 — 필드 기기와 배선 연결용">
+            <input id="panel-field" type="checkbox" /> 기계 영역 표시</label>
           <button id="panel-fit" class="mt-2 w-full toolbtn bg-slate-100 text-slate-700">화면 맞춤</button>
         </div>
         <div class="px-3 py-2 border-b border-slate-100">
@@ -253,18 +255,26 @@
 
   <!-- 커스텀 부품 / 단자 에디터 모달 -->
   <div id="part-editor" class="no-canvas" style="position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50;">
-    <div style="background:#fff;border-radius:10px;width:640px;max-width:95vw;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden;">
+    <div style="background:#fff;border-radius:10px;width:720px;height:560px;max-width:96vw;max-height:92vh;min-width:560px;min-height:420px;box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:auto;resize:both;display:flex;flex-direction:column;">
       <div class="flex items-center justify-between px-4 py-2 border-b border-slate-200">
         <span id="pe-title" class="text-sm font-bold text-slate-700">커스텀 부품 만들기</span>
         <button id="pe-cancel" class="text-slate-400 hover:text-slate-700 text-lg leading-none">✕</button>
       </div>
-      <div class="flex" style="height:380px;">
+      <div class="flex" style="flex:1 1 auto;min-height:0;">
         <!-- 좌: 미리보기 -->
-        <div class="flex-1 bg-slate-50 border-r border-slate-100" style="min-width:0;">
-          <svg id="pe-canvas" style="width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;"></svg>
+        <div class="flex-1 bg-slate-50 border-r border-slate-100" style="min-width:0;display:flex;flex-direction:column;">
+          <div class="flex items-center gap-1 px-2 py-1 bg-white border-b border-slate-100">
+            <button id="pe-mode-select" class="toolbtn bg-blue-600 text-white" title="클릭: 선택 · 드래그: 영역선택/이동">↖ 선택</button>
+            <button id="pe-mode-add" class="toolbtn bg-white text-slate-600" title="클릭한 위치에 단자 추가">＋ 단자 추가</button>
+            <button id="pe-mode-img" class="toolbtn bg-white text-slate-600" title="이미지 드래그: 위치 이동 · 휠: 크기 조절">🖼 이미지 조절</button>
+            <span class="text-[10px] text-slate-400 ml-auto">창 우하단 모서리를 끌면 크기 조절</span>
+          </div>
+          <div style="flex:1 1 auto;min-height:0;position:relative;">
+            <svg id="pe-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;"></svg>
+          </div>
         </div>
         <!-- 우: 속성 + 단자 목록 -->
-        <div class="w-56 flex flex-col">
+        <div class="w-64 flex flex-col" style="min-height:0;overflow-y:auto;">
           <div class="p-3 space-y-2 border-b border-slate-100">
             <label class="flex items-center justify-between"><span class="text-xs text-slate-500">품명</span>
               <input id="pe-name-in" type="text" placeholder="예: 단자대 20P" class="w-32 px-2 py-1 text-xs border border-slate-300 rounded"/></label>
@@ -413,33 +423,33 @@
   </div>
 
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260705c"></script>
-  <script src="src/terminals.js?v=20260705c"></script>
-  <script src="src/wires.js?v=20260705c"></script>
-  <script src="src/dims.js?v=20260705c"></script>
-  <script src="src/geom.js?v=20260705c"></script>
-  <script src="src/viewport.js?v=20260705c"></script>
-  <script src="src/render.js?v=20260705c"></script>
-  <script src="src/persistence.js?v=20260705c"></script>
-  <script src="src/sheets.js?v=20260705c"></script>
-  <script src="vendor/three.min.js?v=20260705c"></script>
-  <script src="vendor/OrbitControls.js?v=20260705c"></script>
-  <script src="src/view3d.js?v=20260705c"></script>
-  <script src="src/export.js?v=20260705c"></script>
-  <script src="src/library/seed.js?v=20260705c"></script>
-  <script src="src/library/parts-builtin.js?v=20260705c"></script>
-  <script src="src/library/parts-ls.js?v=20260705c"></script>
-  <script src="src/library/parts-dwg.js?v=20260705c"></script>
-  <script src="src/library/userlib.js?v=20260705c"></script>
-  <script src="src/library/types.js?v=20260705c"></script>
-  <script src="src/library/edz.js?v=20260705c"></script>
-  <script src="src/library/palette.js?v=20260705c"></script>
-  <script src="src/interact.js?v=20260705c"></script>
-  <script src="src/ui/toolbar.js?v=20260705c"></script>
-  <script src="src/ui/inspector.js?v=20260705c"></script>
-  <script src="src/ui/part-editor.js?v=20260705c"></script>
-  <script src="src/ui/wire-presets.js?v=20260705c"></script>
-  <script src="src/ui/wire-list.js?v=20260705c"></script>
-  <script src="src/main.js?v=20260705c"></script>
+  <script src="src/store.js?v=20260705d"></script>
+  <script src="src/terminals.js?v=20260705d"></script>
+  <script src="src/wires.js?v=20260705d"></script>
+  <script src="src/dims.js?v=20260705d"></script>
+  <script src="src/geom.js?v=20260705d"></script>
+  <script src="src/viewport.js?v=20260705d"></script>
+  <script src="src/render.js?v=20260705d"></script>
+  <script src="src/persistence.js?v=20260705d"></script>
+  <script src="src/sheets.js?v=20260705d"></script>
+  <script src="vendor/three.min.js?v=20260705d"></script>
+  <script src="vendor/OrbitControls.js?v=20260705d"></script>
+  <script src="src/view3d.js?v=20260705d"></script>
+  <script src="src/export.js?v=20260705d"></script>
+  <script src="src/library/seed.js?v=20260705d"></script>
+  <script src="src/library/parts-builtin.js?v=20260705d"></script>
+  <script src="src/library/parts-ls.js?v=20260705d"></script>
+  <script src="src/library/parts-dwg.js?v=20260705d"></script>
+  <script src="src/library/userlib.js?v=20260705d"></script>
+  <script src="src/library/types.js?v=20260705d"></script>
+  <script src="src/library/edz.js?v=20260705d"></script>
+  <script src="src/library/palette.js?v=20260705d"></script>
+  <script src="src/interact.js?v=20260705d"></script>
+  <script src="src/ui/toolbar.js?v=20260705d"></script>
+  <script src="src/ui/inspector.js?v=20260705d"></script>
+  <script src="src/ui/part-editor.js?v=20260705d"></script>
+  <script src="src/ui/wire-presets.js?v=20260705d"></script>
+  <script src="src/ui/wire-list.js?v=20260705d"></script>
+  <script src="src/main.js?v=20260705d"></script>
 </body>
 </html>

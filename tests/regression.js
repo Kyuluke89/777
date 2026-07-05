@@ -1070,6 +1070,32 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(scrollChk.canScroll && scrollChk.bodyLocked && scrollChk.scrolled, '우측 패널 스크롤 + 본문 고정');
 
+  // 기계(필드) 영역 + 센서/모터 부품 + 전장→기계 배선
+  const field = await page.evaluate(() => {
+    App.store.commit(s => { s.panel.fieldZone = true; });
+    App.render.all();
+    const zone = Array.from(document.querySelectorAll('#layer-panel text')).some(t => t.textContent.indexOf('기계장치 영역') >= 0);
+    const lib = App.palette.getLibrary();
+    const sensor = lib.find(p => p.partNo === 'FLD-SENSOR');
+    const motor = lib.find(p => p.partNo === 'FLD-MOTOR');
+    // 전장 위(기계 영역)에 센서 배치 → 전장 안 부품과 배선
+    App.store.commit(s => {
+      s.components.push({ id: 'fsen', partNo: sensor.partNo, type: sensor.type, x: 100, y: -200, widthMM: sensor.w, heightMM: sensor.h, rotation: 0, label: '근접센서', terminals: sensor.terminals, term: JSON.parse(JSON.stringify(sensor.term)) });
+    });
+    const c0 = App.store.get().components[0];
+    App.store.commit(s => { const w = App.wires.create(s, { compId: c0.id, index: 1 }, { compId: 'fsen', index: 0 }); w.label = 'FW1'; s.wires.push(w); });
+    const s2 = App.store.get();
+    const fw = s2.wires.find(w => w.label === 'FW1');
+    const route = App.wires.route(s2, fw);
+    const crossesUp = route && route.some(p => p.y < 0); // 전장 밖(위)까지 이어짐
+    App.store.commit(s => { s.wires = s.wires.filter(w => w.label !== 'FW1'); s.components = s.components.filter(c => c.id !== 'fsen'); s.panel.fieldZone = false; });
+    App.render.all();
+    return { zone, hasSensor: !!sensor, hasMotor: !!motor, wired: !!fw, crossesUp };
+  });
+  assert(field.zone, '기계 영역 표시');
+  assert(field.hasSensor && field.hasMotor, '필드 기기(센서/모터) 라이브러리');
+  assert(field.wired && field.crossesUp, '전장 부품 ↔ 기계 기기 배선 연결');
+
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

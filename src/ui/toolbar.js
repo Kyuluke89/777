@@ -64,6 +64,11 @@
       const el = $(id);
       if (el) el.addEventListener('change', applyPanel);
     });
+    if ($('panel-field')) $('panel-field').addEventListener('change', function () {
+      const on = this.checked;
+      App.store.commit(function (s) { s.panel.fieldZone = on; });
+      App.render.all();
+    });
     // 제목은 입력 즉시 반영
     if ($('panel-title')) $('panel-title').addEventListener('input', applyPanel);
     $('panel-fit').onclick = function () {
@@ -340,6 +345,7 @@
     if ($('panel-w')) $('panel-w').value = p.widthMM;
     if ($('panel-h')) $('panel-h').value = p.heightMM;
     if ($('panel-grid')) $('panel-grid').value = p.gridMM;
+    if ($('panel-field')) $('panel-field').checked = !!p.fieldZone;
     const f = s.fonts || {};
     ['ctype', 'ctag', 'cname', 'term', 'wire', 'dim'].forEach(function (k) {
       if ($('font-' + k)) $('font-' + k).value = f[k] || f.comp || 1;

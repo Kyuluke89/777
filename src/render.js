@@ -63,6 +63,19 @@
     }, g);
     t.textContent = p.widthMM + ' × ' + p.heightMM + ' mm';
     renderTitleBlock(state, g);
+    // 기계(필드) 영역 — 전장 위쪽에 센서/모터 등 기계측 기기 배치 구역
+    if (p.fieldZone) {
+      const fh = p.fieldH || 220, gap = 60;
+      App.el('rect', {
+        x: 0, y: -gap - fh, width: p.widthMM, height: fh,
+        fill: '#f0fdf4', 'fill-opacity': 0.5, stroke: '#16a34a', 'stroke-width': 1,
+        'stroke-dasharray': '8 5', 'pointer-events': 'none'
+      }, g);
+      const ft = App.el('text', {
+        x: 6, y: -gap - fh + 12, 'font-size': 9, fill: '#15803d', 'font-weight': 'bold', 'pointer-events': 'none'
+      }, g);
+      ft.textContent = '기계장치 영역 (센서·모터 등 필드 기기)';
+    }
   }
 
   // 표제란 — 전장 우하단 바깥에 도번/작성자/날짜/리비전 (인쇄·PNG에 포함)
@@ -217,8 +230,10 @@
       App.el('rect', { x: c.x, y: c.y, width: c.widthMM, height: c.heightMM, rx: 2, fill: '#ffffff' }, grp);
       // 부품 외형 이미지(있으면 실물 사진처럼 표시)
       if (c.img) {
+        const isc = c.imgS || 1;
         const im = App.el('image', {
-          x: c.x, y: c.y, width: c.widthMM, height: c.heightMM,
+          x: c.x + (c.imgX || 0), y: c.y + (c.imgY || 0),
+          width: c.widthMM * isc, height: c.heightMM * isc,
           preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none'
         }, grp);
         im.setAttribute('href', c.img);

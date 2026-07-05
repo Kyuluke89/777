@@ -64,7 +64,7 @@
       partName: part.name || '',
       terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null,
-      img: part.img || null
+      img: part.img || null, imgX: part.imgX || 0, imgY: part.imgY || 0, imgS: part.imgS || 1
     };
     App.store.commit(function (s) { s.components.push(comp); });
     selectOnly(comp.id);

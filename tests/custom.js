@@ -23,6 +23,7 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   await page.fill('#pe-h', '60');
   await page.dispatchEvent('#pe-w', 'change');
   await page.dispatchEvent('#pe-h', 'change');
+  await page.click('#pe-mode-add'); // 단자 추가 모드(기본은 선택 모드)
   const cbox = await page.locator('#pe-canvas').boundingBox();
   // 박스 안 3곳 클릭 → 단자 3개
   await page.mouse.click(cbox.x + cbox.width * 0.4, cbox.y + cbox.height * 0.4);
@@ -69,6 +70,7 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   assert(await page.evaluate(() => getComputedStyle(document.getElementById('part-editor')).display !== 'none'), '편집 모달 열림');
   const loadedTerms = await page.evaluate(() => document.querySelectorAll('#pe-canvas [data-ti]').length);
   assert(loadedTerms === 4, '기존 단자 4개 로드 (' + loadedTerms + ')');
+  await page.click('#pe-mode-add'); // 단자 추가 모드
   const cbox2 = await page.locator('#pe-canvas').boundingBox();
   await page.mouse.click(cbox2.x + cbox2.width * 0.25, cbox2.y + cbox2.height * 0.25); // 빈 곳 → 단자 1개 추가
   await page.click('#pe-apply');
@@ -129,6 +131,7 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   await page.click('#act-custom');
   await page.fill('#pe-name-in', '마퀴'); await page.fill('#pe-w', '80'); await page.fill('#pe-h', '60');
   await page.dispatchEvent('#pe-w', 'change'); await page.dispatchEvent('#pe-h', 'change');
+  await page.click('#pe-mode-add'); // 단자 추가 모드
   const mb = await page.locator('#pe-canvas').boundingBox();
   await page.mouse.click(mb.x + mb.width * 0.35, mb.y + mb.height * 0.5);
   await page.mouse.click(mb.x + mb.width * 0.5, mb.y + mb.height * 0.5);
