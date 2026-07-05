@@ -1060,6 +1060,16 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(multiExp.n === 2 && multiExp.sheet1HasComps && multiExp.sheet2HasME, '전체 시트 통합 수집 (' + multiExp.names + ')');
 
+  // 우측 패널 자체 스크롤(휠) — 본문은 스크롤 금지
+  const scrollChk = await page.evaluate(() => {
+    const rp = document.getElementById('right-panel');
+    const canScroll = getComputedStyle(rp).overflowY === 'auto';
+    const bodyLocked = getComputedStyle(document.body).overflow === 'hidden';
+    rp.scrollTop = 40;
+    return { canScroll, bodyLocked, scrolled: rp.scrollTop > 0 || rp.scrollHeight <= rp.clientHeight };
+  });
+  assert(scrollChk.canScroll && scrollChk.bodyLocked && scrollChk.scrolled, '우측 패널 스크롤 + 본문 고정');
+
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
