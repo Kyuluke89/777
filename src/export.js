@@ -164,6 +164,36 @@
     img.src = svg64;
   };
 
+  // 케이블표 — 전장↔기계(필드) 배선만 집계 (테스트 가능)
+  const FIELD_TYPES = { SENSOR: 1, MOTOR: 1, SOL: 1, LAMP: 1, SW: 1 };
+  Ex.cableRows = function (state) {
+    state = state || App.store.get();
+    function comp(id) { return state.components.find(function (x) { return x.id === id; }); }
+    const rows = [['케이블번호', '판넬측 부품', '판넬측 단자', '현장측 기기', '현장측 단자', '규격(SQ)', 'AWG', '길이(mm)', '색상']];
+    let total = 0;
+    state.wires.slice().sort(function (a, b) {
+      return String(a.label || '').localeCompare(String(b.label || ''), undefined, { numeric: true });
+    }).forEach(function (w) {
+      const a = comp(w.fromComp), b = comp(w.toComp);
+      if (!a || !b) return;
+      const aF = FIELD_TYPES[a.type], bF = FIELD_TYPES[b.type];
+      if (!aF && !bF) return;                       // 둘 다 판넬 내부면 제외
+      const pnl = aF ? b : a, fld = aF ? a : b;     // 판넬측/현장측 정리
+      const pnlT = aF ? w.toTerm : w.fromTerm, fldT = aF ? w.fromTerm : w.toTerm;
+      const len = App.wires.length(state, w);
+      total += len;
+      rows.push([w.label, (pnl.label || pnl.partNo), pnlT, (fld.label || fld.partNo), fldT, w.sq || '', w.awg || '', len, w.color || '']);
+    });
+    rows.push(['합계', '', '', '', '', '', '', total, '']);
+    return rows;
+  };
+  Ex.cableList = function (state) {
+    state = state || App.store.get();
+    const rows = Ex.cableRows(state);
+    download(baseName(state) + '_케이블표.csv', toCsv(rows));
+    return rows.length - 2; // 헤더·합계 제외
+  };
+
   // 인쇄 (브라우저 인쇄 → PDF 저장 가능)
   Ex.print = function () { global.print(); };
 

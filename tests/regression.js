@@ -1096,6 +1096,24 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(field.hasSensor && field.hasMotor, '필드 기기(센서/모터) 라이브러리');
   assert(field.wired && field.crossesUp, '전장 부품 ↔ 기계 기기 배선 연결');
 
+  // 케이블표: 전장↔기계 배선만 집계
+  const cable = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const sensor = lib.find(p => p.partNo === 'FLD-SENSOR');
+    App.store.commit(s => {
+      s.components.push({ id: 'csen', partNo: sensor.partNo, type: sensor.type, x: 200, y: -180, widthMM: sensor.w, heightMM: sensor.h, rotation: 0, label: '센서A', terminals: sensor.terminals, term: JSON.parse(JSON.stringify(sensor.term)) });
+      const c0 = s.components[0];
+      const w = App.wires.create(s, { compId: c0.id, index: 1 }, { compId: 'csen', index: 0 });
+      w.label = 'C001'; w.sq = '1.25'; s.wires.push(w);
+    });
+    const rows = App.exporter.cableRows(App.store.get());
+    App.store.commit(s => { s.wires = s.wires.filter(w => w.label !== 'C001'); s.components = s.components.filter(c => c.id !== 'csen'); });
+    const r = rows.find(x => x[0] === 'C001');
+    return { n: rows.length, ok: !!r && r[3] === '센서A' && r[5] === '1.25', onlyField: rows.length === 3 };
+  });
+  assert(cable.ok, '케이블표 행(판넬측/현장측/규격) 정확');
+  assert(cable.onlyField, '케이블표는 필드 배선만 (' + cable.n + '행)');
+
   // 통합 라운드트립: 시트+이미지+표제란이 저장/복원에 보존
   const round2 = await page.evaluate(() => {
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

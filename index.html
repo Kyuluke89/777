@@ -9,7 +9,7 @@
   <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260705d"></script>
+  <script src="vendor/fflate.min.js?v=20260705e"></script>
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -76,6 +76,7 @@
 
         <button id="act-bom" class="toolbtn bg-white text-slate-700" title="부품 BOM CSV">BOM</button>
         <button id="act-wlist" class="toolbtn bg-white text-slate-700" title="배선표 CSV">배선표</button>
+        <button id="act-cable" class="toolbtn bg-white text-slate-700" title="전장↔기계(필드) 케이블표 CSV">케이블표</button>
         <button id="act-dxf" class="toolbtn bg-white text-slate-700" title="DXF 내보내기 (AutoCAD 호환)">DXF</button>
         <button id="act-png" class="toolbtn bg-white text-slate-700" title="도면 PNG">🖼 PNG</button>
         <button id="act-print" class="toolbtn bg-white text-slate-700" title="인쇄 / PDF 저장">🖨 인쇄</button>
@@ -423,33 +424,33 @@
   </div>
 
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260705d"></script>
-  <script src="src/terminals.js?v=20260705d"></script>
-  <script src="src/wires.js?v=20260705d"></script>
-  <script src="src/dims.js?v=20260705d"></script>
-  <script src="src/geom.js?v=20260705d"></script>
-  <script src="src/viewport.js?v=20260705d"></script>
-  <script src="src/render.js?v=20260705d"></script>
-  <script src="src/persistence.js?v=20260705d"></script>
-  <script src="src/sheets.js?v=20260705d"></script>
-  <script src="vendor/three.min.js?v=20260705d"></script>
-  <script src="vendor/OrbitControls.js?v=20260705d"></script>
-  <script src="src/view3d.js?v=20260705d"></script>
-  <script src="src/export.js?v=20260705d"></script>
-  <script src="src/library/seed.js?v=20260705d"></script>
-  <script src="src/library/parts-builtin.js?v=20260705d"></script>
-  <script src="src/library/parts-ls.js?v=20260705d"></script>
-  <script src="src/library/parts-dwg.js?v=20260705d"></script>
-  <script src="src/library/userlib.js?v=20260705d"></script>
-  <script src="src/library/types.js?v=20260705d"></script>
-  <script src="src/library/edz.js?v=20260705d"></script>
-  <script src="src/library/palette.js?v=20260705d"></script>
-  <script src="src/interact.js?v=20260705d"></script>
-  <script src="src/ui/toolbar.js?v=20260705d"></script>
-  <script src="src/ui/inspector.js?v=20260705d"></script>
-  <script src="src/ui/part-editor.js?v=20260705d"></script>
-  <script src="src/ui/wire-presets.js?v=20260705d"></script>
-  <script src="src/ui/wire-list.js?v=20260705d"></script>
-  <script src="src/main.js?v=20260705d"></script>
+  <script src="src/store.js?v=20260705e"></script>
+  <script src="src/terminals.js?v=20260705e"></script>
+  <script src="src/wires.js?v=20260705e"></script>
+  <script src="src/dims.js?v=20260705e"></script>
+  <script src="src/geom.js?v=20260705e"></script>
+  <script src="src/viewport.js?v=20260705e"></script>
+  <script src="src/render.js?v=20260705e"></script>
+  <script src="src/persistence.js?v=20260705e"></script>
+  <script src="src/sheets.js?v=20260705e"></script>
+  <script src="vendor/three.min.js?v=20260705e"></script>
+  <script src="vendor/OrbitControls.js?v=20260705e"></script>
+  <script src="src/view3d.js?v=20260705e"></script>
+  <script src="src/export.js?v=20260705e"></script>
+  <script src="src/library/seed.js?v=20260705e"></script>
+  <script src="src/library/parts-builtin.js?v=20260705e"></script>
+  <script src="src/library/parts-ls.js?v=20260705e"></script>
+  <script src="src/library/parts-dwg.js?v=20260705e"></script>
+  <script src="src/library/userlib.js?v=20260705e"></script>
+  <script src="src/library/types.js?v=20260705e"></script>
+  <script src="src/library/edz.js?v=20260705e"></script>
+  <script src="src/library/palette.js?v=20260705e"></script>
+  <script src="src/interact.js?v=20260705e"></script>
+  <script src="src/ui/toolbar.js?v=20260705e"></script>
+  <script src="src/ui/inspector.js?v=20260705e"></script>
+  <script src="src/ui/part-editor.js?v=20260705e"></script>
+  <script src="src/ui/wire-presets.js?v=20260705e"></script>
+  <script src="src/ui/wire-list.js?v=20260705e"></script>
+  <script src="src/main.js?v=20260705e"></script>
 </body>
 </html>
