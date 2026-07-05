@@ -180,25 +180,23 @@
     return set;
   }
 
-  // 계통도 심볼(단선도) 벡터 렌더 — c.sym 키별 표준 심볼
-  function drawSym(grp, c) {
-    const x = c.x, y = c.y, w = c.widthMM, h = c.heightMM;
-    const cx = x + w / 2;
-    const g = App.el('g', { 'class': 'part-sym', 'pointer-events': 'none' }, grp);
-    const SW = 1.4, COL = '#0f172a';
-    function L(x1, y1, x2, y2) { App.el('line', { x1: x + x1, y1: y + y1, x2: x + x2, y2: y + y2, stroke: COL, 'stroke-width': SW, 'stroke-linecap': 'round' }, g); }
-    function C(ccx, ccy, r) { App.el('circle', { cx: x + ccx, cy: y + ccy, r: r, fill: '#fff', stroke: COL, 'stroke-width': SW }, g); }
-    function T(tx, ty, s, size) { const e = App.el('text', { x: x + tx, y: y + ty, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': size || 8, 'font-weight': 'bold', fill: COL }, g); e.textContent = s; }
-    const m = w / 2, s = c.sym;
+  // 계통도 심볼 지오메트리 — 렌더와 DXF 내보내기가 공용 사용
+  App.symGeo = function (c) {
+    const w = c.widthMM, h = c.heightMM, m = w / 2, s = c.sym;
+    const LS = [], CS = [], TS = [];
+    function L(x1, y1, x2, y2) { LS.push([x1, y1, x2, y2]); }
+    function C(cx, cy, r0) { CS.push([cx, cy, r0]); }
+    function T(tx, ty, str, size) { TS.push([tx, ty, str, size || 8]); }
     if (s === 'mccb' || s === 'elcb') {
-      L(m, 2, m, h * 0.32);                       // 위 리드
-      L(m, h * 0.32, w * 0.88, h * 0.6);          // 개방 접점(사선)
-      L(m, h * 0.62, m, h - 2);                   // 아래 리드
-      L(w * 0.3, h * 0.32, w * 0.7, h * 0.32);    // 고정 접점 바
+      L(m, 2, m, h * 0.32);
+      L(m, h * 0.32, w * 0.88, h * 0.6);
+      L(m, h * 0.62, m, h - 2);
+      L(w * 0.3, h * 0.32, w * 0.7, h * 0.32);
       if (s === 'elcb') { C(m, h * 0.47, w * 0.16); T(m, h * 0.47, 'E', w * 0.24); }
     } else if (s === 'fuse') {
       L(m, 2, m, h - 2);
-      App.el('rect', { x: x + w * 0.3, y: y + h * 0.25, width: w * 0.4, height: h * 0.5, fill: '#fff', stroke: COL, 'stroke-width': SW }, g);
+      L(w * 0.3, h * 0.25, w * 0.7, h * 0.25); L(w * 0.7, h * 0.25, w * 0.7, h * 0.75);
+      L(w * 0.7, h * 0.75, w * 0.3, h * 0.75); L(w * 0.3, h * 0.75, w * 0.3, h * 0.25);
     } else if (s === 'mc') {
       L(m, 2, m, h * 0.3);
       L(m, h * 0.3, w * 0.88, h * 0.58);
@@ -206,7 +204,6 @@
       C(m, h * 0.3, w * 0.07); C(m, h * 0.62, w * 0.07);
     } else if (s === 'thr') {
       L(m, 2, m, h * 0.22);
-      // 히터(ㄷ자 꺾임)
       L(m, h * 0.22, w * 0.75, h * 0.22); L(w * 0.75, h * 0.22, w * 0.75, h * 0.5);
       L(w * 0.75, h * 0.5, w * 0.25, h * 0.5); L(w * 0.25, h * 0.5, w * 0.25, h * 0.78);
       L(w * 0.25, h * 0.78, m, h * 0.78);
@@ -238,30 +235,55 @@
       L(m, 2, m, h * 0.25);
       C(m, h * 0.55, w * 0.32); T(m, h * 0.55, 'A', w * 0.34);
       L(m, h * 0.87, m, h - 2);
-    } else if (s === 'auxa') {           // a접점(NO)
+    } else if (s === 'auxa') {
       L(m, 2, m, h * 0.32);
       L(m, h * 0.32, w * 0.85, h * 0.6);
       L(m, h * 0.64, m, h - 2);
-    } else if (s === 'auxb') {           // b접점(NC) — 사선 + 가로 차단바
+    } else if (s === 'auxb') {
       L(m, 2, m, h * 0.32);
       L(m, h * 0.32, w * 0.85, h * 0.6);
       L(w * 0.32, h * 0.3, w * 0.72, h * 0.3);
       L(m, h * 0.64, m, h - 2);
-    } else if (s === 'coil') {           // 코일
+    } else if (s === 'coil') {
       L(m, 2, m, h * 0.28);
       C(m, h * 0.5, w * 0.28);
       L(m, h * 0.72, m, h - 2);
-    } else if (s === 'pb') {             // 누름버튼(NO)
+    } else if (s === 'pb') {
       L(m, 2, m, h * 0.4); L(m, h * 0.6, m, h - 2);
-      L(w * 0.28, h * 0.45, w * 0.72, h * 0.45);       // 브리지
-      L(m, h * 0.45, m, h * 0.24);                      // 스템
-      L(w * 0.36, h * 0.24, w * 0.64, h * 0.24);        // 버튼 캡
-    } else if (s === 'ph3') {            // 3상 표시(사선 3개)
+      L(w * 0.28, h * 0.45, w * 0.72, h * 0.45);
+      L(m, h * 0.45, m, h * 0.24);
+      L(w * 0.36, h * 0.24, w * 0.64, h * 0.24);
+    } else if (s === 'ph3') {
       L(m, 2, m, h - 2);
       for (let i = 0; i < 3; i++) L(w * 0.3, h * (0.32 + i * 0.14), w * 0.7, h * (0.22 + i * 0.14));
-    } else if (s === 'bus') {            // 버스바(모선) — 굵은 바
-      App.el('rect', { x: x + 1, y: y + h * 0.25, width: w - 2, height: h * 0.5, fill: COL, rx: 1, 'pointer-events': 'none' }, g);
+    } else if (s === 'bus') {
+      // 굵은 바(사각) — DXF에선 외곽선
+      L(1, h * 0.25, w - 1, h * 0.25); L(w - 1, h * 0.25, w - 1, h * 0.75);
+      L(w - 1, h * 0.75, 1, h * 0.75); L(1, h * 0.75, 1, h * 0.25);
     }
+    return { lines: LS, circles: CS, texts: TS };
+  };
+
+  // 계통도 심볼(단선도) 벡터 렌더 — symGeo 지오메트리를 SVG 로 그림
+  function drawSym(grp, c) {
+    const x = c.x, y = c.y;
+    const g = App.el('g', { 'class': 'part-sym', 'pointer-events': 'none' }, grp);
+    const SW = 1.4, COL = '#0f172a';
+    const geo = App.symGeo(c);
+    if (c.sym === 'bus') { // 버스바는 채운 바로
+      App.el('rect', { x: x + 1, y: y + c.heightMM * 0.25, width: c.widthMM - 2, height: c.heightMM * 0.5, fill: COL, rx: 1 }, g);
+    } else {
+      geo.lines.forEach(function (l) {
+        App.el('line', { x1: x + l[0], y1: y + l[1], x2: x + l[2], y2: y + l[3], stroke: COL, 'stroke-width': SW, 'stroke-linecap': 'round' }, g);
+      });
+    }
+    geo.circles.forEach(function (ci) {
+      App.el('circle', { cx: x + ci[0], cy: y + ci[1], r: ci[2], fill: '#fff', stroke: COL, 'stroke-width': SW }, g);
+    });
+    geo.texts.forEach(function (t) {
+      const e = App.el('text', { x: x + t[0], y: y + t[1], 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': t[3], 'font-weight': 'bold', fill: COL }, g);
+      e.textContent = t[2];
+    });
   }
 
   // 타입별 실물풍 앞면 디테일(벡터) — 사진(img) 없을 때만. 저작권 무관 자체 그래픽.

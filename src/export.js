@@ -255,6 +255,11 @@
     push(0, 'SECTION', 2, 'ENTITIES');
     const p = state.panel;
     rect('PANEL', 0, 0, p.widthMM, p.heightMM);
+    if (p.frame) {
+      const topEx = p.fieldZone ? ((p.fieldH || 220) + 60) : 0;
+      rect('FRAME', -22, -52 - topEx, p.widthMM + 44, p.heightMM + 104 + topEx);
+      rect('FRAME', -17, -47 - topEx, p.widthMM + 34, p.heightMM + 94 + topEx);
+    }
     if (p.title) text('TEXT', p.widthMM / 2, -14, 10, p.title);
     (state.ducts || []).forEach(function (d) {
       const w = d.orient === 'h' ? d.lengthMM : d.widthMM;
@@ -269,6 +274,15 @@
       else line('RAILS', r.x + w / 2, r.y, r.x + w / 2, r.y + h);
     });
     (state.components || []).forEach(function (c) {
+      if (c.sym && App.symGeo) { // 계통도 심볼: 실제 심볼 지오메트리로
+        const geo = App.symGeo(c);
+        geo.lines.forEach(function (l) { line('SYM', c.x + l[0], c.y + l[1], c.x + l[2], c.y + l[3]); });
+        geo.circles.forEach(function (ci) { circle('SYM', c.x + ci[0], c.y + ci[1], ci[2]); });
+        geo.texts.forEach(function (t) { text('SYM', c.x + t[0] - t[3] * 0.35, c.y + t[1] + t[3] * 0.35, t[3], t[2]); });
+        text('TEXT', c.x + c.widthMM + 3, c.y + c.heightMM / 2, 4, c.label || c.partName || '');
+        App.terminals.world(c).forEach(function (t) { circle('TERMS', t.x, t.y, (t.w || 3.6) / 2); });
+        return;
+      }
       // 90/270도 회전은 가로세로 스왑(중심 유지)
       const rot = ((c.rotation || 0) % 180 + 180) % 180;
       let bx = c.x, by = c.y, bw = c.widthMM, bh = c.heightMM;

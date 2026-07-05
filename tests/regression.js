@@ -1181,6 +1181,16 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     return { hasMccb: !!mccb, hasMotor: !!motor, lines };
   });
   assert(sym.hasMccb && sym.hasMotor, '계통도 심볼 라이브러리(SYM)');
+  // 심볼 DXF: SYM 레이어 실선 포함
+  const symDxf = await page.evaluate(() => {
+    const lib = App.palette.getLibrary();
+    const mccb = lib.find(p => p.partNo === 'SYM-MCCB');
+    App.store.commit(s => { s.components.push({ id: 'sd1', partNo: mccb.partNo, type: 'SYM', sym: mccb.sym, x: 50, y: 950, widthMM: mccb.w, heightMM: mccb.h, rotation: 0, label: 'Q9', terminals: 2, term: JSON.parse(JSON.stringify(mccb.term)) }); });
+    const d = App.exporter.dxfString(App.store.get());
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'sd1'); });
+    return { hasSymLayer: d.indexOf('SYM') >= 0, lines: (d.match(/\nSYM\n/g) || []).length };
+  });
+  assert(symDxf.hasSymLayer && symDxf.lines >= 4, '심볼 DXF 실선 내보내기 (' + symDxf.lines + ')');
   assert(sym.lines >= 3, '심볼 벡터 렌더 (' + sym.lines + '선)');
 
   // PLC I/O 리스트
