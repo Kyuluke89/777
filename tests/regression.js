@@ -984,31 +984,29 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(imgTest.has && imgTest.href, '부품 이미지 렌더(<image>)');
 
-  // 3D 뷰: 열기 → 폴리곤(3면 박스) 렌더 → 닫기
+  // 3D 뷰(WebGL): 열기 → 메쉬 렌더 → 궤도 회전/줌 → 닫기
   await page.click('#act-3d');
+  await page.waitForTimeout(300);
   const v3 = await page.evaluate(() => {
     const open = getComputedStyle(document.getElementById('view3d-modal')).display !== 'none';
-    const polys = document.querySelectorAll('#view3d-svg polygon').length;
-    const wires3d = document.querySelectorAll('#view3d-svg polyline').length;
-    return { open, polys, wires3d };
+    const canvas = !!document.querySelector('#view3d-host canvas');
+    const dbg = App.view3d._debug();
+    return { open, canvas, meshes: dbg.meshes, cam0: dbg.cam };
   });
   assert(v3.open, '3D 모달 열림');
-  assert(v3.polys >= 9, '3D 박스 면 렌더 (' + v3.polys + 'polys)');
-  assert(v3.wires3d >= 1, '3D 배선 표시');
-  // 3D 드래그 회전(시점) + 휠 줌 → 뷰 변경
-  const v3b = await page.evaluate(() => {
-    const r = document.getElementById('view3d-svg').getBoundingClientRect();
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2, vb0: document.getElementById('view3d-svg').getAttribute('viewBox') };
-  });
-  await page.mouse.move(v3b.x, v3b.y);
+  assert(v3.canvas, '3D WebGL 캔버스 생성');
+  assert(v3.meshes >= 4, '3D 메쉬 렌더 (' + v3.meshes + ')');
+  // 궤도 회전(드래그) + 줌(휠) → 카메라 이동
+  const v3c = await page.evaluate(() => { const r = document.querySelector('#view3d-host canvas').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  await page.mouse.move(v3c.x, v3c.y);
   await page.mouse.down();
-  await page.mouse.move(v3b.x + 80, v3b.y - 40, { steps: 4 });
+  await page.mouse.move(v3c.x + 120, v3c.y - 60, { steps: 5 });
   await page.mouse.up();
-  await page.mouse.move(v3b.x, v3b.y);
   await page.mouse.wheel(0, -240);
-  await page.waitForTimeout(50);
-  const v3after = await page.evaluate(() => document.getElementById('view3d-svg').getAttribute('viewBox'));
-  assert(v3after !== v3b.vb0, '3D 드래그 회전/휠 줌으로 뷰 변경');
+  await page.waitForTimeout(250);
+  const v3cam = await page.evaluate(() => App.view3d._debug().cam);
+  const camMoved = v3cam && v3.cam0 && (Math.abs(v3cam[0] - v3.cam0[0]) > 1 || Math.abs(v3cam[1] - v3.cam0[1]) > 1 || Math.abs(v3cam[2] - v3.cam0[2]) > 1);
+  assert(camMoved, '3D 궤도 회전/줌으로 카메라 이동');
   await page.keyboard.press('Escape');
   const v3closed = await page.evaluate(() => getComputedStyle(document.getElementById('view3d-modal')).display === 'none');
   assert(v3closed, '3D 모달 Esc 닫힘');

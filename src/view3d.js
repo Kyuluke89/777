@@ -1,140 +1,203 @@
-/* 3D 입체 보기 — 전장(플레이트) 위 부품/덕트/레일을 깊이(d)만큼 돌출시킨
-   캐비닛(oblique) 투영. SVG 만으로 렌더(외부 라이브러리 없음), 읽기 전용. */
+/* 3D 입체 보기 — Three.js(WebGL) 실시간 렌더 + OrbitControls.
+   상용 3D(EPLAN Pro Panel 등)처럼 마우스로 자유 회전(좌드래그)/팬(우드래그)/줌(휠).
+   좌표: 앱 x→X, 앱 y(아래+)→-Y, 깊이→+Z. 플레이트는 수직 벽처럼 서 있음. */
 (function (global) {
   'use strict';
   const App = (global.App = global.App || {});
   const V3 = (App.view3d = {});
 
-  let modal, svg;
-  // 깊이 1mm 당 화면 오프셋 (위-오른쪽 방향) — 드래그로 시점 변경
-  let KX = 0.5, KY = -0.35;
-  let depthScale = 1; // 깊이 과장 배율
-  let zoomK = 1;      // 휠 줌 배율
+  let modal, host, renderer, scene, camera, controls, rafId = null;
+  let depthScale = 1;
+  const texCache = {}; // dataURL → THREE.Texture
 
-  function el(name, attrs, parent) {
-    const n = document.createElementNS(App.SVGNS, name);
-    for (const k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
-    if (parent) parent.appendChild(n);
-    return n;
-  }
-  function shade(hex, f) { // hex 색을 f(0~1) 만큼 어둡게
-    const n = parseInt(hex.slice(1), 16);
-    const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
-    return 'rgb(' + r + ',' + g + ',' + b + ')';
-  }
-  function poly(parent, pts, fill, stroke) {
-    el('polygon', { points: pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' '), fill: fill, stroke: stroke || '#334155', 'stroke-width': 0.5, 'stroke-linejoin': 'round' }, parent);
+  function hasThree() { return typeof global.THREE !== 'undefined'; }
+
+  function disposeScene() {
+    if (!scene) return;
+    scene.traverse(function (o) {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { m.dispose(); });
+      }
+    });
+    while (scene.children.length) scene.remove(scene.children[0]);
   }
 
-  // 박스 1개(x,y,w,h,깊이 d) — 앞면+윗면+오른면 3면
-  function box(parent, x, y, w, h, d, color, label, img) {
-    const dx = d * KX * depthScale, dy = d * KY * depthScale;
-    // 윗면
-    poly(parent, [[x, y], [x + w, y], [x + w + dx, y + dy], [x + dx, y + dy]], shade(color, 0.82));
-    // 오른면
-    poly(parent, [[x + w, y], [x + w, y + h], [x + w + dx, y + h + dy], [x + w + dx, y + dy]], shade(color, 0.62));
-    // 앞면
-    const fx = x + dx, fy = y + dy;
-    poly(parent, [[fx, fy], [fx + w, fy], [fx + w, fy + h], [fx, fy + h]], color);
+  function texture(dataURL) {
+    if (texCache[dataURL]) return texCache[dataURL];
+    const t = new THREE.TextureLoader().load(dataURL);
+    t.colorSpace = THREE.SRGBColorSpace || undefined;
+    texCache[dataURL] = t;
+    return t;
+  }
+
+  // 박스 메쉬 — 앞면(+Z)에 이미지 텍스처 가능
+  function box(w, h, d, color, img, edge) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const base = new THREE.MeshLambertMaterial({ color: color });
+    let mat = base;
     if (img) {
-      const im = el('image', { x: fx, y: fy, width: w, height: h, preserveAspectRatio: 'xMidYMid meet', 'pointer-events': 'none' }, parent);
-      im.setAttribute('href', img);
-      el('rect', { x: fx, y: fy, width: w, height: h, fill: 'none', stroke: '#334155', 'stroke-width': 0.5 }, parent);
+      const front = new THREE.MeshLambertMaterial({ map: texture(img), color: 0xffffff });
+      mat = [base, base, base, base, front, base]; // +x,-x,+y,-y,+z,-z
     }
-    if (label) {
-      const t = el('text', {
-        x: fx + w / 2, y: fy + h / 2, 'text-anchor': 'middle', 'dominant-baseline': 'central',
-        'font-size': Math.max(4, Math.min(8, w * 0.16)), fill: '#ffffff', 'font-weight': 'bold',
-        stroke: 'rgba(0,0,0,.35)', 'stroke-width': 0.4, 'paint-order': 'stroke', 'pointer-events': 'none'
-      }, parent);
-      t.textContent = label;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = mesh.receiveShadow = true;
+    if (edge !== false) {
+      const eg = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geo),
+        new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.35 })
+      );
+      mesh.add(eg);
     }
+    return mesh;
   }
 
-  // 밝은 앞면 색(타입색을 연하게) — shade() 가 hex 를 요구하므로 hex 로 반환
-  function faceColor(type) {
-    const c = App.typeColor(type);
-    const n = parseInt(c.slice(1), 16);
-    const mix = function (v) { return Math.round(v + (255 - v) * 0.45); };
-    const h = function (v) { return ('0' + v.toString(16)).slice(-2); };
-    return '#' + h(mix((n >> 16) & 255)) + h(mix((n >> 8) & 255)) + h(mix(n & 255));
+  // 앱 좌표(x,y 좌상단 기준) 박스를 씬에 배치 — z0 = 플레이트 표면에서 시작
+  function place(mesh, x, y, w, h, d, z0, rotDeg) {
+    mesh.position.set(x + w / 2, -(y + h / 2), (z0 || 0) + d / 2);
+    if (rotDeg) mesh.rotation.z = -rotDeg * Math.PI / 180;
+    scene.add(mesh);
   }
 
-  V3.render = function () {
-    if (!svg) return;
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
+  function build() {
+    disposeScene();
     const s = App.store.get();
     const p = s.panel;
+    const W = p.widthMM, H = p.heightMM;
 
-    // 플레이트(뒤판) — 살짝 두께
-    const plate = el('g', {}, svg);
-    box(plate, 0, 0, p.widthMM, p.heightMM, 3, '#e2e8f0', null);
+    // 조명
+    scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+    const key = new THREE.DirectionalLight(0xffffff, 0.75);
+    key.position.set(W * 0.6, H * 0.4, Math.max(W, H));
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+    fill.position.set(-W * 0.5, -H * 0.6, Math.max(W, H) * 0.6);
+    scene.add(fill);
 
-    // 배선(플레이트 표면, z≈0)
-    const wg = el('g', {}, svg);
-    (s.wires || []).forEach(function (w) {
-      const pts = App.wires.route(s, w);
-      if (!pts) return;
-      el('polyline', {
-        points: pts.map(function (q) { return q.x + ',' + q.y; }).join(' '),
-        fill: 'none', stroke: w.color || '#dc2626', 'stroke-width': (w.width || 1.2),
-        'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: 0.9
-      }, wg);
-    });
+    // 플레이트(뒤판) + 외곽 프레임 느낌의 테두리
+    const plate = box(W, H, 4, 0xd7dee8, null);
+    place(plate, 0, 0, W, H, 4, -4);
 
-    // 돌출 박스들 — 화면 겹침 순서(왼-아래 → 오른-위)로 정렬
-    const items = [];
+    // 덕트 — 몸체 + 덮개(살짝 큰 캡)로 배선덕트 느낌
     (s.ducts || []).forEach(function (d) {
       const w = d.orient === 'h' ? d.lengthMM : d.widthMM;
       const h = d.orient === 'h' ? d.widthMM : d.lengthMM;
-      items.push({ x: d.x, y: d.y, w: w, h: h, d: 40, color: '#fbbf24', label: null });
+      const dep = 40 * depthScale;
+      const body = box(w, h, dep, 0x8a95a6, null);
+      place(body, d.x, d.y, w, h, dep, 0);
+      const cap = box(w + 2, h + 2, 4, 0xa8b2bf, null);
+      place(cap, d.x - 1, d.y - 1, w + 2, h + 2, 4, dep);
     });
+
+    // DIN 레일 — 얇은 모자형(밑판+양날개)
     (s.rails || []).forEach(function (r) {
       const w = r.orient === 'h' ? r.lengthMM : (r.widthMM || 35);
       const h = r.orient === 'h' ? (r.widthMM || 35) : r.lengthMM;
-      items.push({ x: r.x, y: r.y, w: w, h: h, d: 8, color: '#94a3b8', label: null });
-    });
-    (s.components || []).forEach(function (c) {
-      // 90/270도 회전은 가로세로 스왑(중심 유지)해 반영
-      const rot = ((c.rotation || 0) % 180 + 180) % 180;
-      let x = c.x, y = c.y, w = c.widthMM, h = c.heightMM;
-      if (rot === 90) {
-        const cx = x + w / 2, cy = y + h / 2;
-        w = c.heightMM; h = c.widthMM; x = cx - w / 2; y = cy - h / 2;
+      const dep = 7.5 * depthScale;
+      const base = box(w, h, 2, 0xb0b8c4, null);
+      place(base, r.x, r.y, w, h, 2, 0);
+      if (r.orient === 'h') {
+        const top = box(w, 5, dep, 0xc7ced8, null); place(top, r.x, r.y, w, 5, dep, 0);
+        const bot = box(w, 5, dep, 0xc7ced8, null); place(bot, r.x, r.y + h - 5, w, 5, dep, 0);
+      } else {
+        const lft = box(5, h, dep, 0xc7ced8, null); place(lft, r.x, r.y, 5, h, dep, 0);
+        const rgt = box(5, h, dep, 0xc7ced8, null); place(rgt, r.x + w - 5, r.y, 5, h, dep, 0);
       }
-      items.push({
-        x: x, y: y, w: w, h: h,
-        d: c.d || 60, color: faceColor(c.type), label: c.label || c.partNo || '', img: c.img || null
-      });
     });
-    items.sort(function (a, b) { return (KX * a.x + KY * a.y) - (KX * b.x + KY * b.y); }); // painter's
-    const bg = el('g', {}, svg);
-    items.forEach(function (it) { box(bg, it.x, it.y, it.w, it.h, it.d, it.color, it.label, it.img); });
 
-    // 뷰박스: 돌출 오프셋 포함해 맞춤
-    const maxD = 80 * depthScale;
-    const pad = 40;
-    const x0 = -pad, y0 = maxD * -KY * -1 - pad - 40, x1 = p.widthMM + maxD * KX + pad, y1 = p.heightMM + pad;
-    let vw = (x1 - x0), vh = (y1 + pad + 40 + maxD * 0.4);
-    let vx = x0, vy = -(40 + maxD * 0.4) - pad;
-    // 휠 줌: 중심 기준 축소/확대
-    const cx0 = vx + vw / 2, cy0 = vy + vh / 2;
-    vw /= zoomK; vh /= zoomK;
-    svg.setAttribute('viewBox', (cx0 - vw / 2) + ' ' + (cy0 - vh / 2) + ' ' + vw + ' ' + vh);
-  };
+    // 부품 — 타입색 몸체(+이미지 앞면), 회전 반영
+    (s.components || []).forEach(function (c) {
+      const dep = (c.d || 60) * depthScale;
+      const col = new THREE.Color(App.typeColor(c.type)).lerp(new THREE.Color(0xffffff), 0.35);
+      const m = box(c.widthMM, c.heightMM, dep, col, c.img || null);
+      place(m, c.x, c.y, c.widthMM, c.heightMM, dep, 0, c.rotation || 0);
+    });
+
+    // 배선 — 단자에서 나와 위로 떠서 경유하는 둥근 튜브
+    const wireZ = 14 * depthScale; // 배선이 떠 있는 높이
+    (s.wires || []).forEach(function (w) {
+      const pts = App.wires.route(s, w);
+      if (!pts || pts.length < 2) return;
+      const v = [];
+      v.push(new THREE.Vector3(pts[0].x, -pts[0].y, 4));            // 시작 단자(표면)
+      pts.forEach(function (q, i) {
+        v.push(new THREE.Vector3(q.x, -q.y, wireZ));                 // 경로는 떠서
+      });
+      const last = pts[pts.length - 1];
+      v.push(new THREE.Vector3(last.x, -last.y, 4));                 // 끝 단자(표면)
+      const curve = new THREE.CatmullRomCurve3(v, false, 'catmullrom', 0.08);
+      const geo = new THREE.TubeGeometry(curve, Math.max(24, pts.length * 8), Math.max(0.7, (w.width || 1.2) * 0.7), 8, false);
+      const mat = new THREE.MeshLambertMaterial({ color: new THREE.Color(w.color || '#dc2626') });
+      scene.add(new THREE.Mesh(geo, mat));
+    });
+
+    // 카메라 초기 위치(비스듬히 위-앞)
+    const cx = W / 2, cy = -H / 2;
+    controls.target.set(cx, cy, 0);
+    camera.position.set(cx + W * 0.55, cy + H * 0.35, Math.max(W, H) * 1.15);
+    camera.near = 1; camera.far = Math.max(W, H) * 10;
+    camera.updateProjectionMatrix();
+    controls.update();
+  }
+
+  function resize() {
+    if (!renderer || !host) return;
+    const r = host.getBoundingClientRect();
+    if (r.width < 4 || r.height < 4) return;
+    renderer.setSize(r.width, r.height, false);
+    camera.aspect = r.width / r.height;
+    camera.updateProjectionMatrix();
+  }
+
+  function loop() {
+    if (!V3.isOpen()) { rafId = null; return; }
+    controls.update();
+    renderer.render(scene, camera);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  V3.render = function () { if (scene) build(); };
 
   V3.open = function () {
     if (!modal) return;
-    zoomK = 1;
+    if (!hasThree()) { alert('3D 라이브러리(three.js)를 불러오지 못했습니다.'); return; }
     modal.style.display = 'flex';
-    V3.render();
+    if (!renderer) {
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      } catch (e) { alert('이 기기에서 WebGL(3D)을 사용할 수 없습니다.'); modal.style.display = 'none'; return; }
+      renderer.setPixelRatio(global.devicePixelRatio || 1);
+      renderer.setClearColor(0xf1f5f9);
+      host.appendChild(renderer.domElement);
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      renderer.domElement.style.display = 'block';
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(45, 1, 1, 10000);
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      global.addEventListener('resize', resize);
+    }
+    build();
+    resize();
+    if (!rafId) loop();
   };
-  V3.close = function () { if (modal) modal.style.display = 'none'; };
+  V3.close = function () {
+    if (modal) modal.style.display = 'none';
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  };
   V3.isOpen = function () { return modal && modal.style.display !== 'none'; };
+  // 테스트/디버그용
+  V3._debug = function () {
+    let meshes = 0;
+    if (scene) scene.traverse(function (o) { if (o.isMesh) meshes++; });
+    return { meshes: meshes, cam: camera ? camera.position.toArray() : null };
+  };
 
   V3.init = function () {
     modal = document.getElementById('view3d-modal');
-    svg = document.getElementById('view3d-svg');
+    host = document.getElementById('view3d-host');
     if (!modal) return;
     const close = document.getElementById('v3-close');
     if (close) close.onclick = V3.close;
@@ -142,33 +205,12 @@
     const depth = document.getElementById('v3-depth');
     if (depth) depth.addEventListener('input', function () {
       depthScale = Math.max(0.2, parseFloat(this.value) || 1);
-      V3.render();
+      build();
     });
+    const reset = document.getElementById('v3-reset');
+    if (reset) reset.onclick = function () { build(); };
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && V3.isOpen()) V3.close();
     });
-    // 드래그: 투영 각도(시점) 변경 · 휠: 줌
-    let drag = null;
-    if (svg) {
-      svg.style.cursor = 'grab';
-      svg.style.touchAction = 'none';
-      svg.addEventListener('pointerdown', function (e) {
-        drag = { x: e.clientX, y: e.clientY, kx: KX, ky: KY };
-        svg.style.cursor = 'grabbing';
-        try { svg.setPointerCapture(e.pointerId); } catch (x) {}
-      });
-      svg.addEventListener('pointermove', function (e) {
-        if (!drag) return;
-        KX = Math.max(0.1, Math.min(1.0, drag.kx + (e.clientX - drag.x) * 0.003));
-        KY = Math.max(-0.8, Math.min(-0.08, drag.ky - (e.clientY - drag.y) * 0.003));
-        V3.render();
-      });
-      svg.addEventListener('pointerup', function () { drag = null; svg.style.cursor = 'grab'; });
-      svg.addEventListener('wheel', function (e) {
-        e.preventDefault();
-        zoomK = Math.max(0.4, Math.min(8, zoomK * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
-        V3.render();
-      }, { passive: false });
-    }
   };
 })(window);
