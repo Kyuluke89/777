@@ -984,6 +984,25 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(imgTest.has && imgTest.href, '부품 이미지 렌더(<image>)');
 
+  // 타입별 실물풍 앞면(벡터): 사진 없으면 표시, 사진 있으면 숨김
+  const face = await page.evaluate(() => {
+    App.store.commit(s => { s.components.push({ id: 'faceC', partNo: 'F', type: 'MCCB', x: 480, y: 620, widthMM: 50, heightMM: 96, rotation: 0, label: 'F', terminals: 0, term: null }); });
+    const c0 = App.store.get().components.find(c => c.id === 'faceC');
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
+    const hasFace = !!grp.querySelector('.part-face');
+    const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    App.store.commit(s => { s.components.find(c => c.id === c0.id).img = PIX; });
+    App.render.all();
+    const grp2 = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
+    const hiddenWithImg = !grp2.querySelector('.part-face');
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'faceC'); });
+    App.render.all();
+    return { hasFace, hiddenWithImg };
+  });
+  assert(face.hasFace, '실물풍 앞면 디테일 렌더(.part-face)');
+  assert(face.hiddenWithImg, '사진 있으면 벡터 디테일 대신 사진');
+
   // 3D 뷰(WebGL): 열기 → 메쉬 렌더 → 궤도 회전/줌 → 닫기
   await page.click('#act-3d');
   await page.waitForTimeout(300);
