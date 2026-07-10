@@ -68,6 +68,11 @@
         });
         mfAd += '<option value="__new__">＋추가…</option>';
         mh += row('전원구분', '<select data-mf="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + mfAd + '</select>');
+        let mfWp = '<option value="__keep__">유지</option><option value="">(없음)</option>';
+        (App.userlib.presets() || []).forEach(function (p2) {
+          mfWp += '<option value="' + App.esc(p2.name) + '">' + App.esc(p2.name) + '</option>';
+        });
+        mh += row('프리셋', '<select data-mf="preset" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + mfWp + '</select>');
         mh += row('라인번호', '<input data-mf="label" type="text" placeholder="시작번호 입력" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
         mh += '<label class="flex items-center gap-1 px-1 text-[10px] text-slate-500"><input id="insp-same-label" type="checkbox" /> 모두 같은 번호로 (해제 = 위→아래 자동 증가)</label>';
       } else if (onlyComps) {
@@ -125,6 +130,12 @@
             if (f3 === 'sq') { if (v) { it.sq = v; if (App.wires.SQ_AWG[v]) it.awg = App.wires.SQ_AWG[v]; if (App.wires.SQ_WIDTH && App.wires.SQ_WIDTH[v]) it.width = App.wires.SQ_WIDTH[v]; } }
             else if (f3 === 'width') { const n = parseFloat(v); if (n) it.width = n; }
             else if (f3 === 'acdc') it.acdc = v;
+            else if (f3 === 'preset') {
+              if (k !== 'wires') return;
+              it.preset = v || null;
+              const p2 = (App.userlib.presets() || []).find(function (x) { return x.name === v; });
+              if (p2) { it.color = p2.color; it.width = p2.width; it.sq = p2.sq; it.awg = p2.awg; it.acdc = p2.acdc || ''; }
+            }
             else if (f3 === 'type') it.type = v;
             else if (f3 === 'textVert') { it.textVert = (v === 'v'); it.labelVert = null; it.typeVert = null; it.tagVert = null; } // 전체 일괄 = 개별 설정 초기화
           });
@@ -192,6 +203,16 @@
       html += row('라인번호', '<input data-field="label" type="text" value="' + App.esc(it.label || '') +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
       html += row('라인 길이', '<span class="text-xs text-slate-700 font-semibold">' + App.wires.length(App.store.get(), it) + ' mm</span>');
+      // 프리셋 — 현재 선이 어떤 프리셋인지 표시 + 바꾸면 속성(색/두께/규격/전원)까지 적용
+      const wpList = App.userlib.presets() || [];
+      let wpOpts = '<option value="">(없음)</option>';
+      wpList.forEach(function (p2) {
+        wpOpts += '<option value="' + App.esc(p2.name) + '"' + (it.preset === p2.name ? ' selected' : '') + '>' + App.esc(p2.name) + '</option>';
+      });
+      if (it.preset && !wpList.some(function (p2) { return p2.name === it.preset; })) {
+        wpOpts += '<option value="' + App.esc(it.preset) + '" selected>' + App.esc(it.preset) + ' (삭제됨)</option>';
+      }
+      html += row('프리셋', '<select id="insp-wpreset" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + wpOpts + '</select>');
       html += row('색상', '<input data-field="color" type="color" value="' + (it.color || '#dc2626') +
         '" class="w-12 h-7 border border-slate-300 rounded" />');
       let sw = '<div class="flex flex-wrap gap-1 px-1 mt-1">';
@@ -255,6 +276,23 @@
           Inspector.update();
         });
       });
+      // 프리셋 변경 — 이름 기록 + 속성(색/두께/규격/AWG/전원) 적용
+      const wpSel = root.querySelector('#insp-wpreset');
+      if (wpSel) wpSel.onchange = function () {
+        const nm = wpSel.value;
+        const p2 = (App.userlib.presets() || []).find(function (x) { return x.name === nm; });
+        App.store.commit(function () {
+          const fnd = App.store.findById(id);
+          if (!fnd) return;
+          fnd.item.preset = nm || null;
+          if (p2) {
+            fnd.item.color = p2.color; fnd.item.width = p2.width;
+            fnd.item.sq = p2.sq; fnd.item.awg = p2.awg; fnd.item.acdc = p2.acdc || '';
+          }
+        });
+        App.render.all();
+        Inspector.update();
+      };
       // 시작/끝 부품으로 화면 이동 (배선 선택 유지 → 강조 계속 보임)
       [['insp-go-from', it.fromComp], ['insp-go-to', it.toComp]].forEach(function (pr) {
         const b = root.querySelector('#' + pr[0]);

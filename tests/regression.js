@@ -2723,6 +2723,40 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(acdcVis.shown && acdcVis.hidden && acdcVis.back, '전원(AC/DC) 뱃지 표시 온/오프');
   assert(acdcVis.saved === '0', '전원 표시 설정 localStorage 유지');
 
+  // === 배선 선택 시 프리셋 표시/변경 ===
+  const wpre = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'wp1', partNo: 'WP', type: 'MC', x: 1500, y: 1400, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wp2', partNo: 'WP', type: 'MC', x: 1700, y: 1400, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'wpw1', fromComp: 'wp1', fromTerm: 0, toComp: 'wp2', toTerm: 0, label: 'P1', color: '#111', width: 1, corners: null, midY: 1350, preset: '제어 0.75SQ' });
+    });
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set(['wpw1']);
+    App.inspector.update();
+    const sel = document.getElementById('insp-wpreset');
+    if (!sel) return { fail: 'no-select' };
+    const shows = sel.value === '제어 0.75SQ'; // 현재 프리셋 표시 (목록에 없어도 표기)
+    // 테스트용 프리셋 등록 후 변경 → 이름 + 속성(색/두께/규격/전원) 적용
+    App.userlib.addPreset({ name: '테스트프리셋X', color: '#123456', width: 2.2, sq: '2.0', awg: '14', acdc: 'DC' });
+    App.inspector.update();
+    const sel2 = document.getElementById('insp-wpreset');
+    sel2.value = '테스트프리셋X';
+    sel2.dispatchEvent(new Event('change'));
+    const w = App.store.get().wires.find(x => x.id === 'wpw1');
+    const applied = w.preset === '테스트프리셋X' && w.sq === '2.0' && w.width === 2.2 && w.color === '#123456' && w.acdc === 'DC';
+    App.userlib.removePreset('테스트프리셋X');
+    App.store.commit(s => {
+      s.wires = s.wires.filter(x => x.id !== 'wpw1');
+      s.components = s.components.filter(c => c.partNo !== 'WP');
+    });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { shows, applied };
+  });
+  assert(wpre.shows, '배선 선택 시 프리셋 이름 표시');
+  assert(wpre.applied, '인스펙터에서 프리셋 변경 → 이름+속성 적용');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함
