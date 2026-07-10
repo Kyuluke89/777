@@ -325,10 +325,20 @@
   W.pointsStr = function (pts) {
     return pts.map(function (p) { return p.x + ',' + p.y; }).join(' ');
   };
+  // 경로 "길이 기준" 정중앙 점 — AC/DC 뱃지 등이 항상 선 가운데 오도록
   W.midPoint = function (pts) {
     if (!pts || pts.length < 2) return null;
-    const i = Math.floor(pts.length / 2) - 1;
-    const a = pts[i], b = pts[i + 1];
+    const target = polyLen(pts) / 2;
+    let acc = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const seg = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+      if (acc + seg >= target && seg > 0) {
+        const t = (target - acc) / seg;
+        return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t };
+      }
+      acc += seg;
+    }
+    const a = pts[pts.length - 2], b = pts[pts.length - 1];
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   };
   function polyLen(pts) {

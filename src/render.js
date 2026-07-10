@@ -437,6 +437,11 @@
     clear(g);
     const overlaps = overlappingIds(state);
     const F = fonts(state);
+    // 선택된 배선의 양끝 부품 강조(어디서 어디로 가는지 표시)
+    const wireEnds = new Set();
+    (state.wires || []).forEach(function (w) {
+      if (isSelected(w.id)) { wireEnds.add(w.fromComp); wireEnds.add(w.toComp); }
+    });
     state.components.forEach(function (c) {
       const cx = c.x + c.widthMM / 2;
       const cy = c.y + c.heightMM / 2;
@@ -488,6 +493,13 @@
         }
         if (c.coverL) cover(c.x - covW);
         if (c.coverR) cover(c.x + c.widthMM);
+      }
+      if (wireEnds.has(c.id)) { // 선택 배선의 연결 부품 — 하늘색 점선 강조
+        App.el('rect', {
+          x: c.x - 2.5, y: c.y - 2.5, width: c.widthMM + 5, height: c.heightMM + 5, rx: 2,
+          fill: 'none', stroke: '#0ea5e9', 'stroke-width': App.viewport.pxToMM(2),
+          'stroke-dasharray': App.viewport.pxToMM(5) + ' ' + App.viewport.pxToMM(3), 'pointer-events': 'none'
+        }, grp);
       }
       if (c.sym && !over) drawSym(grp, c);                 // 계통도 심볼
       // 부품 도형(라이브러리 편집기에서 그린 글쓰기·사각 라인)

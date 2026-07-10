@@ -2530,6 +2530,49 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(mq.innerOk, '마퀴: 배선 경로 안쪽 빈 공간 드래그 → 겹친 배선 미선택');
   assert(mq.crossOk, '마퀴: 선분을 실제로 지나면 배선 선택');
 
+  // === 배선 연결 추적 표시 + 전원 뱃지 경로 중앙 ===
+  const trace = await page.evaluate(() => {
+    // 길이가 비대칭인 L자 경로 — midPoint 가 경로 길이 기준 중앙이어야 함
+    const mp = App.wires.midPoint([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 20 }]);
+    const midOk = Math.abs(mp.x - 60) < 0.01 && Math.abs(mp.y - 0) < 0.01;
+    // 배선 선택 → 양끝 부품 점선 강조 + 인스펙터 이동 버튼
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'tr1', partNo: 'TR', type: 'MC', x: 1500, y: 600, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: 'L1', rx: 15, ry: 2 }] },
+        { id: 'tr2', partNo: 'TR', type: 'MC', x: 1700, y: 600, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: 'T1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'trw1', fromComp: 'tr1', fromTerm: 0, toComp: 'tr2', toTerm: 0, label: 'TT1', color: '#111', width: 1.2, corners: null, midY: null });
+    });
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set(['trw1']);
+    App.render.all();
+    App.inspector.update();
+    function hilite(cid) {
+      const grp = document.querySelector('#layer-components [data-id="' + cid + '"]');
+      return grp && Array.from(grp.querySelectorAll('rect')).some(r => (r.getAttribute('stroke') || '') === '#0ea5e9');
+    }
+    const hl = hilite('tr1') && hilite('tr2');
+    const info = document.getElementById('inspector').textContent;
+    const names = info.indexOf('[L1]') >= 0 && info.indexOf('[T1]') >= 0;
+    const goBtn = document.getElementById('insp-go-from');
+    goBtn.click();
+    const vb = App.viewport.getViewBox();
+    const centered = Math.abs((vb.x + vb.w / 2) - 1515) < 2 && Math.abs((vb.y + vb.h / 2) - 620) < 2;
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'trw1');
+      s.components = s.components.filter(c => c.partNo !== 'TR');
+    });
+    App.ui.selected.clear();
+    const p = App.store.get().panel;
+    App.viewport.fitTo(p.widthMM, p.heightMM);
+    App.render.all(); App.inspector.update();
+    return { midOk, hl, names, centered };
+  });
+  assert(trace.midOk, '전원 뱃지 위치 = 경로 길이 기준 중앙');
+  assert(trace.hl, '배선 선택 시 양끝 부품 점선 강조');
+  assert(trace.names, '인스펙터 연결 정보에 단자 이름 표시');
+  assert(trace.centered, '시작 부품으로 화면 이동 버튼');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

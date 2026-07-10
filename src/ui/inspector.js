@@ -202,9 +202,18 @@
       html += row('전원구분', '<select data-field="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + adOpts + '</select>');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
-      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +
-        App.esc((fromC && fromC.label) || '?') + ' #' + it.fromTerm + ' → ' +
-        App.esc((toC && toC.label) || '?') + ' #' + it.toTerm + '</div>';
+      function tname(comp, idx) {
+        if (!comp) return '#' + idx;
+        const t = App.terminals.world(comp)[idx];
+        return (t && t.name != null && t.name !== '') ? String(t.name) : ('#' + idx);
+      }
+      html += '<div class="text-[10px] text-slate-500 px-1 mt-2 font-semibold">연결 (선택하면 양쪽 부품이 점선 강조)</div>';
+      html += '<div class="text-[10px] text-slate-500 px-1">' +
+        App.esc((fromC && (fromC.label || fromC.partNo)) || '?') + ' [' + App.esc(tname(fromC, it.fromTerm)) + '] → ' +
+        App.esc((toC && (toC.label || toC.partNo)) || '?') + ' [' + App.esc(tname(toC, it.toTerm)) + ']</div>';
+      html += '<div class="flex gap-1 mt-1">' +
+        '<button id="insp-go-from" class="flex-1 px-2 py-1 text-[11px] rounded border border-slate-300 bg-white text-slate-700">◉ 시작 부품으로</button>' +
+        '<button id="insp-go-to" class="flex-1 px-2 py-1 text-[11px] rounded border border-slate-300 bg-white text-slate-700">◉ 끝 부품으로</button></div>';
       root.innerHTML = html;
       root.querySelectorAll('[data-field]').forEach(function (inp) {
         inp.addEventListener('change', function () {
@@ -224,6 +233,17 @@
           commitField(id, 'color', btn.getAttribute('data-color'));
           Inspector.update();
         });
+      });
+      // 시작/끝 부품으로 화면 이동 (배선 선택 유지 → 강조 계속 보임)
+      [['insp-go-from', it.fromComp], ['insp-go-to', it.toComp]].forEach(function (pr) {
+        const b = root.querySelector('#' + pr[0]);
+        if (b) b.onclick = function () {
+          const c = App.store.get().components.find(function (x) { return x.id === pr[1]; });
+          if (!c) { if (App.toolbar) App.toolbar.flash('부품을 찾을 수 없습니다'); return; }
+          App.viewport.centerOn(c.x + c.widthMM / 2, c.y + c.heightMM / 2);
+          App.render.all();
+          if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
+        };
       });
       return;
     }
