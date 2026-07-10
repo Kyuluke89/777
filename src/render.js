@@ -381,45 +381,6 @@
   }
 
   // 타입별 실물풍 앞면 디테일(벡터) — 사진(img) 없을 때만. 저작권 무관 자체 그래픽.
-  function drawFace(grp, c, color) {
-    const x = c.x, y = c.y, w = c.widthMM, h = c.heightMM;
-    const g = App.el('g', { 'class': 'part-face', 'pointer-events': 'none' }, grp);
-    function R(rx, ry, rw, rh, fill, r, op) {
-      App.el('rect', { x: x + rx, y: y + ry, width: rw, height: rh, rx: r || 0, fill: fill, 'fill-opacity': op != null ? op : 1 }, g);
-    }
-    const t = c.type;
-    if (t === 'MCCB' || t === 'MCB' || t === 'ELCB' || t === 'CP') {
-      // 몸체 음영 + 중앙 토글 스위치 + ON/OFF 창
-      R(w * 0.12, h * 0.3, w * 0.76, h * 0.4, '#1f2937', 1.5, 0.9);      // 스위치 베이스
-      R(w * 0.3, h * 0.36, w * 0.4, h * 0.15, '#f8fafc', 1);             // 토글(레버)
-      R(w * 0.3, h * 0.62, w * 0.4, h * 0.05, '#16a34a', 0.5);           // 상태창
-      if (t === 'ELCB') R(w * 0.62, h * 0.2, w * 0.16, h * 0.06, '#facc15', 0.5); // 테스트 버튼
-    } else if (t === 'MC' || t === 'RELAY') {
-      // 중앙 가동부 + 좌우 단자 커버 라인
-      R(w * 0.3, h * 0.34, w * 0.4, h * 0.3, '#1f2937', 1.5, 0.85);
-      R(w * 0.38, h * 0.42, w * 0.24, h * 0.12, '#94a3b8', 1);
-      R(w * 0.08, h * 0.12, w * 0.84, h * 0.03, '#64748b', 0, 0.5);
-      R(w * 0.08, h * 0.85, w * 0.84, h * 0.03, '#64748b', 0, 0.5);
-    } else if (t === 'SMPS') {
-      // 방열 슬릿 + 단자대 줄
-      for (let i = 0; i < 6; i++) R(w * 0.62, h * (0.14 + i * 0.1), w * 0.28, h * 0.035, '#94a3b8', 0, 0.8);
-      R(w * 0.08, h * 0.78, w * 0.5, h * 0.12, '#1f2937', 1, 0.85);
-      R(w * 0.08, h * 0.14, w * 0.4, h * 0.08, '#16a34a', 0.5, 0.9);     // LED/표시
-    } else if (t === 'PLC') {
-      // 상단 LED 열 + 하단 커넥터 스트립
-      for (let i = 0; i < 8; i++) R(w * (0.1 + i * 0.1), h * 0.1, w * 0.06, h * 0.045, i % 3 ? '#22c55e' : '#f59e0b', 0.4, 0.95);
-      R(w * 0.08, h * 0.82, w * 0.84, h * 0.1, '#1f2937', 1, 0.85);
-      R(w * 0.08, h * 0.32, w * 0.84, h * 0.4, '#e2e8f0', 1, 0.6);       // 라벨 영역
-    } else if (t === 'TB') {
-      // 단자대 분리 홈(가로줄)
-      const n = Math.max(2, Math.min(12, Math.round(h / 10)));
-      for (let i = 1; i < n; i++) R(w * 0.06, (h / n) * i - 0.4, w * 0.88, 0.8, '#94a3b8', 0, 0.55);
-    } else if (t === 'NF') {
-      // 필터 기호(사선 해칭)
-      for (let i = 0; i < 4; i++) R(w * (0.15 + i * 0.18), h * 0.3, w * 0.05, h * 0.4, '#64748b', 0, 0.5);
-    }
-  }
-
   function renderComponents(state) {
     const g = App.viewport.layers().components;
     clear(g);
@@ -465,7 +426,7 @@
         'stroke-dasharray': (over || (c.sym && isSelected(c.id))) ? '4 2' : null
       }, grp);
       if (c.sym && !over) drawSym(grp, c);                 // 계통도 심볼
-      else if (!c.img && !over) drawFace(grp, c, color);   // 타입별 실물풍 디테일(사진 없을 때)
+      // (기본 실물풍 그래픽은 제거 — 이미지는 사용자가 직접 넣었을 때만 표시)
       // 글자 방향(가로/세로) — true면 텍스트를 -90° 회전(각 앵커 기준)
       const vert = !!c.textVert;
       function vrot(x, y) { return vert ? ('rotate(-90 ' + x + ' ' + y + ')') : null; }

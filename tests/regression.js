@@ -990,24 +990,24 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(imgTest.has && imgTest.href, '부품 이미지 렌더(<image>)');
 
-  // 타입별 실물풍 앞면(벡터): 사진 없으면 표시, 사진 있으면 숨김
+  // 기본 그래픽 없음: 사용자가 이미지를 넣기 전엔 깔끔한 박스, 넣으면 <image> 표시
   const face = await page.evaluate(() => {
     App.store.commit(s => { s.components.push({ id: 'faceC', partNo: 'F', type: 'MCCB', x: 480, y: 620, widthMM: 50, heightMM: 96, rotation: 0, label: 'F', terminals: 0, term: null }); });
     const c0 = App.store.get().components.find(c => c.id === 'faceC');
     App.render.all();
     const grp = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
-    const hasFace = !!grp.querySelector('.part-face');
+    const noFace = !grp.querySelector('.part-face') && !grp.querySelector('image');
     const PIX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
     App.store.commit(s => { s.components.find(c => c.id === c0.id).img = PIX; });
     App.render.all();
     const grp2 = document.querySelector('#layer-components [data-id="' + c0.id + '"]');
-    const hiddenWithImg = !grp2.querySelector('.part-face');
+    const imgShown = !!grp2.querySelector('image');
     App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'faceC'); });
     App.render.all();
-    return { hasFace, hiddenWithImg };
+    return { noFace, imgShown };
   });
-  assert(face.hasFace, '실물풍 앞면 디테일 렌더(.part-face)');
-  assert(face.hiddenWithImg, '사진 있으면 벡터 디테일 대신 사진');
+  assert(face.noFace, '기본 그래픽 없음(사용자 이미지 전엔 깔끔한 박스)');
+  assert(face.imgShown, '사용자 이미지를 넣으면 표시');
 
   // 이미지 투명도/자르기(클립) 도면 반영 + 편집기 모서리 핸들
   const imgAdj = await page.evaluate(() => {
