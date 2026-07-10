@@ -1519,7 +1519,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     node = document.querySelector('[data-sticker="' + st.id + '"]');
     const rect2 = node.querySelector('rect');
     const resized = parseFloat(rect2.getAttribute('width')) === 40 && parseFloat(rect2.getAttribute('height')) === 30;
-    // 부품 연동 → 1줄=유형(MCCB), 2줄=품명(메인차단기) 자동, 3줄 직접 작성
+    // 부품 연동 → 1줄=라이브러리 타이틀(MAS-025), 2줄=품명(메인차단기) 자동, 3줄 직접 작성
     const lsel = document.querySelector('#inspector [data-stlink]');
     const hasOpt = Array.from(lsel.options).some(o => o.value === 'lkc1');
     lsel.value = 'lkc1'; lsel.dispatchEvent(new Event('change'));
@@ -1527,7 +1527,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     l3.value = 'MAS-025 25A'; l3.dispatchEvent(new Event('change'));
     node = document.querySelector('[data-sticker="' + st.id + '"]');
     const texts = Array.from(node.querySelectorAll('text')).map(e => e.textContent);
-    const linked = texts[0] === 'MCCB' && texts[1] === '메인차단기' && texts[2] === 'MAS-025 25A';
+    const linked = texts[0] === 'MAS-025' && texts[1] === '메인차단기' && texts[2] === 'MAS-025 25A';
     const l1dis = document.querySelector('#inspector [data-stline="0"]').disabled;
     // 부품 품명 바꾸면 스티커에 즉시 반영 (동적 연동)
     App.store.commit(s => { s.components.find(c => c.id === 'lkc1').partName = '메인차단기2'; });
@@ -1553,7 +1553,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(stk2.isRows && stk2.sz1, '스티커 기본: 세로 3줄(30×24)');
   assert(stk2.resized, '스티커 너비/높이 조절(40×30)');
-  assert(stk2.hasOpt && stk2.linked, '부품 연동: 1줄=유형·2줄=품명 자동 + 3줄 직접 작성');
+  assert(stk2.hasOpt && stk2.linked, '부품 연동: 1줄=타이틀(품번)·2줄=품명 자동 + 3줄 직접 작성');
   assert(stk2.l1dis, '연동 시 1·2줄 입력 잠금');
   assert(stk2.synced, '부품 품명 변경 시 스티커 자동 반영');
   assert(stk2.copied, 'Ctrl+드래그로 스티커 복사');

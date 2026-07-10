@@ -272,7 +272,7 @@
           let lopt = '<option value="">(직접 입력)</option>';
           stComps.forEach(function (c2) {
             lopt += '<option value="' + App.esc(c2.id) + '"' + (st.linkId === c2.id ? ' selected' : '') + '>' +
-              App.esc((c2.type ? c2.type + ' · ' : '') + (c2.partName || c2.label || c2.partNo)) + '</option>';
+              App.esc((c2.partNo || '') + (c2.partName || c2.label ? ' · ' + (c2.partName || c2.label) : '')) + '</option>';
           });
           html += '<div class="flex items-center gap-1 mb-1 text-[10px] text-slate-500">연동' +
             '<select data-stlink data-stid="' + App.esc(st.id) + '" class="px-1 py-0.5 text-[10px] border border-slate-300 rounded" style="flex:1;min-width:0">' + lopt + '</select></div>';
@@ -283,7 +283,7 @@
             '높이 <input data-stch data-stid="' + App.esc(st.id) + '" type="number" min="5" value="' + dm.ch +
             '" class="w-12 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right" /></div>';
           // 3줄 텍스트 — 연동 시 1·2줄은 자동(잠금)
-          const ph = ['1줄: 유형', '2줄: 품명', '3줄: 직접 작성'];
+          const ph = ['1줄: 타이틀(품번)', '2줄: 품명', '3줄: 직접 작성'];
           for (let li = 0; li < 3; li++) {
             const auto = linked && li < 2;
             html += '<input data-stline="' + li + '" data-stid="' + App.esc(st.id) + '" type="text" value="' + App.esc(ln[li] || '') +
@@ -296,7 +296,7 @@
             '<button class="insp-st-del text-[10px] text-red-500" data-stid="' + App.esc(st.id) + '">🗑 삭제</button></div></div>';
         });
         html += '<button id="insp-st-add" class="mt-1 w-full px-2 py-1 text-xs rounded bg-slate-700 text-white" style="background:#334155;color:#fff">＋ 스티커 추가</button>';
-        html += '<div class="text-[10px] text-slate-400 px-1 mt-1">드래그: 이동 · Ctrl+드래그: 복사 · 더블클릭: 텍스트 편집. 연동하면 부품의 유형/품명이 자동 표시됩니다.</div>';
+        html += '<div class="text-[10px] text-slate-400 px-1 mt-1">드래그: 이동 · Ctrl+드래그: 복사 · 더블클릭: 텍스트 편집. 연동하면 라이브러리 타이틀/품명이 자동 표시됩니다.</div>';
       }
     }
 

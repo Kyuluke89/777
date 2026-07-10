@@ -810,7 +810,7 @@
           next = [cur[0] || '', cur[1] || '', v3];
         } else {
           next = [];
-          const hints = ['1줄 (유형, 예: POWER S/W 01)', '2줄 (품명, 예: MAIN POWER S/W)', '3줄 (직접 작성, 예: MAS-025 25A)'];
+          const hints = ['1줄 (타이틀/품번, 예: POWER S/W 01)', '2줄 (품명, 예: MAIN POWER S/W)', '3줄 (직접 작성, 예: MAS-025 25A)'];
           for (let ci = 0; ci < 3; ci++) {
             const v = prompt(hints[ci], cur[ci] || '');
             if (v == null) return;
