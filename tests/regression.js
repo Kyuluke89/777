@@ -2327,6 +2327,45 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(rndSpread.roundKept, '배선 라운드 설정 localStorage 유지');
   assert(rndSpread.onlyEnds, '겹선 분리: 단자 옆 구간만 오프셋');
 
+  // === 배선 덕트 정렬(중앙/안쪽/바깥쪽) ===
+  const dalign = await page.evaluate(() => {
+    // 위쪽(상단) 덕트 y=100~160, 부품 2개 아래쪽 — 배선이 덕트를 경유
+    App.store.commit(s => {
+      s.ducts.push({ id: 'dal1', orient: 'h', x: 0, y: 100, lengthMM: 500, widthMM: 60 });
+      s.components.push(
+        { id: 'dac1', partNo: 'DA', type: 'MC', x: 50, y: 200, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'dac2', partNo: 'DA', type: 'MC', x: 350, y: 200, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'daw1', fromComp: 'dac1', fromTerm: 0, toComp: 'dac2', toTerm: 0, label: 'W91', color: '#e11d2a', width: 1.2, corners: null, midY: null });
+    });
+    const st = App.store.get();
+    function midOf() {
+      const ys = App.wires.route(st, st.wires.find(w => w.id === 'daw1')).map(p => p.y);
+      return Math.min.apply(null, ys); // 덕트 경유선 y
+    }
+    const center = midOf();                          // 중앙 = 130
+    App.store.commit(s => { const w = s.wires.find(x => x.id === 'daw1'); w.ductAlign = 'in'; w.corners = null; w.midY = null; });
+    const inner = midOf();                           // 안쪽(전장 중심 쪽) = 155
+    App.store.commit(s => { const w = s.wires.find(x => x.id === 'daw1'); w.ductAlign = 'out'; w.corners = null; w.midY = null; });
+    const outer = midOf();                           // 바깥쪽 = 105
+    // 인스펙터 select 존재 확인
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set(['daw1']);
+    App.inspector.update();
+    const hasSel = !!document.getElementById('insp-ductalign');
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'daw1');
+      s.components = s.components.filter(c => c.partNo !== 'DA');
+      s.ducts = s.ducts.filter(d => d.id !== 'dal1');
+    });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { center, inner, outer, hasSel };
+  });
+  assert(dalign.center === 130, '배선 덕트 정렬: 중앙(130)');
+  assert(dalign.inner === 155, '배선 덕트 정렬: 안쪽 가장자리(155)');
+  assert(dalign.outer === 105, '배선 덕트 정렬: 바깥쪽 가장자리(105)');
+  assert(dalign.hasSel, '인스펙터 덕트 정렬 선택');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

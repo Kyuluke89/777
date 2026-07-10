@@ -19,13 +19,14 @@
     return { x: p.x, y: p.y + (p.side === 'top' ? -STUB : STUB) };
   }
 
-  // 가로 덕트 중심선으로 배선 경유(자동 라우팅).
+  // 가로 덕트로 배선 경유(자동 라우팅).
   // 두 스터브 사이의 덕트 우선, 없으면 근처(150mm 이내) 덕트로 우회.
-  function ductMidY(state, sa, sb) {
+  // align: ''(중앙) | 'in'(안쪽=전장 중심 쪽 가장자리) | 'out'(바깥쪽 가장자리)
+  function ductMidY(state, sa, sb, align) {
     const lo = Math.min(sa.y, sb.y), hi = Math.max(sa.y, sb.y);
     const xlo = Math.min(sa.x, sb.x), xhi = Math.max(sa.x, sb.x);
     const mid = (lo + hi) / 2;
-    let best = null, bestScore = Infinity;
+    let bestD = null, bestScore = Infinity;
     (state.ducts || []).forEach(function (d) {
       if (d.orient !== 'h') return;
       if (d.x + d.lengthMM < xlo || d.x > xhi) return;    // 가로로 겹쳐야
@@ -33,9 +34,17 @@
       const out = (cy >= lo && cy <= hi) ? 0 : Math.min(Math.abs(cy - lo), Math.abs(cy - hi));
       if (out > 150) return;                              // 너무 먼 덕트는 제외
       const score = out * 1000 + Math.abs(cy - mid);      // 사이 덕트 우선, 그다음 가까운 순
-      if (score < bestScore) { bestScore = score; best = cy; }
+      if (score < bestScore) { bestScore = score; bestD = d; }
     });
-    return best != null ? Math.round(best) : null;
+    if (!bestD) return null;
+    const cy = bestD.y + bestD.widthMM / 2;
+    if (!align) return Math.round(cy);
+    const m = Math.min(5, bestD.widthMM / 4);             // 가장자리 여유
+    const panelMid = (state.panel ? state.panel.heightMM / 2 : cy);
+    const innerIsBottom = cy < panelMid;                  // 위쪽 덕트 → 안쪽 = 아래 가장자리
+    const inY = innerIsBottom ? bestD.y + bestD.widthMM - m : bestD.y + m;
+    const outY = innerIsBottom ? bestD.y + m : bestD.y + bestD.widthMM - m;
+    return Math.round(align === 'in' ? inY : outY);
   }
 
   // 기본 꺾임점 (Z자). stub 점도 꼭짓점으로 포함 → 단자에서 나오는 수직선도
@@ -44,7 +53,7 @@
     const a = term(state, wire, 'from'), b = term(state, wire, 'to');
     if (!a || !b) return [];
     const sa = stub(a), sb = stub(b);
-    let midY = (wire.midY != null) ? wire.midY : ductMidY(state, sa, sb);
+    let midY = (wire.midY != null) ? wire.midY : ductMidY(state, sa, sb, wire.ductAlign || '');
     if (midY == null) midY = Math.round((sa.y + sb.y) / 2);
     return [
       { x: sa.x, y: sa.y },   // A 단자 스터브

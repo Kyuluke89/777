@@ -68,6 +68,7 @@
         });
         mfAd += '<option value="__new__">＋추가…</option>';
         mh += row('전원구분', '<select data-mf="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + mfAd + '</select>');
+        mh += row('덕트 정렬', '<select data-mf="ductAlign" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="">중앙</option><option value="in">안쪽</option><option value="out">바깥쪽</option></select>');
       } else if (onlyComps) {
         mh += row('타입 일괄', '<select data-mf="type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option>' + App.types.optionsHtml('').replace('<option value="__new__">＋ 새 타입…</option>', '') + '</select>');
         mh += row('글자 방향', '<select data-mf="textVert" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="h">가로</option><option value="v">세로</option></select>');
@@ -104,6 +105,7 @@
             if (f3 === 'sq') { if (v) { it.sq = v; if (App.wires.SQ_AWG[v]) it.awg = App.wires.SQ_AWG[v]; if (App.wires.SQ_WIDTH && App.wires.SQ_WIDTH[v]) it.width = App.wires.SQ_WIDTH[v]; } }
             else if (f3 === 'width') { const n = parseFloat(v); if (n) it.width = n; }
             else if (f3 === 'acdc') it.acdc = v;
+            else if (f3 === 'ductAlign') { if (k === 'wires') { it.ductAlign = v; it.corners = null; it.midY = null; } }
             else if (f3 === 'type') it.type = v;
             else if (f3 === 'textVert') { it.textVert = (v === 'v'); it.labelVert = null; it.typeVert = null; it.tagVert = null; } // 전체 일괄 = 개별 설정 초기화
           });
@@ -200,6 +202,12 @@
       if (ad && adList.indexOf(ad) < 0) adOpts += '<option value="' + App.esc(ad) + '" selected>' + App.esc(ad) + '</option>';
       adOpts += '<option value="__new__">＋추가…</option>';
       html += row('전원구분', '<select data-field="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + adOpts + '</select>');
+      // 덕트 내 정렬 — 중앙/안쪽/바깥쪽 (선택 시 경로 재계산)
+      const da = it.ductAlign || '';
+      html += row('덕트 정렬', '<select id="insp-ductalign" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' +
+        '<option value=""' + (da === '' ? ' selected' : '') + '>중앙</option>' +
+        '<option value="in"' + (da === 'in' ? ' selected' : '') + '>안쪽</option>' +
+        '<option value="out"' + (da === 'out' ? ' selected' : '') + '>바깥쪽</option></select>');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +
@@ -225,6 +233,17 @@
           Inspector.update();
         });
       });
+      // 덕트 정렬 — 편집된 경로 초기화 후 자동 라우팅으로 재계산
+      const daSel = root.querySelector('#insp-ductalign');
+      if (daSel) daSel.onchange = function () {
+        App.store.commit(function () {
+          const fnd = App.store.findById(id);
+          if (!fnd) return;
+          fnd.item.ductAlign = daSel.value;
+          fnd.item.corners = null; fnd.item.midY = null; // 재라우팅
+        });
+        App.render.all();
+      };
       return;
     }
 
