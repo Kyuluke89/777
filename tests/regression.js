@@ -2209,6 +2209,30 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(pack.gap0, '간격 배열: 0mm → 딱 붙임');
   assert(pack.vpack, '간격 배열: 세로 방향(5mm)');
 
+  // === 편집기 품명 칸 = 이름 변경 (별도 품명 항목 없음) ===
+  const peRename = await page.evaluate(() => {
+    App.userlib.add({ partNo: 'RN-1', type: 'MC', name: 'RN-1', w: 30, h: 30, d: 30, terminals: 0 });
+    App.palette.reloadUser();
+    App.store.commit(s => {
+      s.components.push({ id: 'rn1', partNo: 'RN-1', type: 'MC', partName: 'RN-1', x: 520, y: 1950, widthMM: 30, heightMM: 30, rotation: 0, label: 'RN-1', terminals: 0, term: null });
+    });
+    const c = App.store.get().components.find(x => x.id === 'rn1');
+    App.partEditor.open({ component: c });
+    document.getElementById('pe-name-in').value = 'RN-2';
+    document.getElementById('pe-apply').click();
+    const lib = App.palette.getLibrary();
+    const renamed = lib.some(p => p.partNo === 'RN-2' && p.name === 'RN-2');
+    const oldGone = !lib.some(p => p.partNo === 'RN-1');
+    const c2 = App.store.get().components.find(x => x.id === 'rn1');
+    const compSync = c2.partNo === 'RN-2' && c2.partName === 'RN-2' && c2.label === 'RN-2';
+    App.store.commit(s => { s.components = s.components.filter(x => x.id !== 'rn1'); });
+    App.userlib.remove('RN-2'); App.userlib.remove('RN-1');
+    App.palette.reloadUser(); App.render.all();
+    return { renamed, oldGone, compSync };
+  });
+  assert(peRename.renamed && peRename.oldGone, '편집기 품명 수정 = 라이브러리 이름 변경(항목 하나)');
+  assert(peRename.compSync, '이름 변경이 배치 부품 품번/표시에 동기화');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

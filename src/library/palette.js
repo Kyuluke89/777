@@ -102,7 +102,7 @@
       thumb +
       '<span class="flex-1 min-w-0">' +
       '<span class="block text-xs font-semibold text-slate-700 truncate">' + App.esc(p.partNo) + (p.custom ? ' <span class="text-[9px] text-teal-600">★내부품</span>' : '') + '</span>' +
-      '<span class="block text-[10px] text-slate-400 truncate">' + App.esc(p.name || '') + ' · ' + (p.est ? '≈' : '') + p.w + '×' + p.h + 'mm' + (p.est ? ' (추정)' : '') + '</span>' +
+      '<span class="block text-[10px] text-slate-400 truncate">' + ((p.name && p.name !== p.partNo) ? App.esc(p.name) + ' · ' : '') + (p.est ? '≈' : '') + p.w + '×' + p.h + 'mm' + (p.est ? ' (추정)' : '') + '</span>' +
       '</span>' +
       '<button class="pal-dup text-[11px] text-slate-400 hover:text-teal-600 flex-shrink-0" title="복제(같은 형태, 새 품번)">⎘</button>' +
       '<button class="pal-edit text-[11px] text-slate-400 hover:text-blue-600 flex-shrink-0" title="이름 수정">✎</button>' +

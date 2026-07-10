@@ -504,18 +504,17 @@
   }
 
   // 배치된 동일 부품(같은 partNo) 전체를 새 정의로 갱신 (라벨/호기번호 등 인스턴스 값은 보존)
-  function syncPlaced(s, partNo, def) {
-    if (!partNo) return 0;
+  // 배치된 동일 부품(matchPN) 전체를 새 정의/새 품명(newPN)으로 갱신
+  function syncPlaced(s, matchPN, newPN, def) {
+    if (!matchPN) return 0;
     let n = 0;
     s.components.forEach(function (c) {
-      if (c.partNo !== partNo) return;
+      if (c.partNo !== matchPN) return;
       c.widthMM = def.w; c.heightMM = def.h; c.term = App.clone(def.terms);
       c.terminals = def.terms.length; c.type = def.type;
-      if (def.name) {
-        // 표시 라벨이 기존 품명/품번 그대로면 새 이름 반영(사용자 지정 라벨은 보존)
-        if (c.label === c.partName || c.label === c.partNo) c.label = def.name;
-        c.partName = def.name;
-      }
+      // 표시 라벨이 기존 품명 그대로면 새 품명 반영(사용자 지정 라벨은 보존)
+      if (c.label === c.partName || c.label === c.partNo) c.label = newPN;
+      c.partNo = newPN; c.partName = newPN;
       c.img = def.img || null; c.imgX = def.imgX || 0; c.imgY = def.imgY || 0; c.imgS = def.imgS || 1; c.imgAR = def.imgAR || 0; c.imgO = def.imgO != null ? def.imgO : 1; c.imgCX = def.imgCX || 0; c.imgCY = def.imgCY || 0; c.imgCW = def.imgCW || 0; c.imgCH = def.imgCH || 0;
       c.shapes = def.shapes ? App.clone(def.shapes) : null;
       n++;
@@ -523,28 +522,40 @@
     return n;
   }
 
-  // 라이브러리 + 배치된 동일 부품 모두 한 번에 갱신
+  // 라이브러리 + 배치된 동일 부품 모두 한 번에 갱신.
+  // 품명은 하나뿐(라이브러리 이름=품번=표시 이름) — 품명 칸을 고치면 이름 변경으로 처리
   function saveAll(updateEditedId) {
-    const partNo = partNoOf();
-    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : null };
+    const oldPN = st.partNo || '';
+    let newPN = (st.name || '').trim() || oldPN || ('커스텀_' + App.uid('p'));
+    // 이름 변경 시 다른 부품과 충돌하면 자동 번호
+    if (newPN !== oldPN && App.palette && App.palette.getLibrary().some(function (p) { return p.partNo === newPN; })) {
+      let i = 2;
+      while (App.palette.getLibrary().some(function (p) { return p.partNo === newPN + '-' + i; })) i++;
+      newPN = newPN + '-' + i;
+    }
+    const matchPN = oldPN || newPN;
+    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: newPN, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : null };
     let cnt = 0;
     App.store.commit(function (s) {
       // 편집 중인 바로 그 부품(아직 partNo가 없을 수도 있음)도 확실히 반영
       if (updateEditedId) {
         const c = s.components.find(function (x) { return x.id === updateEditedId; });
-        if (c) {
-          c.widthMM = def.w; c.heightMM = def.h; c.term = App.clone(def.terms);
-          c.terminals = def.terms.length; c.type = def.type;
-          if (def.name) c.partName = def.name;
-          if (!c.partNo) c.partNo = partNo; // partNo 없던 부품은 부여해 동기화 대상에 포함
-        }
+        if (c && !c.partNo) c.partNo = matchPN; // 동기화 대상에 포함
       }
-      cnt = syncPlaced(s, partNo, def);
+      cnt = syncPlaced(s, matchPN, newPN, def);
     });
-    // 기본/사용자 라이브러리 업서트(부품번호 기준)
-    App.userlib.add({ partNo: partNo, manufacturer: '커스텀', type: st.type,
-      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0,
+    // 라이브러리 업서트 (새 품명 기준)
+    App.userlib.add({ partNo: newPN, manufacturer: '커스텀', type: st.type,
+      name: newPN, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0,
       shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : undefined });
+    // 이름이 바뀌었으면 옛 항목 정리 (내부품은 삭제, 기본부품은 숨김)
+    if (oldPN && newPN !== oldPN && App.palette) {
+      const oldLib = App.palette.getLibrary().find(function (p) { return p.partNo === oldPN; });
+      if (oldLib && oldLib.custom) App.userlib.remove(oldPN);
+      else if (oldLib) App.userlib.hide(oldPN);
+      if (App.ui.placing && App.ui.placing.partNo === oldPN) App.ui.placing = null;
+    }
+    st.partNo = newPN;
     if (App.palette) App.palette.reloadUser();
     return cnt;
   }
