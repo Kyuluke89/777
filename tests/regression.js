@@ -2009,6 +2009,31 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(lblmem.savedToLib, '글씨 배치(위치/방향) 라이브러리에 저장');
   assert(lblmem.applied, '같은 부품 재배치 시 글씨 배치 동일 적용');
 
+  // 이미 배치돼 있던 같은 부품에도 즉시 적용
+  const lblretro = await page.evaluate(() => {
+    App.userlib.add({ partNo: 'MEM-2', type: 'RELAY', name: '기존적용', w: 40, h: 50, d: 40, terminals: 0 });
+    App.palette.reloadUser();
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'mr1', partNo: 'MEM-2', type: 'RELAY', partName: '기존적용', x: 620, y: 1800, widthMM: 40, heightMM: 50, rotation: 0, label: '기존적용', terminals: 0, term: null },
+        { id: 'mr2', partNo: 'MEM-2', type: 'RELAY', partName: '기존적용', x: 700, y: 1800, widthMM: 40, heightMM: 50, rotation: 0, label: '기존적용', terminals: 0, term: null }
+      );
+    });
+    App.store.commit(s => {
+      const c = s.components.find(x => x.id === 'mr1');
+      c.labelDx = 33; c.tagVert = true;
+    });
+    App.interact.saveLabelLayout('mr1');
+    const other = App.store.get().components.find(x => x.id === 'mr2');
+    const retro = other.labelDx === 33 && other.tagVert === true;
+    App.store.commit(s => { s.components = s.components.filter(c => c.partNo !== 'MEM-2'); });
+    App.userlib.remove('MEM-2');
+    App.palette.reloadUser();
+    App.render.all();
+    return retro;
+  });
+  assert(lblretro, '이미 배치된 같은 부품에도 글씨 배치 즉시 적용');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

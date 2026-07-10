@@ -962,7 +962,27 @@
       tagVert: c.tagVert != null ? c.tagVert : null
     }));
     App.palette.reloadUser();
-    if (App.toolbar) App.toolbar.flash('글씨 배치를 라이브러리에 기억했습니다 (' + c.partNo + ')');
+    // 이미 배치돼 있는 같은 부품에도 즉시 적용 (모든 시트, 실행취소 가능)
+    let applied = 0;
+    App.store.commit(function (s) {
+      function apply(c2) {
+        if (c2.partNo !== c.partNo || c2.id === c.id) return;
+        c2.labelDx = c.labelDx || 0; c2.labelDy = c.labelDy || 0;
+        c2.typeDx = c.typeDx || 0; c2.typeDy = c.typeDy || 0;
+        c2.tagDx = c.tagDx || 0; c2.tagDy = c.tagDy || 0;
+        c2.textVert = c.textVert || false;
+        c2.labelVert = c.labelVert != null ? c.labelVert : null;
+        c2.typeVert = c.typeVert != null ? c.typeVert : null;
+        c2.tagVert = c.tagVert != null ? c.tagVert : null;
+        applied++;
+      }
+      s.components.forEach(apply);
+      (s.sheets || []).forEach(function (sh) {
+        if (sh.data && sh.data.components) sh.data.components.forEach(apply);
+      });
+    });
+    App.render.all();
+    if (App.toolbar) App.toolbar.flash('글씨 배치 라이브러리 기억' + (applied ? ' + 배치된 같은 부품 ' + applied + '개 적용' : '') + ' (' + c.partNo + ')');
   }
   Interact.saveLabelLayout = saveLabelLayout;
 
