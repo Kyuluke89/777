@@ -169,6 +169,14 @@
     });
   }
 
+  // 선 스타일 → SVG dasharray (부품 도형·부품 편집기 공용)
+  App.dashOf = function (style) {
+    if (style === 'dash') return '4 2';
+    if (style === 'dashdot') return '8 2 2 2';
+    if (style === 'dot') return '1.2 2';
+    return null; // solid
+  };
+
   // 덕트 라벨 스티커 — 기본: 가로 3칸(칸당 30×24mm). 세로 덕트에선 90° 회전.
   // mode 'cols'(가로 칸 나열, 기본) | 'rows'(한 칸에 3줄 — 구버전 호환). 칸수/칸크기 조절 가능.
   App.STICKER = { W: 30, H: 24 };
@@ -453,6 +461,22 @@
         'stroke-dasharray': (over || (c.sym && isSelected(c.id))) ? '4 2' : null
       }, grp);
       if (c.sym && !over) drawSym(grp, c);                 // 계통도 심볼
+      // 부품 도형(라이브러리 편집기에서 그린 글쓰기·사각 라인)
+      (c.shapes || []).forEach(function (sh) {
+        if (sh.kind === 'rect') {
+          App.el('rect', {
+            x: c.x + sh.x, y: c.y + sh.y, width: sh.w, height: sh.h, fill: 'none',
+            stroke: sh.color || '#334155', 'stroke-width': sh.sw || 0.6,
+            'stroke-dasharray': App.dashOf(sh.style), 'pointer-events': 'none'
+          }, grp);
+        } else if (sh.kind === 'text') {
+          const sT = App.el('text', {
+            x: c.x + sh.x, y: c.y + sh.y, 'font-size': sh.size || 5,
+            fill: sh.color || '#334155', 'pointer-events': 'none'
+          }, grp);
+          sT.textContent = sh.text || '';
+        }
+      });
       // (기본 실물풍 그래픽은 제거 — 이미지는 사용자가 직접 넣었을 때만 표시)
       // 글자 방향(가로/세로) — true면 텍스트를 -90° 회전(각 앵커 기준)
       const vert = !!c.textVert;

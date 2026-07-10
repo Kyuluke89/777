@@ -321,6 +321,11 @@
         bw = c.heightMM; bh = c.widthMM; bx = ccx - bw / 2; by = ccy - bh / 2;
       }
       rect('PARTS', bx, by, bw, bh);
+      // 부품 도형(글쓰기·사각 라인) — 회전 미반영(0도 기준)
+      (c.shapes || []).forEach(function (sh) {
+        if (sh.kind === 'rect') rect('PARTS', c.x + sh.x, c.y + sh.y, sh.w, sh.h);
+        else if (sh.kind === 'text' && sh.text) text('PARTS', c.x + sh.x, c.y + sh.y, sh.size || 5, sh.text);
+      });
       const cy = by + bh / 2;
       text('TEXT', bx + 2, cy, 4, c.label || c.partName || c.partNo || '');
       if (c.tag) text('TEXT', bx + 2, by + 7, 4, c.tag);

@@ -1843,6 +1843,61 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(drsz.grew, '덕트 끝 핸들 드래그로 늘리기(200→300)');
   assert(drsz.shrunk, '덕트 시작 핸들 드래그(끝 고정, x+50/길이 250)');
 
+  // === 부품 편집기: 글쓰기·사각 경계라인(선 스타일) ===
+  const pshape = await page.evaluate(() => {
+    // 새 커스텀 부품 편집기 열기
+    App.partEditor.open({});
+    const modeText = !!document.getElementById('pe-mode-text');
+    const modeRect = !!document.getElementById('pe-mode-rect');
+    const styleSel = document.getElementById('pe-shp-style');
+    // 사각라인 모드 → 드래그로 사각형 그리기 (일점쇄선 스타일)
+    styleSel.value = 'dashdot';
+    styleSel.dispatchEvent(new Event('change'));
+    document.getElementById('pe-mode-rect').click();
+    const svg = document.getElementById('pe-canvas');
+    const ctm = svg.getScreenCTM();
+    function cl(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; const c = p.matrixTransform(ctm); return { x: c.x, y: c.y }; }
+    function pd(x, y, type) { const a = cl(x, y); svg.dispatchEvent(new PointerEvent(type, { clientX: a.x, clientY: a.y, button: 0, bubbles: true })); }
+    pd(5, 5, 'pointerdown'); pd(45, 35, 'pointermove'); pd(45, 35, 'pointerup');
+    // 글쓰기 모드 → 클릭 + prompt
+    const oldPrompt = window.prompt;
+    window.prompt = () => 'MAIN 220V';
+    document.getElementById('pe-mode-text').click();
+    pd(10, 60, 'pointerdown'); pd(10, 60, 'pointerup');
+    window.prompt = oldPrompt;
+    // 내부 상태 확인 (shapes 2개: rect dashdot + text)
+    const rows = document.querySelectorAll('#pe-shapes [data-shdel]').length;
+    const preview = document.getElementById('pe-canvas');
+    const dashRect = Array.from(preview.querySelectorAll('rect')).some(r => (r.getAttribute('stroke-dasharray') || '') === '8 2 2 2');
+    const textEl = Array.from(preview.querySelectorAll('text')).some(t => t.textContent === 'MAIN 220V');
+    // 라이브러리 저장 → 배치 → 도면 렌더에 도형 표시
+    document.getElementById('pe-name-in').value = '도형테스트부품';
+    document.getElementById('pe-save').click();
+    const lp = App.palette.getLibrary().find(p => p.partNo === '도형테스트부품' || p.name === '도형테스트부품');
+    const savedShapes = lp && lp.shapes && lp.shapes.length === 2;
+    App.store.commit(s => {
+      s.components.push(Object.assign({ id: 'shp1', partNo: lp.partNo, type: lp.type, x: 300, y: 1600, widthMM: lp.w, heightMM: lp.h, rotation: 0, label: 'T', terminals: 0, term: null, shapes: JSON.parse(JSON.stringify(lp.shapes)) }));
+    });
+    App.render.all();
+    const grp = document.querySelector('#layer-components [data-id="shp1"]');
+    const drawn = grp && Array.from(grp.querySelectorAll('rect')).some(r => (r.getAttribute('stroke-dasharray') || '') === '8 2 2 2') &&
+      Array.from(grp.querySelectorAll('text')).some(t => t.textContent === 'MAIN 220V');
+    // DXF에 포함
+    const dxfHas = App.exporter.dxfString(App.store.get()).indexOf('MAIN 220V') >= 0;
+    // 정리
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'shp1'); });
+    App.userlib.remove(lp.partNo);
+    App.palette.reloadUser();
+    App.render.all();
+    return { modeText, modeRect, rows, dashRect, textEl, savedShapes, drawn, dxfHas };
+  });
+  assert(pshape.modeText && pshape.modeRect, '편집기 글쓰기/사각라인 모드 버튼');
+  assert(pshape.rows === 2 && pshape.dashRect, '사각 경계라인 드래그 생성(일점쇄선 스타일)');
+  assert(pshape.textEl, '글쓰기(텍스트) 클릭 추가');
+  assert(pshape.savedShapes, '도형이 라이브러리에 저장');
+  assert(pshape.drawn, '배치 부품 도면에 도형 렌더');
+  assert(pshape.dxfHas, 'DXF에 부품 도형 포함');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

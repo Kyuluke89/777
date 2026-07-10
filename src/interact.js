@@ -67,6 +67,7 @@
       terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null,
       sym: part.sym || null,
+      shapes: part.shapes ? App.clone(part.shapes) : null,
       img: part.img || null, imgX: part.imgX || 0, imgY: part.imgY || 0, imgS: part.imgS || 1, imgAR: part.imgAR || 0, imgO: part.imgO != null ? part.imgO : 1, imgCX: part.imgCX || 0, imgCY: part.imgCY || 0, imgCW: part.imgCW || 0, imgCH: part.imgCH || 0
     };
     App.store.commit(function (s) { s.components.push(comp); });

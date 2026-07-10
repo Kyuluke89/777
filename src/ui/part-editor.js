@@ -70,6 +70,24 @@
         });
       }
     }
+    // 부품 도형 — 텍스트/사각 라인 (단자보다 아래에 그려 단자 클릭 우선)
+    (st.shapes || []).forEach(function (sh, i) {
+      const selSh = st.selShape === i;
+      if (sh.kind === 'rect') {
+        el('rect', {
+          x: sh.x, y: sh.y, width: sh.w, height: sh.h, fill: 'none',
+          stroke: selSh ? '#2563eb' : (sh.color || '#334155'), 'stroke-width': sh.sw || 0.6,
+          'stroke-dasharray': App.dashOf(sh.style), 'data-si': i,
+          'pointer-events': 'stroke', style: 'cursor:move'
+        }, peSvg);
+      } else {
+        const tx = el('text', {
+          x: sh.x, y: sh.y, 'font-size': sh.size || 5,
+          fill: selSh ? '#2563eb' : (sh.color || '#334155'), 'data-si': i, style: 'cursor:move'
+        }, peSvg);
+        tx.textContent = sh.text || '';
+      }
+    });
     // 단자 (원형/사각형)
     st.terms.forEach(function (t, i) {
       const g = el('g', { 'data-ti': i, style: 'cursor:move' }, peSvg);
@@ -124,7 +142,63 @@
   }
   function selectedIdxs() { return Array.from(st.selSet); }
 
-  function refresh() { renderPreview(); renderList(); }
+  function refresh() { renderPreview(); renderList(); renderDrawList(); }
+
+  // ── 부품 도형(글쓰기·사각 라인) ──────────────────────────────
+  // 선 스타일 → SVG dasharray (App.dashOf 는 render.js 와 공유)
+  const DASH_OPTS = [['solid', '─ 실선'], ['dash', '┄ 파선'], ['dashdot', '╌· 일점쇄선'], ['dot', '·· 점선']];
+  function dashSelHtml(cur) {
+    return DASH_OPTS.map(function (o) {
+      return '<option value="' + o[0] + '"' + (cur === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('');
+  }
+  // 도형 목록(우측 패널) — 내용/스타일/색/굵기 편집 + 삭제
+  function renderDrawList() {
+    const box = $('pe-shapes');
+    if (!box) return;
+    const shapes = st.shapes || [];
+    if (!shapes.length) { box.innerHTML = ''; return; }
+    let html = '<div class="text-[10px] text-slate-500 font-semibold mb-1">그리기 (텍스트 · 사각 라인)</div>';
+    shapes.forEach(function (sh, i) {
+      html += '<div class="border border-slate-200 rounded p-1 mb-1' + (st.selShape === i ? ' ring-1 ring-blue-400' : '') + '">';
+      if (sh.kind === 'text') {
+        html += '<div class="flex items-center gap-1">' +
+          '<input data-shtext="' + i + '" type="text" value="' + App.esc(sh.text || '') + '" class="px-1.5 py-0.5 text-xs border border-slate-300 rounded" style="flex:1;min-width:50px"/>' +
+          '<input data-shsize="' + i + '" type="number" step="0.5" min="1" value="' + (sh.size || 5) + '" title="글자 크기(mm)" class="w-11 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right"/>' +
+          '<input data-shcolor="' + i + '" type="color" value="' + (sh.color || '#334155') + '" class="w-6 h-5 border border-slate-300 rounded"/>' +
+          '<button data-shdel="' + i + '" class="text-[11px] text-red-500 px-1">✕</button></div>';
+      } else {
+        html += '<div class="flex items-center gap-1 flex-wrap">' +
+          '<span class="text-[10px] text-slate-400">▭</span>' +
+          '<select data-shstyle="' + i + '" title="선 스타일" class="px-1 py-0.5 text-[10px] border border-slate-300 rounded" style="flex:1">' + dashSelHtml(sh.style || 'solid') + '</select>' +
+          '<input data-shsw="' + i + '" type="number" step="0.2" min="0.2" value="' + (sh.sw || 0.6) + '" title="선 굵기(mm)" class="w-11 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right"/>' +
+          '<input data-shcolor="' + i + '" type="color" value="' + (sh.color || '#334155') + '" class="w-6 h-5 border border-slate-300 rounded"/>' +
+          '<button data-shdel="' + i + '" class="text-[11px] text-red-500 px-1">✕</button></div>';
+      }
+      html += '</div>';
+    });
+    box.innerHTML = html;
+    function bind(attr, fn) {
+      box.querySelectorAll('[' + attr + ']').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+          const sh = st.shapes[+inp.getAttribute(attr)];
+          if (sh) { fn(sh, inp.value); renderPreview(); }
+        });
+      });
+    }
+    bind('data-shtext', function (sh, v) { sh.text = v; });
+    bind('data-shsize', function (sh, v) { sh.size = Math.max(1, parseFloat(v) || 5); });
+    bind('data-shstyle', function (sh, v) { sh.style = v; });
+    bind('data-shsw', function (sh, v) { sh.sw = Math.max(0.2, parseFloat(v) || 0.6); });
+    bind('data-shcolor', function (sh, v) { sh.color = v; });
+    box.querySelectorAll('[data-shdel]').forEach(function (b) {
+      b.onclick = function () {
+        st.shapes.splice(+b.getAttribute('data-shdel'), 1);
+        st.selShape = -1;
+        refresh();
+      };
+    });
+  }
 
   // 미리보기 상호작용
   function updateShapeUI() {
@@ -188,6 +262,22 @@
       return;
     }
     if (st.cropping && st.img) { peG = { type: 'imgcrop', sp: p }; return; }
+    // 사각 라인 그리기 모드: 드래그로 사각형
+    if (st.mode2 === 'rect') { peG = { type: 'rectdraw', sp: p }; return; }
+    // 글쓰기 모드: 클릭 위치에 텍스트
+    if (st.mode2 === 'text') { peG = { type: 'textadd', sp: p }; return; }
+    // 도형(텍스트/사각) 선택·이동
+    const shEl = e.target.closest && e.target.closest('[data-si]');
+    if (shEl) {
+      const si = +shEl.getAttribute('data-si');
+      const sh = st.shapes[si];
+      if (sh) {
+        st.selShape = si;
+        peG = { type: 'shapemove', sp: p, si: si, ox: sh.x, oy: sh.y };
+        renderPreview(); renderDrawList();
+        return;
+      }
+    }
     const g = e.target.closest && e.target.closest('[data-ti]');
     if (g) {
       const idx = +g.getAttribute('data-ti');
@@ -254,6 +344,20 @@
       renderPreview();
       return;
     }
+    if (peG.type === 'shapemove') {
+      const sh = st.shapes[peG.si];
+      if (sh) {
+        sh.x = Math.round(peG.ox + (p.x - peG.sp.x));
+        sh.y = Math.round(peG.oy + (p.y - peG.sp.y));
+        renderPreview();
+      }
+      return;
+    }
+    if (peG.type === 'rectdraw') {
+      drawMarquee({ x: Math.min(peG.sp.x, p.x), y: Math.min(peG.sp.y, p.y), w: Math.abs(p.x - peG.sp.x), h: Math.abs(p.y - peG.sp.y) });
+      peG.last = p;
+      return;
+    }
     if (peG.type === 'empty') {
       if (Math.hypot(e.clientX - peG.sc.x, e.clientY - peG.sc.y) > 4) peG.type = 'marquee';
     }
@@ -279,6 +383,24 @@
         st.nextName = incName(st.nextName); $('pe-next').value = st.nextName;
       } else {
         st.selSet = new Set(); st.sel = -1; st.selExplicit = false; // 선택 모드: 빈 곳 클릭=해제
+        st.selShape = -1;
+      }
+    }
+    if (peG.type === 'rectdraw' && peG.last) {
+      const x = Math.round(Math.min(peG.sp.x, peG.last.x)), y = Math.round(Math.min(peG.sp.y, peG.last.y));
+      const w = Math.round(Math.abs(peG.last.x - peG.sp.x)), h = Math.round(Math.abs(peG.last.y - peG.sp.y));
+      if (w >= 2 && h >= 2) {
+        st.shapes = st.shapes || [];
+        st.shapes.push({ kind: 'rect', x: x, y: y, w: w, h: h, style: st.shpStyle || 'solid', sw: st.shpSW || 0.6, color: st.shpColor || '#334155' });
+        st.selShape = st.shapes.length - 1;
+      }
+    }
+    if (peG.type === 'textadd') {
+      const txt = prompt('텍스트 내용', '');
+      if (txt != null && txt.trim()) {
+        st.shapes = st.shapes || [];
+        st.shapes.push({ kind: 'text', x: Math.round(peG.sp.x), y: Math.round(peG.sp.y), text: txt.trim(), size: st.shpTS || 5, color: st.shpColor || '#334155' });
+        st.selShape = st.shapes.length - 1;
       }
     }
     if (peG.type === 'imgcrop' && peG.last) {
@@ -316,6 +438,11 @@
       st = { mode: 'new', partNo: '', name: '', type: 'TB', w: 60, h: 80, terms: [], nextName: 'A1', sel: -1 };
     }
     st.termShape = 'circle'; st.termW = 3.6; st.termH = 3.6; st.termLabelPos = 'top';
+    // 그리기(텍스트·사각 라인) — 배치 부품 편집이면 기존 도형 로드
+    st.shapes = (opts.component && opts.component.shapes) ? App.clone(opts.component.shapes) : [];
+    st.selShape = -1;
+    st.shpStyle = 'solid'; st.shpSW = 0.6; st.shpColor = '#334155'; st.shpTS = 5;
+    if ($('pe-shp-style')) { $('pe-shp-style').value = 'solid'; $('pe-shp-sw').value = '0.6'; $('pe-shp-color').value = '#334155'; $('pe-shp-ts').value = '5'; }
     st.img = (opts.component && opts.component.img) || null;
     st.imgX = (opts.component && opts.component.imgX) || 0;
     st.imgY = (opts.component && opts.component.imgY) || 0;
@@ -364,7 +491,8 @@
   function buildPart() {
     return { partNo: partNoOf(), manufacturer: '커스텀', type: st.type,
       name: st.name || '커스텀 부품', w: st.w, h: st.h, d: 60, terminals: st.terms.length,
-      term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, custom: true };
+      term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0,
+      shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : undefined, custom: true };
   }
 
   // 배치된 동일 부품(같은 partNo) 전체를 새 정의로 갱신 (라벨/호기번호 등 인스턴스 값은 보존)
@@ -381,6 +509,7 @@
         c.partName = def.name;
       }
       c.img = def.img || null; c.imgX = def.imgX || 0; c.imgY = def.imgY || 0; c.imgS = def.imgS || 1; c.imgAR = def.imgAR || 0; c.imgO = def.imgO != null ? def.imgO : 1; c.imgCX = def.imgCX || 0; c.imgCY = def.imgCY || 0; c.imgCW = def.imgCW || 0; c.imgCH = def.imgCH || 0;
+      c.shapes = def.shapes ? App.clone(def.shapes) : null;
       n++;
     });
     return n;
@@ -389,7 +518,7 @@
   // 라이브러리 + 배치된 동일 부품 모두 한 번에 갱신
   function saveAll(updateEditedId) {
     const partNo = partNoOf();
-    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 };
+    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: st.name, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : null };
     let cnt = 0;
     App.store.commit(function (s) {
       // 편집 중인 바로 그 부품(아직 partNo가 없을 수도 있음)도 확실히 반영
@@ -406,7 +535,8 @@
     });
     // 기본/사용자 라이브러리 업서트(부품번호 기준)
     App.userlib.add({ partNo: partNo, manufacturer: '커스텀', type: st.type,
-      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0 });
+      name: st.name || partNo, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0,
+      shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : undefined });
     if (App.palette) App.palette.reloadUser();
     return cnt;
   }
@@ -495,16 +625,18 @@
     };
     // 편집 모드 버튼(선택/단자추가/이미지조절)
     function updateModeUI() {
-      [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img']].forEach(function (pr) {
+      [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect']].forEach(function (pr) {
         const b = $(pr[0]); if (!b) return;
         const on = st && st.mode2 === pr[1];
         b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on);
         b.classList.toggle('bg-white', !on); b.classList.toggle('text-slate-600', !on);
       });
-      if (peSvg && st) peSvg.style.cursor = st.mode2 === 'add' ? 'crosshair' : (st.mode2 === 'img' ? 'move' : 'default');
+      if (peSvg && st) peSvg.style.cursor =
+        (st.mode2 === 'add' || st.mode2 === 'text' || st.mode2 === 'rect') ? 'crosshair'
+          : (st.mode2 === 'img' ? 'move' : 'default');
     }
     PE.updateModeUI = updateModeUI;
-    [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img']].forEach(function (pr) {
+    [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect']].forEach(function (pr) {
       const b = $(pr[0]);
       if (b) b.onclick = function () {
         if (!st) return;
@@ -512,6 +644,27 @@
         st.mode2 = pr[1]; updateModeUI(); renderPreview();
       };
     });
+    // 그리기 기본값(선 스타일/굵기/색/글자 크기) — 선택된 도형이 있으면 즉시 반영
+    function bindShapeCtl(id, key, apply) {
+      const elc = $(id);
+      if (!elc) return;
+      elc.addEventListener('change', function () {
+        if (!st) return;
+        st[key] = apply(elc.value);
+        if (st.selShape >= 0 && st.shapes && st.shapes[st.selShape]) {
+          const sh = st.shapes[st.selShape];
+          if (key === 'shpStyle' && sh.kind === 'rect') sh.style = st[key];
+          else if (key === 'shpSW' && sh.kind === 'rect') sh.sw = st[key];
+          else if (key === 'shpTS' && sh.kind === 'text') sh.size = st[key];
+          else if (key === 'shpColor') sh.color = st[key];
+          refresh();
+        }
+      });
+    }
+    bindShapeCtl('pe-shp-style', 'shpStyle', function (v) { return v; });
+    bindShapeCtl('pe-shp-sw', 'shpSW', function (v) { return Math.max(0.2, parseFloat(v) || 0.6); });
+    bindShapeCtl('pe-shp-color', 'shpColor', function (v) { return v; });
+    bindShapeCtl('pe-shp-ts', 'shpTS', function (v) { return Math.max(1, parseFloat(v) || 5); });
     // 자르기/해제/투명도
     if ($('pe-img-cropbtn')) $('pe-img-cropbtn').onclick = function () {
       if (!st || !st.img) { alert('먼저 📷 이미지를 선택하세요.'); return; }

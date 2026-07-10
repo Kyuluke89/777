@@ -9,8 +9,8 @@
   <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260706j"></script>
-  <link rel="stylesheet" href="src/ui/theme.css?v=20260706j" />
+  <script src="vendor/fflate.min.js?v=20260706k"></script>
+  <link rel="stylesheet" href="src/ui/theme.css?v=20260706k" />
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -282,6 +282,8 @@
             <button id="pe-mode-select" class="toolbtn bg-blue-600 text-white" title="클릭: 선택 · 드래그: 영역선택/이동">↖ 선택</button>
             <button id="pe-mode-add" class="toolbtn bg-white text-slate-600" title="클릭한 위치에 단자 추가">＋ 단자 추가</button>
             <button id="pe-mode-img" class="toolbtn bg-white text-slate-600" title="이미지 드래그: 위치 이동 · 휠: 크기 조절">🖼 이미지 조절</button>
+            <button id="pe-mode-text" class="toolbtn bg-white text-slate-600" title="클릭한 위치에 글쓰기(텍스트)">T 글쓰기</button>
+            <button id="pe-mode-rect" class="toolbtn bg-white text-slate-600" title="드래그로 사각 경계라인 그리기 (선 스타일은 우측에서)">▭ 사각라인</button>
             <span class="text-[10px] text-slate-400 ml-auto">창 우하단 모서리를 끌면 크기 조절</span>
           </div>
           <div style="flex:1 1 auto;min-height:0;position:relative;">
@@ -321,6 +323,20 @@
             <label class="flex items-center justify-between"><span class="text-xs text-slate-500">투명도</span>
               <input id="pe-img-op" type="range" min="10" max="100" step="5" value="100" style="width:8rem" title="이미지 투명도" /></label>
             <div class="border-t border-slate-100 pt-2 mt-1">
+              <div class="text-[10px] text-slate-400 font-semibold mb-1">그리기 (글쓰기 · 사각라인)</div>
+              <label class="flex items-center justify-between"><span class="text-xs text-slate-500">선 스타일</span>
+                <select id="pe-shp-style" class="w-32 px-1 py-1 text-xs border border-slate-300 rounded">
+                  <option value="solid">─ 실선</option><option value="dash">┄ 파선</option>
+                  <option value="dashdot">╌· 일점쇄선</option><option value="dot">·· 점선</option>
+                </select></label>
+              <label class="flex items-center justify-between"><span class="text-xs text-slate-500">선 굵기(mm)</span>
+                <input id="pe-shp-sw" type="number" step="0.2" min="0.2" value="0.6" class="w-32 px-2 py-1 text-xs border border-slate-300 rounded text-right"/></label>
+              <label class="flex items-center justify-between"><span class="text-xs text-slate-500">글자 크기(mm)</span>
+                <input id="pe-shp-ts" type="number" step="0.5" min="1" value="5" class="w-32 px-2 py-1 text-xs border border-slate-300 rounded text-right"/></label>
+              <label class="flex items-center justify-between"><span class="text-xs text-slate-500">색상</span>
+                <input id="pe-shp-color" type="color" value="#334155" class="w-32 h-7 border border-slate-300 rounded"/></label>
+            </div>
+            <div class="border-t border-slate-100 pt-2 mt-1">
               <label class="flex items-center justify-between"><span class="text-xs text-slate-500">단자 모양</span>
                 <select id="pe-tshape" class="w-32 px-1 py-1 text-xs border border-slate-300 rounded">
                   <option value="circle">● 원형</option><option value="rect">■ 사각형</option>
@@ -337,6 +353,7 @@
             </div>
             <p class="text-[10px] text-slate-400 leading-tight">박스 클릭 → 단자 추가. 단자 드래그 → 이동. 단자 선택 후 모양·크기 바꾸면 그 단자에 적용. ✕ → 삭제.</p>
           </div>
+          <div id="pe-shapes" class="p-2 border-b border-slate-100"></div>
           <div id="pe-terms" class="flex-1 overflow-y-auto p-2"></div>
         </div>
       </div>
@@ -446,36 +463,36 @@
   </div>
 
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260706j"></script>
-  <script src="src/terminals.js?v=20260706j"></script>
-  <script src="src/wires.js?v=20260706j"></script>
-  <script src="src/dims.js?v=20260706j"></script>
-  <script src="src/geom.js?v=20260706j"></script>
-  <script src="src/viewport.js?v=20260706j"></script>
-  <script src="src/render.js?v=20260706j"></script>
-  <script src="src/persistence.js?v=20260706j"></script>
-  <script src="src/sheets.js?v=20260706j"></script>
-  <script src="vendor/three.min.js?v=20260706j"></script>
-  <script src="vendor/OrbitControls.js?v=20260706j"></script>
-  <script src="src/view3d.js?v=20260706j"></script>
-  <script src="src/export.js?v=20260706j"></script>
-  <script src="src/xlsx.js?v=20260706j"></script>
-  <script src="src/library/seed.js?v=20260706j"></script>
-  <script src="src/library/parts-builtin.js?v=20260706j"></script>
-  <script src="src/library/parts-ls.js?v=20260706j"></script>
-  <script src="src/library/parts-dwg.js?v=20260706j"></script>
-  <script src="src/library/userlib.js?v=20260706j"></script>
-  <script src="src/library/types.js?v=20260706j"></script>
-  <script src="src/library/edz.js?v=20260706j"></script>
-  <script src="src/library/palette.js?v=20260706j"></script>
-  <script src="src/interact.js?v=20260706j"></script>
-  <script src="src/ui/toolbar.js?v=20260706j"></script>
-  <script src="src/ui/inspector.js?v=20260706j"></script>
-  <script src="src/ui/part-editor.js?v=20260706j"></script>
-  <script src="src/ui/wire-presets.js?v=20260706j"></script>
-  <script src="src/ui/wire-list.js?v=20260706j"></script>
-  <script src="src/ui/context-menu.js?v=20260706j"></script>
-  <script src="src/ui/minimap.js?v=20260706j"></script>
-  <script src="src/main.js?v=20260706j"></script>
+  <script src="src/store.js?v=20260706k"></script>
+  <script src="src/terminals.js?v=20260706k"></script>
+  <script src="src/wires.js?v=20260706k"></script>
+  <script src="src/dims.js?v=20260706k"></script>
+  <script src="src/geom.js?v=20260706k"></script>
+  <script src="src/viewport.js?v=20260706k"></script>
+  <script src="src/render.js?v=20260706k"></script>
+  <script src="src/persistence.js?v=20260706k"></script>
+  <script src="src/sheets.js?v=20260706k"></script>
+  <script src="vendor/three.min.js?v=20260706k"></script>
+  <script src="vendor/OrbitControls.js?v=20260706k"></script>
+  <script src="src/view3d.js?v=20260706k"></script>
+  <script src="src/export.js?v=20260706k"></script>
+  <script src="src/xlsx.js?v=20260706k"></script>
+  <script src="src/library/seed.js?v=20260706k"></script>
+  <script src="src/library/parts-builtin.js?v=20260706k"></script>
+  <script src="src/library/parts-ls.js?v=20260706k"></script>
+  <script src="src/library/parts-dwg.js?v=20260706k"></script>
+  <script src="src/library/userlib.js?v=20260706k"></script>
+  <script src="src/library/types.js?v=20260706k"></script>
+  <script src="src/library/edz.js?v=20260706k"></script>
+  <script src="src/library/palette.js?v=20260706k"></script>
+  <script src="src/interact.js?v=20260706k"></script>
+  <script src="src/ui/toolbar.js?v=20260706k"></script>
+  <script src="src/ui/inspector.js?v=20260706k"></script>
+  <script src="src/ui/part-editor.js?v=20260706k"></script>
+  <script src="src/ui/wire-presets.js?v=20260706k"></script>
+  <script src="src/ui/wire-list.js?v=20260706k"></script>
+  <script src="src/ui/context-menu.js?v=20260706k"></script>
+  <script src="src/ui/minimap.js?v=20260706k"></script>
+  <script src="src/main.js?v=20260706k"></script>
 </body>
 </html>
