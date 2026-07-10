@@ -265,22 +265,35 @@
       const w = d.orient === 'h' ? d.lengthMM : d.widthMM;
       const h = d.orient === 'h' ? d.widthMM : d.lengthMM;
       rect('DUCTS', d.x, d.y, w, h);
-      // 라벨 스티커 (30×24, 3칸)
+      // 라벨 스티커 — cols(가로 칸)/rows(세로 3줄)
       (d.stickers || []).forEach(function (st) {
-        const SW = 30, SH = 24, off = st.off || 0;
-        let sx, sy, vert = d.orient !== 'h';
-        if (!vert) { sx = d.x + off; sy = d.y + (h - SH) / 2; rect('LABELS', sx, sy, SW, SH); }
-        else { sx = d.x + (w - SH) / 2; sy = d.y + off; rect('LABELS', sx, sy, SH, SW); }
-        const rowH = SH / 3;
-        for (let i = 1; i < 3; i++) {
-          if (!vert) line('LABELS', sx, sy + rowH * i, sx + SW, sy + rowH * i);
-          else line('LABELS', sx + rowH * i, sy, sx + rowH * i, sy + SW);
+        const dm = App.stickerDims(st);
+        const off = st.off || 0, vert = d.orient !== 'h';
+        let sx, sy;
+        if (!vert) { sx = d.x + off; sy = d.y + (h - dm.th) / 2; rect('LABELS', sx, sy, dm.len, dm.th); }
+        else { sx = d.x + (w - dm.th) / 2; sy = d.y + off; rect('LABELS', sx, sy, dm.th, dm.len); }
+        if (dm.mode === 'cols') {
+          for (let i = 1; i < dm.n; i++) {
+            if (!vert) line('LABELS', sx + dm.cw * i, sy, sx + dm.cw * i, sy + dm.th);
+            else line('LABELS', sx, sy + dm.cw * i, sx + dm.th, sy + dm.cw * i);
+          }
+          (st.lines || []).forEach(function (s, i) {
+            if (!s || i >= dm.n) return;
+            if (!vert) text('LABELS', sx + dm.cw * i + 2, sy + dm.th * 0.62, 3.2, s);
+            else text('LABELS', sx + 2, sy + dm.cw * i + dm.cw * 0.62, 3.2, s);
+          });
+        } else {
+          const rowH = dm.th / 3;
+          for (let i = 1; i < 3; i++) {
+            if (!vert) line('LABELS', sx, sy + rowH * i, sx + dm.len, sy + rowH * i);
+            else line('LABELS', sx + rowH * i, sy, sx + rowH * i, sy + dm.len);
+          }
+          (st.lines || []).forEach(function (s, i) {
+            if (!s) return;
+            if (!vert) text('LABELS', sx + 2, sy + rowH * i + rowH * 0.72, 3.2, s);
+            else text('LABELS', sx + rowH * i + rowH * 0.72, sy + dm.len - 2, 3.2, s);
+          });
         }
-        (st.lines || []).forEach(function (s, i) {
-          if (!s) return;
-          if (!vert) text('LABELS', sx + 2, sy + rowH * i + rowH * 0.72, 3.2, s);
-          else text('LABELS', sx + rowH * i + rowH * 0.72, sy + SW - 2, 3.2, s);
-        });
       });
     });
     (state.rails || []).forEach(function (r) {

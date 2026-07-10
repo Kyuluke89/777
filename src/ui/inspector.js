@@ -259,15 +259,30 @@
       html += row('폭', numInput('widthMM', it.widthMM));
       html += row('방향', '<span class="text-xs text-slate-600">' + (it.orient === 'h' ? '가로' : '세로') + '</span>');
       html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
-      // 덕트 라벨 스티커 (24mm 테이프 × 30mm, 3칸)
+      // 덕트 라벨 스티커 (기본: 가로 3칸, 칸당 30×24mm — 칸수/크기 조절 가능)
       if (f.kind === 'ducts') {
-        html += '<div class="text-[10px] text-slate-500 px-1 mt-3 font-semibold">라벨 스티커 (30×24mm · 3칸)</div>';
+        html += '<div class="text-[10px] text-slate-500 px-1 mt-3 font-semibold">라벨 스티커 (가로 칸 · 기본 30×24mm)</div>';
         (it.stickers || []).forEach(function (st, si) {
-          const ln = st.lines || ['', '', ''];
+          const dm = App.stickerDims(st);
+          const ln = st.lines || [];
           html += '<div class="border border-slate-200 rounded p-1 mt-1" data-stbox="' + App.esc(st.id) + '">';
-          for (let li = 0; li < 3; li++) {
+          // 형태/칸수/칸 크기
+          html += '<div class="flex items-center gap-1 mb-1 text-[10px] text-slate-500 flex-wrap">' +
+            '<select data-stmode data-stid="' + App.esc(st.id) + '" class="px-1 py-0.5 text-[10px] border border-slate-300 rounded">' +
+            '<option value="cols"' + (dm.mode === 'cols' ? ' selected' : '') + '>가로 칸</option>' +
+            '<option value="rows"' + (dm.mode === 'rows' ? ' selected' : '') + '>세로 3줄</option></select>';
+          if (dm.mode === 'cols') {
+            html += '칸수 <input data-stn data-stid="' + App.esc(st.id) + '" type="number" min="1" max="8" value="' + dm.n +
+              '" class="w-10 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right" />';
+          }
+          html += '너비 <input data-stcw data-stid="' + App.esc(st.id) + '" type="number" min="5" value="' + dm.cw +
+            '" class="w-12 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right" />' +
+            '높이 <input data-stch data-stid="' + App.esc(st.id) + '" type="number" min="5" value="' + dm.ch +
+            '" class="w-12 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right" /></div>';
+          // 칸별 텍스트
+          for (let li = 0; li < dm.n; li++) {
             html += '<input data-stline="' + li + '" data-stid="' + App.esc(st.id) + '" type="text" value="' + App.esc(ln[li] || '') +
-              '" placeholder="' + (li + 1) + '칸" class="w-full mb-0.5 px-2 py-0.5 text-xs border border-slate-300 rounded" />';
+              '" placeholder="' + (li + 1) + '칸 텍스트" class="w-full mb-0.5 px-2 py-0.5 text-xs border border-slate-300 rounded" />';
           }
           html += '<div class="flex items-center justify-between mt-0.5">' +
             '<label class="text-[10px] text-slate-500">위치 <input data-stoff data-stid="' + App.esc(st.id) + '" type="number" value="' + Math.round(st.off || 0) +
@@ -275,7 +290,7 @@
             '<button class="insp-st-del text-[10px] text-red-500" data-stid="' + App.esc(st.id) + '">🗑 삭제</button></div></div>';
         });
         html += '<button id="insp-st-add" class="mt-1 w-full px-2 py-1 text-xs rounded bg-slate-700 text-white" style="background:#334155;color:#fff">＋ 스티커 추가</button>';
-        html += '<div class="text-[10px] text-slate-400 px-1 mt-1">캔버스에서 드래그로 덕트 위 위치 이동, 더블클릭으로 편집.</div>';
+        html += '<div class="text-[10px] text-slate-400 px-1 mt-1">캔버스에서 드래그로 덕트 위 위치 이동, 더블클릭으로 칸별 텍스트 편집.</div>';
       }
     }
 
@@ -374,26 +389,55 @@
     if (stAdd) stAdd.onclick = function () {
       withSticker(null, function (duct) {
         const n = duct.stickers.length;
-        const max = Math.max(0, duct.lengthMM - App.STICKER.W);
-        duct.stickers.push({ id: App.uid('stk'), off: Math.min(max, 10 + n * (App.STICKER.W + 10)), lines: ['LABEL ' + (n + 1), '', ''] });
+        const stNew = { id: App.uid('stk'), off: 0, mode: 'cols', n: 3, cellW: 30, cellH: 24, lines: ['LABEL ' + (n + 1), '', ''] };
+        const max = Math.max(0, duct.lengthMM - App.stickerDims(stNew).len);
+        stNew.off = Math.min(max, 10 + n * (App.stickerDims(stNew).len + 10));
+        duct.stickers.push(stNew);
       });
       Inspector.update();
     };
+    function editSticker(inp, fn) {
+      const sid = inp.getAttribute('data-stid');
+      withSticker(sid, function (duct) {
+        const st = duct.stickers.find(function (s) { return s.id === sid; });
+        if (!st) return;
+        fn(st, duct);
+        // 크기/칸수 변경 후 위치가 덕트를 벗어나지 않게 재클램프
+        st.off = Math.max(0, Math.min(Math.max(0, duct.lengthMM - App.stickerDims(st).len), st.off || 0));
+      });
+    }
     root.querySelectorAll('[data-stline]').forEach(function (inp) {
       inp.addEventListener('change', function () {
-        const sid = inp.getAttribute('data-stid'), li = parseInt(inp.getAttribute('data-stline'), 10);
-        withSticker(sid, function (duct) {
-          const st = duct.stickers.find(function (s) { return s.id === sid; });
-          if (st) { st.lines = st.lines || ['', '', '']; st.lines[li] = inp.value; }
-        });
+        const li = parseInt(inp.getAttribute('data-stline'), 10);
+        editSticker(inp, function (st) { st.lines = st.lines || []; st.lines[li] = inp.value; });
+      });
+    });
+    root.querySelectorAll('[data-stmode]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        editSticker(inp, function (st) { st.mode = inp.value; });
+        Inspector.update();
+      });
+    });
+    root.querySelectorAll('[data-stn]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        editSticker(inp, function (st) { st.n = Math.max(1, Math.min(8, parseInt(inp.value, 10) || 3)); });
+        Inspector.update();
+      });
+    });
+    root.querySelectorAll('[data-stcw]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        editSticker(inp, function (st) { st.cellW = Math.max(5, parseFloat(inp.value) || 30); });
+      });
+    });
+    root.querySelectorAll('[data-stch]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        editSticker(inp, function (st) { st.cellH = Math.max(5, parseFloat(inp.value) || 24); });
       });
     });
     root.querySelectorAll('[data-stoff]').forEach(function (inp) {
       inp.addEventListener('change', function () {
-        const sid = inp.getAttribute('data-stid');
-        withSticker(sid, function (duct) {
-          const st = duct.stickers.find(function (s) { return s.id === sid; });
-          if (st) st.off = Math.max(0, Math.min(Math.max(0, duct.lengthMM - App.STICKER.W), parseFloat(inp.value) || 0));
+        editSticker(inp, function (st, duct) {
+          st.off = Math.max(0, Math.min(Math.max(0, duct.lengthMM - App.stickerDims(st).len), parseFloat(inp.value) || 0));
         });
       });
     });

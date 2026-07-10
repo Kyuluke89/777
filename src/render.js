@@ -169,34 +169,61 @@
     });
   }
 
-  // 덕트 라벨 스티커 — 30(길이)×24(테이프폭)mm, 3행. 세로 덕트에선 90° 회전.
+  // 덕트 라벨 스티커 — 기본: 가로 3칸(칸당 30×24mm). 세로 덕트에선 90° 회전.
+  // mode 'cols'(가로 칸 나열, 기본) | 'rows'(한 칸에 3줄 — 구버전 호환). 칸수/칸크기 조절 가능.
   App.STICKER = { W: 30, H: 24 };
+  App.stickerDims = function (st) {
+    const cw = st.cellW || App.STICKER.W, ch = st.cellH || App.STICKER.H;
+    if (st.mode === 'rows') return { mode: 'rows', n: 3, cw: cw, ch: ch, len: cw, th: ch };
+    const n = Math.max(1, Math.min(8, st.n || 3));
+    return { mode: 'cols', n: n, cw: cw, ch: ch, len: n * cw, th: ch };
+  };
   function drawSticker(parent, d, w, h, st) {
-    const SW = App.STICKER.W, SH = App.STICKER.H;
+    const dm = App.stickerDims(st);
     const off = st.off || 0;
     let cx, cy, rot;
-    if (d.orient === 'h') { cx = d.x + off + SW / 2; cy = d.y + h / 2; rot = 0; }
-    else { cx = d.x + w / 2; cy = d.y + off + SW / 2; rot = 90; }
+    if (d.orient === 'h') { cx = d.x + off + dm.len / 2; cy = d.y + h / 2; rot = 0; }
+    else { cx = d.x + w / 2; cy = d.y + off + dm.len / 2; rot = 90; }
     const g = App.el('g', {
       transform: 'translate(' + cx + ' ' + cy + ')' + (rot ? ' rotate(' + rot + ')' : ''),
       'data-sticker': st.id, 'data-duct': d.id, style: 'cursor:move'
     }, parent);
-    App.el('rect', { x: -SW / 2, y: -SH / 2, width: SW, height: SH, fill: '#111827', stroke: '#1f2937', 'stroke-width': 0.5, rx: 0.8 }, g);
-    App.el('rect', { x: -SW / 2 + 0.9, y: -SH / 2 + 0.9, width: SW - 1.8, height: SH - 1.8, fill: 'none', stroke: '#f8fafc', 'stroke-width': 0.55, 'pointer-events': 'none' }, g);
-    const rowH = (SH - 1.8) / 3, top = -SH / 2 + 0.9;
-    for (let i = 1; i < 3; i++) {
-      App.el('line', { x1: -SW / 2 + 0.9, y1: top + rowH * i, x2: SW / 2 - 0.9, y2: top + rowH * i, stroke: '#f8fafc', 'stroke-width': 0.45, 'pointer-events': 'none' }, g);
-    }
+    const L = dm.len, T = dm.th;
+    App.el('rect', { x: -L / 2, y: -T / 2, width: L, height: T, fill: '#111827', stroke: '#1f2937', 'stroke-width': 0.5, rx: 0.8 }, g);
+    App.el('rect', { x: -L / 2 + 0.9, y: -T / 2 + 0.9, width: L - 1.8, height: T - 1.8, fill: 'none', stroke: '#f8fafc', 'stroke-width': 0.55, 'pointer-events': 'none' }, g);
     const lines = st.lines || [];
-    for (let i = 0; i < 3; i++) {
-      const s = lines[i] || '';
-      if (!s) continue;
-      const fs = Math.max(1.8, Math.min(4.3, (SW - 4) / (String(s).length * 0.62)));
-      const t = App.el('text', {
-        x: 0, y: top + rowH * i + rowH / 2, 'text-anchor': 'middle', 'dominant-baseline': 'central',
-        'font-size': fs, fill: '#ffffff', 'font-family': 'Arial, sans-serif', 'pointer-events': 'none'
-      }, g);
-      t.textContent = s;
+    if (dm.mode === 'cols') {
+      // 가로 칸 나열 — 칸 구분 세로선 + 칸별 텍스트
+      for (let i = 1; i < dm.n; i++) {
+        const lx = -L / 2 + dm.cw * i;
+        App.el('line', { x1: lx, y1: -T / 2 + 0.9, x2: lx, y2: T / 2 - 0.9, stroke: '#f8fafc', 'stroke-width': 0.45, 'pointer-events': 'none' }, g);
+      }
+      for (let i = 0; i < dm.n; i++) {
+        const s = lines[i] || '';
+        if (!s) continue;
+        const fs = Math.max(1.8, Math.min(T * 0.34, (dm.cw - 3) / (String(s).length * 0.62)));
+        const t = App.el('text', {
+          x: -L / 2 + dm.cw * (i + 0.5), y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+          'font-size': fs, fill: '#ffffff', 'font-family': 'Arial, sans-serif', 'pointer-events': 'none'
+        }, g);
+        t.textContent = s;
+      }
+    } else {
+      // 한 칸에 3줄 (사진 양식)
+      const rowH = (T - 1.8) / 3, top = -T / 2 + 0.9;
+      for (let i = 1; i < 3; i++) {
+        App.el('line', { x1: -L / 2 + 0.9, y1: top + rowH * i, x2: L / 2 - 0.9, y2: top + rowH * i, stroke: '#f8fafc', 'stroke-width': 0.45, 'pointer-events': 'none' }, g);
+      }
+      for (let i = 0; i < 3; i++) {
+        const s = lines[i] || '';
+        if (!s) continue;
+        const fs = Math.max(1.8, Math.min(4.3, (L - 4) / (String(s).length * 0.62)));
+        const t = App.el('text', {
+          x: 0, y: top + rowH * i + rowH / 2, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+          'font-size': fs, fill: '#ffffff', 'font-family': 'Arial, sans-serif', 'pointer-events': 'none'
+        }, g);
+        t.textContent = s;
+      }
     }
   }
 
@@ -724,6 +751,26 @@
       const bp = rotPt(blx, bly, cx, cy, c.rotation || 0);
       const bhw = Math.max(8, String(c.type || '').length * bf * 0.6), bhh = bf * 1.6;
       App.el('rect', { x: bp.x - bhw / 2, y: bp.y - bhh / 2, width: bhw, height: bhh, fill: 'transparent', 'pointer-events': 'all', 'data-typefor': c.id, style: 'cursor:move' }, g);
+    });
+    // 덕트/레일 끝 리사이즈 핸들 — 선택 시 양 끝을 드래그해 길이 조절
+    ['ducts', 'rails'].forEach(function (rk) {
+      state[rk].forEach(function (d) {
+        if (!isSelected(d.id) || d.locked) return;
+        const hs = App.viewport.pxToMM(5);
+        const w = d.orient === 'h' ? d.lengthMM : (d.widthMM || 35);
+        const h = d.orient === 'h' ? (d.widthMM || 35) : d.lengthMM;
+        const pts = d.orient === 'h'
+          ? [{ e: 'start', x: d.x, y: d.y + h / 2 }, { e: 'end', x: d.x + w, y: d.y + h / 2 }]
+          : [{ e: 'start', x: d.x + w / 2, y: d.y }, { e: 'end', x: d.x + w / 2, y: d.y + h }];
+        pts.forEach(function (pt) {
+          App.el('rect', {
+            x: pt.x - hs, y: pt.y - hs, width: hs * 2, height: hs * 2, rx: hs * 0.4,
+            fill: '#fff', stroke: '#f59e0b', 'stroke-width': App.viewport.pxToMM(1.5), 'pointer-events': 'all',
+            'data-dresize': pt.e, 'data-dtarget': d.id,
+            style: 'cursor:' + (d.orient === 'h' ? 'ew-resize' : 'ns-resize')
+          }, g);
+        });
+      });
     });
     // 제목(타이틀) 이동 핸들
     const p = state.panel;

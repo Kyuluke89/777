@@ -476,6 +476,14 @@
       return;
     }
 
+    // 덕트/레일 끝 리사이즈 핸들 드래그 (길이 조절)
+    const drEl = pick('data-dresize');
+    if (drEl) {
+      startDuctResize(drEl.getAttribute('data-dtarget'), drEl.getAttribute('data-dresize'), sp);
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
+
     // 덕트 라벨 스티커 드래그 (덕트 길이 방향 이동)
     const stkEl = pick('data-sticker');
     if (stkEl) {
@@ -612,6 +620,7 @@
     else if (gesture.type === 'dimoff') updateDimOff(cp);
     else if (gesture.type === 'labeldrag') updateLabelDrag(cp);
     else if (gesture.type === 'sticker') updateStickerDrag(cp);
+    else if (gesture.type === 'dresize') updateDuctResize(cp);
     else if (gesture.type === 'titledrag') updateTitleDrag(cp);
     else if (gesture.type === 'marquee') updateMarquee(cp);
   }
@@ -631,6 +640,9 @@
     else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'labeldrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'sticker') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'dresize') {
+      if (gesture.moved) { App.store.pushUndo(gesture.snap); if (App.inspector) App.inspector.update(); }
+    }
     else if (gesture.type === 'titledrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
@@ -678,6 +690,33 @@
     App.store.touch();
   }
 
+  // 덕트/레일 끝 리사이즈 — 시작/끝 핸들을 드래그해 길이 조절 (격자 스냅)
+  function startDuctResize(id, end, sp) {
+    const f = App.store.findById(id);
+    if (!f || (f.kind !== 'ducts' && f.kind !== 'rails')) return;
+    gesture = {
+      type: 'dresize', snap: App.store.snapshot(), sp: sp, id: id, end: end,
+      orig: { x: f.item.x, y: f.item.y, len: f.item.lengthMM }, moved: false
+    };
+  }
+  function updateDuctResize(cp) {
+    const f = App.store.findById(gesture.id);
+    if (!f) return;
+    const d = f.item;
+    const minLen = Math.max(10, App.store.get().panel.gridMM);
+    const delta = d.orient === 'h' ? (cp.x - gesture.sp.x) : (cp.y - gesture.sp.y);
+    if (gesture.end === 'end') {
+      d.lengthMM = Math.max(minLen, snapV(gesture.orig.len + delta));
+    } else {
+      // 시작쪽: 반대 끝 고정 — 위치와 길이를 함께 조정
+      const shift = Math.min(snapV(delta), gesture.orig.len - minLen);
+      if (d.orient === 'h') d.x = gesture.orig.x + shift; else d.y = gesture.orig.y + shift;
+      d.lengthMM = gesture.orig.len - shift;
+    }
+    gesture.moved = true;
+    App.store.touch();
+  }
+
   // 덕트 라벨 스티커 드래그 — 덕트 길이 방향으로만 이동 (off 클램프)
   function startStickerDrag(ductId, stId, sp) {
     const f = App.store.findById(ductId);
@@ -693,7 +732,7 @@
     const st = (d.stickers || []).find(function (s) { return s.id === gesture.stId; });
     if (!st) return;
     const delta = d.orient === 'h' ? (cp.x - gesture.sp.x) : (cp.y - gesture.sp.y);
-    const max = Math.max(0, d.lengthMM - App.STICKER.W);
+    const max = Math.max(0, d.lengthMM - App.stickerDims(st).len);
     st.off = Math.round(Math.max(0, Math.min(max, gesture.origOff + delta)));
     gesture.moved = true;
     App.store.touch();
@@ -752,14 +791,18 @@
       const fd = App.store.findById(did);
       const st = fd && (fd.item.stickers || []).find(function (s) { return s.id === sid; });
       if (st) {
-        const cur = st.lines || ['', '', ''];
-        const l1 = prompt('1칸 (예: POWER S/W 01)', cur[0] || ''); if (l1 == null) return;
-        const l2 = prompt('2칸 (예: MAIN POWER S/W)', cur[1] || ''); if (l2 == null) return;
-        const l3 = prompt('3칸 (예: MAS-025 25A)', cur[2] || ''); if (l3 == null) return;
+        const nCells = App.stickerDims(st).n;
+        const cur = st.lines || [];
+        const next = [];
+        for (let ci = 0; ci < nCells; ci++) {
+          const v = prompt((ci + 1) + '칸 텍스트 (예: POWER S/W 01)', cur[ci] || '');
+          if (v == null) return;
+          next.push(v);
+        }
         App.store.commit(function () {
           const fd2 = App.store.findById(did);
           const st2 = fd2 && (fd2.item.stickers || []).find(function (s) { return s.id === sid; });
-          if (st2) st2.lines = [l1, l2, l3];
+          if (st2) st2.lines = next;
         });
         App.render.all();
         if (App.inspector) App.inspector.update();
@@ -1136,9 +1179,12 @@
             if (!fd) return;
             const duct = fd.item;
             duct.stickers = duct.stickers || [];
-            const max = Math.max(0, duct.lengthMM - App.STICKER.W);
-            const off = duct.orient === 'h' ? (pos.x - duct.x - App.STICKER.W / 2) : (pos.y - duct.y - App.STICKER.W / 2);
-            duct.stickers.push({ id: App.uid('stk'), off: Math.round(Math.max(0, Math.min(max, off))), lines: ['LABEL', '', ''] });
+            const stNew = { id: App.uid('stk'), off: 0, mode: 'cols', n: 3, cellW: 30, cellH: 24, lines: ['LABEL', '', ''] };
+            const len = App.stickerDims(stNew).len;
+            const max = Math.max(0, duct.lengthMM - len);
+            const off = duct.orient === 'h' ? (pos.x - duct.x - len / 2) : (pos.y - duct.y - len / 2);
+            stNew.off = Math.round(Math.max(0, Math.min(max, off)));
+            duct.stickers.push(stNew);
           });
           App.render.all();
           if (App.inspector) App.inspector.update();
@@ -1172,6 +1218,9 @@
 
   Interact.init = function (svgEl) {
     svg = svgEl;
+    // 포인터 캡처 방어 — 이미 해제된/합성 포인터로 호출돼도 조용히 무시
+    const _cap = svg.setPointerCapture.bind(svg);
+    svg.setPointerCapture = function (pid) { try { _cap(pid); } catch (err) { /* no-op */ } };
     svg.addEventListener('pointerdown', onPointerDown);
     svg.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);

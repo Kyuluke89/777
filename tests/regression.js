@@ -1472,11 +1472,11 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const node = document.querySelector('[data-sticker="' + st.id + '"]');
     const texts = node ? Array.from(node.querySelectorAll('text')).map(e => e.textContent) : [];
     const sepLines = node ? node.querySelectorAll('line').length : 0;
-    // 위치 클램프: 9999 → lengthMM-30
+    // 위치 클램프: 9999 → lengthMM - 스티커 길이(가로 3칸×30 = 90) = 110
     const offInp = document.querySelector('#inspector [data-stoff]');
     offInp.value = '9999';
     offInp.dispatchEvent(new Event('change'));
-    const clamped = App.store.get().ducts.find(x => x.id === 'sd1').stickers[0].off === 170;
+    const clamped = App.store.get().ducts.find(x => x.id === 'sd1').stickers[0].off === 110;
     // DXF 포함
     const dxf = App.exporter.dxfString(App.store.get());
     const inDxf = dxf.indexOf('LABELS') >= 0 && dxf.indexOf('MAS-025 25A') >= 0;
@@ -1496,6 +1496,46 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(stk.clamped, '스티커 위치 덕트 길이로 클램프');
   assert(stk.inDxf, 'DXF에 스티커(LABELS) 포함');
   assert(stk.rt && stk.deleted, '스티커 저장 보존 + 삭제');
+
+  // 스티커 가로 3칸 + 크기 조절: 칸 너비/높이/칸수 변경이 렌더에 반영
+  const stk2 = await page.evaluate(() => {
+    App.store.commit(s => { s.ducts.push({ id: 'sd2', orient: 'h', x: 0, y: 900, lengthMM: 400, widthMM: 60 }); });
+    App.ui.selected = new Set(['sd2']);
+    App.inspector.update();
+    document.getElementById('insp-st-add').click();
+    const st = App.store.get().ducts.find(x => x.id === 'sd2').stickers[0];
+    const isCols = st.mode === 'cols' && st.n === 3 && st.cellW === 30 && st.cellH === 24; // 기본: 가로 3칸 30×24
+    // 렌더 확인: 전체 폭 90(=3×30), 세로 구분선 2개
+    let node = document.querySelector('[data-sticker="' + st.id + '"]');
+    const rect1 = node.querySelector('rect');
+    const w90 = parseFloat(rect1.getAttribute('width')) === 90 && parseFloat(rect1.getAttribute('height')) === 24;
+    // 크기 조절: 너비 40, 높이 30 → 전체 120×30
+    const cw = document.querySelector('#inspector [data-stcw]');
+    cw.value = '40'; cw.dispatchEvent(new Event('change'));
+    const ch = document.querySelector('#inspector [data-stch]');
+    ch.value = '30'; ch.dispatchEvent(new Event('change'));
+    node = document.querySelector('[data-sticker="' + st.id + '"]');
+    const rect2 = node.querySelector('rect');
+    const resized = parseFloat(rect2.getAttribute('width')) === 120 && parseFloat(rect2.getAttribute('height')) === 30;
+    // 칸수 4 → 폭 160, 텍스트 입력칸 4개
+    const nInp = document.querySelector('#inspector [data-stn]');
+    nInp.value = '4'; nInp.dispatchEvent(new Event('change'));
+    const lineInputs = document.querySelectorAll('#inspector [data-stline]').length;
+    node = document.querySelector('[data-sticker="' + st.id + '"]');
+    const w160 = parseFloat(node.querySelector('rect').getAttribute('width')) === 160;
+    // 칸별 텍스트
+    const l2 = document.querySelector('#inspector [data-stline="1"]');
+    l2.value = 'MAIN P/W'; l2.dispatchEvent(new Event('change'));
+    node = document.querySelector('[data-sticker="' + st.id + '"]');
+    const texts = Array.from(node.querySelectorAll('text')).map(e => e.textContent);
+    App.store.commit(s => { s.ducts = s.ducts.filter(x => x.id !== 'sd2'); });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { isCols, w90, resized, lineInputs, w160, cellText: texts.indexOf('MAIN P/W') >= 0 };
+  });
+  assert(stk2.isCols && stk2.w90, '스티커 기본: 가로 3칸(칸당 30×24, 총 90×24)');
+  assert(stk2.resized, '스티커 칸 너비/높이 조절(40×30 → 총 120×30)');
+  assert(stk2.lineInputs === 4 && stk2.w160, '칸수 조절(4칸 → 총 160) + 입력칸 4개');
+  assert(stk2.cellText, '칸별 텍스트 입력 반영');
 
   // === 파츠리스트 XLSX (발주 양식) ===
   const xl = await page.evaluate(() => {
@@ -1766,6 +1806,42 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(cbtw.centered, '찬넬이 위/아래 덕트 사이 정중앙(세로) 배치');
   assert(cbtw.done, '기준 2개 클릭 후 모드 자동 종료');
   assert(cbtw.centeredH, '좌/우 기준 → 가로 센터 배치');
+
+  // === 덕트/레일 끝 핸들 리사이즈 ===
+  const drsz = await page.evaluate(() => {
+    App.store.commit(s => { s.ducts.push({ id: 'rz1', orient: 'h', x: 0, y: 700, lengthMM: 200, widthMM: 60 }); });
+    App.ui.selected = new Set(['rz1']);
+    App.render.all();
+    const h1 = document.querySelector('[data-dresize="end"][data-dtarget="rz1"]');
+    const h0 = document.querySelector('[data-dresize="start"][data-dtarget="rz1"]');
+    if (!h1 || !h0) return { fail: 'no-handles' };
+    const svg = document.getElementById('canvas');
+    const ctm = svg.getScreenCTM();
+    function cl(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; const c = p.matrixTransform(ctm); return { x: c.x, y: c.y }; }
+    function drag(handle, fromW, toW) {
+      const a = cl(fromW.x, fromW.y), b = cl(toW.x, toW.y);
+      const dn = new PointerEvent('pointerdown', { clientX: a.x, clientY: a.y, button: 0, bubbles: true });
+      Object.defineProperty(dn, 'target', { value: handle });
+      svg.dispatchEvent(dn);
+      svg.dispatchEvent(new PointerEvent('pointermove', { clientX: b.x, clientY: b.y, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x, clientY: b.y, bubbles: true }));
+    }
+    // 끝 핸들: 200 → 300 으로 늘리기
+    drag(h1, { x: 200, y: 730 }, { x: 300, y: 730 });
+    const d1 = App.store.get().ducts.find(x => x.id === 'rz1');
+    const grew = d1.lengthMM === 300;
+    // 시작 핸들: 0 → 50 (끝 고정, x 이동 + 길이 감소)
+    App.render.all();
+    const h0b = document.querySelector('[data-dresize="start"][data-dtarget="rz1"]');
+    drag(h0b, { x: 0, y: 730 }, { x: 50, y: 730 });
+    const d2 = App.store.get().ducts.find(x => x.id === 'rz1');
+    const shrunk = d2.x === 50 && d2.lengthMM === 250;
+    App.store.commit(s => { s.ducts = s.ducts.filter(x => x.id !== 'rz1'); });
+    App.ui.selected.clear(); App.render.all();
+    return { grew, shrunk };
+  });
+  assert(drsz.grew, '덕트 끝 핸들 드래그로 늘리기(200→300)');
+  assert(drsz.shrunk, '덕트 시작 핸들 드래그(끝 고정, x+50/길이 250)');
 
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
