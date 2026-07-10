@@ -18,6 +18,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
 
   await page.goto('file://' + INDEX, { waitUntil: 'load' });
   await page.waitForTimeout(700);
+  await page.evaluate(() => { if (App.palette && App.palette.loadSamples) App.palette.loadSamples(true); }); // 테스트: 샘플(기본) 부품 사용
 
   const box = await page.evaluate(() => { const r = document.getElementById('canvas').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
   const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
@@ -1765,6 +1766,30 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(cbtw.centered, '찬넬이 위/아래 덕트 사이 정중앙(세로) 배치');
   assert(cbtw.done, '기준 2개 클릭 후 모드 자동 종료');
   assert(cbtw.centeredH, '좌/우 기준 → 가로 센터 배치');
+
+  // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
+  const libfix = await page.evaluate(() => {
+    // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함
+    App.userlib.hide('HIDE-T1');
+    App.userlib.add({ partNo: 'HIDE-T1', type: 'PLC', name: '숨김충돌테스트', w: 30, h: 30, d: 30, terminals: 0 });
+    App.palette.reloadUser();
+    const visible = App.palette.getLibrary().some(p => p.partNo === 'HIDE-T1');
+    // 2) 샘플 부품 끄기: 기본부품 제거, 심볼·내부품은 유지
+    App.palette.loadSamples(false);
+    const lib2 = App.palette.getLibrary();
+    const noSample = !lib2.some(p => p.partNo === 'XBM-DN16S');
+    const symKeep = lib2.some(p => p.type === 'SYM');
+    const userKeep = lib2.some(p => p.partNo === 'HIDE-T1');
+    App.palette.loadSamples(true); // 복구
+    const back = App.palette.getLibrary().some(p => p.partNo === 'XBM-DN16S');
+    App.userlib.remove('HIDE-T1');
+    App.userlib.unhide('HIDE-T1');
+    App.palette.reloadUser();
+    return { visible, noSample, symKeep, userKeep, back };
+  });
+  assert(libfix.visible, '숨김 목록과 같은 품번의 내부품(복제)도 표시');
+  assert(libfix.noSample && libfix.symKeep && libfix.userKeep, '샘플 부품 끄기: 기본부품만 제거(심볼·내부품 유지)');
+  assert(libfix.back, '샘플 부품 다시 불러오기');
 
   await page.screenshot({ path: SHOT });
   await browser.close();

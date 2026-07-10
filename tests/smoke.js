@@ -20,6 +20,7 @@ const path = require('path');
   // dismiss any confirm dialogs (autosave restore)
   page.on('dialog', d => d.dismiss());
   await page.waitForTimeout(800);
+  await page.evaluate(() => { if (App.palette && App.palette.loadSamples) App.palette.loadSamples(true); }); // 테스트: 샘플(기본) 부품 사용
 
   const r = await page.evaluate(() => {
     const out = {};

@@ -14,6 +14,7 @@ function assert(c, m) { if (!c) throw new Error('ASSERT FAIL: ' + m); }
   page.on('dialog', d => d.accept());
   await page.goto('file://' + INDEX, { waitUntil: 'load' });
   await page.waitForTimeout(700);
+  await page.evaluate(() => { if (App.palette && App.palette.loadSamples) App.palette.loadSamples(true); }); // 테스트: 샘플(기본) 부품 사용
 
   // 1) 커스텀 부품 만들기
   await page.click('#act-custom');

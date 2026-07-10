@@ -28,9 +28,25 @@
     render();
   };
 
+  // 샘플(기본) 부품 표시 여부 — 기본 꺼짐. 사용자가 하단 버튼으로 켜고 끔.
+  const SKEY = 'panel-sample-parts';
+  let samplesOn = null;
+  function useSamples() {
+    if (samplesOn == null) {
+      samplesOn = false;
+      try { samplesOn = global.localStorage && localStorage.getItem(SKEY) === '1'; } catch (e) {}
+    }
+    return samplesOn;
+  }
+  Palette.loadSamples = function (on) {
+    samplesOn = on !== false;
+    try { if (global.localStorage) localStorage.setItem(SKEY, samplesOn ? '1' : '0'); } catch (e) {}
+    Palette.reloadUser();
+  };
+
   // 시드 + 사용자(커스텀) 라이브러리 재구성 (같은 부품번호는 사용자 버전 우선)
   Palette.reloadUser = function () {
-    const base = (App.seedParts || []);
+    const base = (App.seedParts || []).concat(useSamples() ? (App.sampleParts || []) : []);
     const user = App.userlib ? App.userlib.load() : [];
     const order = [];
     const map = {};
@@ -38,7 +54,7 @@
     user.forEach(function (p) { if (!(p.partNo in map)) order.push(p.partNo); map[p.partNo] = p; }); // 덮어쓰기
     const hidden = (App.userlib && App.userlib.hidden()) || [];
     library = order.map(function (k) { return map[k]; })
-      .filter(function (p) { return hidden.indexOf(p.partNo) < 0; }); // 숨긴 기본부품 제외
+      .filter(function (p) { return p.custom || hidden.indexOf(p.partNo) < 0; }); // 숨김은 기본부품에만 적용(내부품은 항상 표시)
     render();
   };
 
@@ -54,6 +70,18 @@
 
   // 검색 필터 비우기(이름/품번 변경 후 결과가 안 사라지게)
   function clearFilter() { filter = ''; if (searchEl) searchEl.value = ''; }
+
+  // 부품이 목록에서 보이도록 보장: 검색 초기화 + 해당 탭 전환 + 카테고리 펼침
+  Palette.reveal = function (p) {
+    clearFilter();
+    if (p && p.type) {
+      collapsed[p.type] = false;
+      mode = (p.type === 'SYM') ? 'syms' : 'parts';
+      Palette.setMode(mode);
+      return;
+    }
+    render();
+  };
 
   function makeItem(p) {
     const item = document.createElement('div');
@@ -89,7 +117,7 @@
       if (exist) { let i = 2; while (library.some(function (x) { return x.partNo === pn + '-' + i; })) i++; pn = pn + '-' + i; }
       App.userlib.add(Object.assign({}, p, { partNo: pn })); // 같은 형태, 새 품번
       if (App.toolbar) App.toolbar.flash('복제됨: ' + pn);
-      clearFilter();
+      Palette.reveal(p);       // 검색 초기화 + 카테고리 펼침(접혀 있어도 보이게)
       Palette.reloadUser();
     };
     item.querySelector('.pal-edit').onclick = function (e) {
@@ -118,7 +146,7 @@
       });
       if (App.ui.placing && App.ui.placing.partNo === oldPN) App.ui.placing = null;
       if (App.toolbar) App.toolbar.flash('수정됨: ' + title);
-      clearFilter();
+      Palette.reveal(p);
       Palette.reloadUser();
     };
     item.onclick = function () {
@@ -180,6 +208,20 @@
         listEl.appendChild(wrap);
       }
     });
+
+    // 샘플(기본) 부품 불러오기/제거 — 부품 탭에서만 표시
+    if (mode === 'parts' && (App.sampleParts || []).length) {
+      const smp = document.createElement('button');
+      smp.className = 'w-full mt-2 px-2 py-1 text-[11px] text-slate-500 border border-dashed border-slate-300 rounded hover:bg-slate-50';
+      if (useSamples()) {
+        smp.textContent = '샘플 부품 감추기 (LS 차단기/PLC/단자대 등)';
+        smp.onclick = function () { Palette.loadSamples(false); };
+      } else {
+        smp.textContent = '＋ 샘플 부품 불러오기 (' + App.sampleParts.length + '개 · LS 차단기/PLC/단자대 등)';
+        smp.onclick = function () { Palette.loadSamples(true); };
+      }
+      listEl.appendChild(smp);
+    }
 
     // 숨긴 기본 부품 복원
     const hidden = (App.userlib && App.userlib.hidden()) || [];

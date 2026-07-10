@@ -29,5 +29,5 @@
   { partNo: "XBM-DN32H", manufacturer: "LS", type: "PLC", name: "PLC XBM", w: 50, h: 80, d: 60, terminals: 20, est: true, source: "EDZ" },
   { partNo: "XBM-DN32H2", manufacturer: "LS", type: "PLC", name: "PLC XBM", w: 50, h: 80, d: 60, terminals: 20, est: true, source: "EDZ" }
   ];
-  App.seedParts = (App.seedParts || []).concat(LS);
+  App.sampleParts = (App.sampleParts || []).concat(LS);
 })(window);

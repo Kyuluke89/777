@@ -61,5 +61,7 @@
     symPart('SYM-TON', '한시동작 a접점(TON)', 'tona', 38),
     symPart('SYM-INV', '인버터(VFD)', 'inv', 40)
   ];
-  App.seedParts = (App.seedParts || []).concat(BUILTIN, FIELD, SYMBOLS);
+  // 심볼만 기본 제공 — 나머지 기본부품은 "샘플 부품"으로 분리(사용자가 원할 때만 불러옴)
+  App.seedParts = (App.seedParts || []).concat(SYMBOLS);
+  App.sampleParts = (App.sampleParts || []).concat(BUILTIN, FIELD);
 })(window);

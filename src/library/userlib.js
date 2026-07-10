@@ -31,6 +31,7 @@
     const i = arr.findIndex(function (p) { return p.partNo === part.partNo; });
     if (i >= 0) arr[i] = part; else arr.push(part);
     U.saveAll(arr);
+    U.unhide(part.partNo); // 같은 품번이 숨김 목록에 있으면 해제(추가하자마자 안 보이는 문제 방지)
     return arr;
   };
 

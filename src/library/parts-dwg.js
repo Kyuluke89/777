@@ -15,5 +15,5 @@
   { partNo: "XTB-50B", manufacturer: "LS", type: "TB", name: "인터페이스 단자대 50B", w: 108, h: 72, d: 60, terminals: 50, est: true, source: "DWG" },
   { partNo: "XTB-50H", manufacturer: "LS", type: "TB", name: "인터페이스 단자대 50H", w: 108, h: 72, d: 60, terminals: 50, est: true, source: "DWG" }
   ];
-  App.seedParts = (App.seedParts || []).concat(DWG);
+  App.sampleParts = (App.sampleParts || []).concat(DWG);
 })(window);
