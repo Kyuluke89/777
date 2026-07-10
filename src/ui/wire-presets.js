@@ -27,14 +27,22 @@
     if (sel && !found) h = '<option value="' + sel + '" selected>사용자</option>' + h;
     return h;
   }
+  // 전원 구분 — 기본 AC/DC + 사용자 추가(AC220, DC24 등), "＋추가…"로 직접 등록
   function acdcOptions(sel) {
-    return ['', 'AC', 'DC'].map(function (v) {
-      return '<option value="' + v + '"' + (String(sel || '') === v ? ' selected' : '') + '>' + (v || '없음') + '</option>';
+    sel = String(sel || '');
+    const list = [''].concat((App.userlib.acdcList && App.userlib.acdcList()) || ['AC', 'DC']);
+    let h = list.map(function (v) {
+      return '<option value="' + App.esc(v) + '"' + (sel === v ? ' selected' : '') + '>' + (v || '없음') + '</option>';
     }).join('');
+    if (sel && list.indexOf(sel) < 0) h = '<option value="' + App.esc(sel) + '" selected>' + App.esc(sel) + '</option>' + h;
+    return h + '<option value="__new__">＋추가…</option>';
   }
 
   function rowHtml(p, i) {
     return '<div class="wp-row flex items-center gap-2 py-1" data-i="' + i + '">' +
+      '<span class="flex flex-col" style="line-height:0.9">' +
+      '<button class="wp-up text-[10px] text-slate-400 hover:text-blue-600" title="위로">▲</button>' +
+      '<button class="wp-down text-[10px] text-slate-400 hover:text-blue-600" title="아래로">▼</button></span>' +
       '<input class="wp-name px-1 py-0.5 text-xs border border-slate-300 rounded" style="width:104px" value="' + App.esc(p.name || '') + '" placeholder="이름"/>' +
       '<select class="wp-color px-1 py-0.5 text-xs border border-slate-300 rounded" style="width:50px">' + colorOptions(p.color) + '</select>' +
       '<span class="wp-sw inline-block rounded-sm" style="width:14px;height:14px;border:1px solid #cbd5e1;background:' + (p.color || '#e11d2a') + '"></span>' +
@@ -48,12 +56,38 @@
 
   function renderRows() {
     listEl.innerHTML = rows.length ? rows.map(rowHtml).join('') : '<div class="text-xs text-slate-400 px-1 py-2">프리셋이 없습니다. "＋ 새 프리셋"으로 추가하세요.</div>';
-    // SQ 변경 시 AWG 자동
+    // SQ 변경 시 AWG + 두께 자동
     listEl.querySelectorAll('.wp-sq').forEach(function (sel) {
       sel.onchange = function () {
         const row = sel.closest('.wp-row');
         const awg = App.wires.SQ_AWG[sel.value];
         if (awg) row.querySelector('.wp-awg').value = awg;
+        const w = App.wires.SQ_WIDTH && App.wires.SQ_WIDTH[sel.value];
+        if (w) row.querySelector('.wp-width').value = w;
+      };
+    });
+    // 전원 "＋추가…" — 직접 입력해 목록에 등록
+    listEl.querySelectorAll('.wp-acdc').forEach(function (sel) {
+      sel.onchange = function () {
+        if (sel.value !== '__new__') return;
+        const v = prompt('전원 구분 추가 (예: AC220, DC24)', '');
+        if (v && v.trim()) {
+          App.userlib.addAcdc(v);
+          const nv = String(v).trim().toUpperCase();
+          sel.innerHTML = acdcOptions(nv);
+          sel.value = nv;
+        } else sel.value = '';
+      };
+    });
+    // 순서 변경 (▲▼)
+    listEl.querySelectorAll('.wp-up, .wp-down').forEach(function (btn) {
+      btn.onclick = function () {
+        collect();
+        const i = +btn.closest('.wp-row').getAttribute('data-i');
+        const j = btn.classList.contains('wp-up') ? i - 1 : i + 1;
+        if (j < 0 || j >= rows.length) return;
+        const t = rows[i]; rows[i] = rows[j]; rows[j] = t;
+        renderRows();
       };
     });
     // 색상 변경 시 미리보기 스와치 갱신

@@ -103,6 +103,29 @@
     return pmem;
   };
 
+  // ── 전원 구분 목록 — 기본 AC/DC + 사용자 추가(AC220, DC24 등) ──────────
+  const AKEY = 'panel-acdc-list';
+  let amem = null;
+  U.acdcList = function () {
+    if (amem) return amem;
+    let a = null;
+    try { const r = global.localStorage && localStorage.getItem(AKEY); if (r) { const j = JSON.parse(r); if (Array.isArray(j)) a = j; } } catch (e) {}
+    amem = a || ['AC', 'DC'];
+    if (amem.indexOf('AC') < 0) amem.unshift('AC');
+    if (amem.indexOf('DC') < 0) amem.splice(1, 0, 'DC');
+    return amem;
+  };
+  U.addAcdc = function (v) {
+    v = String(v || '').trim().toUpperCase();
+    if (!v) return U.acdcList();
+    const a = U.acdcList();
+    if (a.indexOf(v) < 0) {
+      a.push(v);
+      try { if (global.localStorage) localStorage.setItem(AKEY, JSON.stringify(a)); } catch (e) {}
+    }
+    return a;
+  };
+
   U.exportFile = function () {
     const blob = new Blob([JSON.stringify(U.load(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

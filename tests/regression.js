@@ -2233,6 +2233,54 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(peRename.renamed && peRename.oldGone, '편집기 품명 수정 = 라이브러리 이름 변경(항목 하나)');
   assert(peRename.compSync, '이름 변경이 배치 부품 품번/표시에 동기화');
 
+  // === 배선 규격/전원/프리셋 확장 ===
+  const wireExt = await page.evaluate(() => {
+    // 24 AWG 까지 확장 + SQ 선택 시 두께/AWG 자동
+    const awg24 = App.wires.SQ_AWG['0.2'] === '24' && App.wires.SQ_AWG['0.5'] === '20';
+    const widthMap = App.wires.SQ_WIDTH['0.2'] === 0.8 && App.wires.SQ_WIDTH['2.0'] === 1.4;
+    // 전원 직접 추가
+    App.userlib.addAcdc('DC24');
+    const acdcHas = App.userlib.acdcList().indexOf('DC24') >= 0;
+    // 인스펙터: 배선 선택 → SQ 고르면 AWG+두께 자동, 전원 목록에 DC24
+    const w = App.store.get().wires[0];
+    if (!w) return { skip: true };
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set([w.id]);
+    App.inspector.update();
+    const sqSel = document.querySelector('#inspector [data-field="sq"]');
+    sqSel.value = '0.5';
+    sqSel.dispatchEvent(new Event('change'));
+    const w2 = App.store.get().wires.find(x => x.id === w.id);
+    const autoSet = w2.sq === '0.5' && w2.awg === '20' && w2.width === 1.0;
+    App.inspector.update();
+    const adSel = document.querySelector('#inspector [data-field="acdc"]');
+    const adHasCustom = Array.from(adSel.options).some(o => o.value === 'DC24');
+    const adHasNew = Array.from(adSel.options).some(o => o.value === '__new__');
+    // 프리셋 편집기: 순서 변경(▼) + SQ→두께 자동
+    App.wirePresets.open();
+    const list = document.getElementById('wp-list');
+    const names1 = Array.from(list.querySelectorAll('.wp-name')).map(i => i.value);
+    list.querySelector('.wp-row .wp-down').click(); // 첫 행을 아래로
+    const names2 = Array.from(list.querySelectorAll('.wp-name')).map(i => i.value);
+    const reordered = names2[0] === names1[1] && names2[1] === names1[0];
+    const sqRow = list.querySelector('.wp-row .wp-sq');
+    sqRow.value = '0.2';
+    sqRow.dispatchEvent(new Event('change'));
+    const rowEl = sqRow.closest('.wp-row');
+    const presetAuto = rowEl.querySelector('.wp-awg').value === '24' && parseFloat(rowEl.querySelector('.wp-width').value) === 0.8;
+    const wpAdHasNew = Array.from(list.querySelector('.wp-acdc').options).some(o => o.value === '__new__');
+    document.getElementById('wp-cancel').click();
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { awg24, widthMap, acdcHas, autoSet, adHasCustom, adHasNew, reordered, presetAuto, wpAdHasNew };
+  });
+  if (!wireExt.skip) {
+    assert(wireExt.awg24 && wireExt.widthMap, 'SQ 목록 24AWG(0.2SQ)까지 확장 + 두께 매핑');
+    assert(wireExt.autoSet, '규격 선택 → AWG·두께 자동 설정(인스펙터)');
+    assert(wireExt.acdcHas && wireExt.adHasCustom && wireExt.adHasNew, '전원 구분 직접 추가(DC24) + 목록 반영');
+    assert(wireExt.reordered, '프리셋 순서 변경(▲▼)');
+    assert(wireExt.presetAuto && wireExt.wpAdHasNew, '프리셋 SQ→AWG·두께 자동 + 전원 추가 옵션');
+  }
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

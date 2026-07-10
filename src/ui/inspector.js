@@ -22,8 +22,11 @@
       if (!f) return;
       if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg' || field === 'acdc' || field === 'text') {
         f.item[field] = value;
-        // SQ 선택 시 AWG 자동 채움
-        if (field === 'sq' && App.wires.SQ_AWG[value]) { f.item.awg = App.wires.SQ_AWG[value]; refresh = true; }
+        // SQ 선택 시 AWG + 두께 자동 채움
+        if (field === 'sq') {
+          if (App.wires.SQ_AWG[value]) { f.item.awg = App.wires.SQ_AWG[value]; refresh = true; }
+          if (App.wires.SQ_WIDTH && App.wires.SQ_WIDTH[value]) { f.item.width = App.wires.SQ_WIDTH[value]; refresh = true; }
+        }
       } else f.item[field] = parseFloat(value);
     });
     App.render.all();
@@ -59,7 +62,12 @@
         App.wires.SQ_LIST.forEach(function (v) { sqO += '<option value="' + v + '">' + v + ' SQ</option>'; });
         mh += row('규격(SQ)', '<select data-mf="sq" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + sqO + '</select>');
         mh += row('두께(mm)', '<input data-mf="width" type="number" step="0.2" min="0.2" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
-        mh += row('전원구분', '<select data-mf="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="">없음</option><option value="AC">AC</option><option value="DC">DC</option></select>');
+        let mfAd = '<option value="__keep__">유지</option><option value="">없음</option>';
+        ((App.userlib.acdcList && App.userlib.acdcList()) || ['AC', 'DC']).forEach(function (v) {
+          mfAd += '<option value="' + App.esc(v) + '">' + App.esc(v) + '</option>';
+        });
+        mfAd += '<option value="__new__">＋추가…</option>';
+        mh += row('전원구분', '<select data-mf="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + mfAd + '</select>');
       } else if (onlyComps) {
         mh += row('타입 일괄', '<select data-mf="type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option>' + App.types.optionsHtml('').replace('<option value="__new__">＋ 새 타입…</option>', '') + '</select>');
         mh += row('글자 방향', '<select data-mf="textVert" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="h">가로</option><option value="v">세로</option></select>');
@@ -84,10 +92,16 @@
       root.querySelectorAll('[data-mf]').forEach(function (inp) {
         inp.addEventListener('change', function () {
           const f3 = inp.getAttribute('data-mf');
-          const v = inp.value;
+          let v = inp.value;
           if (v === '__keep__') return;
+          if (f3 === 'acdc' && v === '__new__') {
+            const nv = prompt('전원 구분 추가 (예: AC220, DC24)', '');
+            if (!nv || !nv.trim()) { Inspector.update(); return; }
+            App.userlib.addAcdc(nv);
+            v = String(nv).trim().toUpperCase();
+          }
           applyAll(function (it, k) {
-            if (f3 === 'sq') { if (v) { it.sq = v; if (App.wires.SQ_AWG[v]) it.awg = App.wires.SQ_AWG[v]; } }
+            if (f3 === 'sq') { if (v) { it.sq = v; if (App.wires.SQ_AWG[v]) it.awg = App.wires.SQ_AWG[v]; if (App.wires.SQ_WIDTH && App.wires.SQ_WIDTH[v]) it.width = App.wires.SQ_WIDTH[v]; } }
             else if (f3 === 'width') { const n = parseFloat(v); if (n) it.width = n; }
             else if (f3 === 'acdc') it.acdc = v;
             else if (f3 === 'type') it.type = v;
@@ -177,11 +191,15 @@
       html += row('두께(mm)', '<input data-field="width" type="number" step="0.2" min="0.2" value="' + (it.width || 1.2) +
         '" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
       const ad = it.acdc || '';
-      html += row('전원구분', '<select data-field="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' +
-        '<option value=""' + (ad === '' ? ' selected' : '') + '>없음</option>' +
-        '<option value="AC"' + (ad === 'AC' ? ' selected' : '') + '>AC (교류)</option>' +
-        '<option value="DC"' + (ad === 'DC' ? ' selected' : '') + '>DC (직류)</option>' +
-        '</select>');
+      // 전원 구분 — 기본 + 사용자 추가 목록 + 직접 추가
+      let adOpts = '<option value=""' + (ad === '' ? ' selected' : '') + '>없음</option>';
+      const adList = (App.userlib.acdcList && App.userlib.acdcList()) || ['AC', 'DC'];
+      adList.forEach(function (v) {
+        adOpts += '<option value="' + App.esc(v) + '"' + (ad === v ? ' selected' : '') + '>' + App.esc(v) + '</option>';
+      });
+      if (ad && adList.indexOf(ad) < 0) adOpts += '<option value="' + App.esc(ad) + '" selected>' + App.esc(ad) + '</option>';
+      adOpts += '<option value="__new__">＋추가…</option>';
+      html += row('전원구분', '<select data-field="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + adOpts + '</select>');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' +
@@ -190,7 +208,15 @@
       root.innerHTML = html;
       root.querySelectorAll('[data-field]').forEach(function (inp) {
         inp.addEventListener('change', function () {
-          commitField(id, inp.getAttribute('data-field'), inp.value);
+          let v = inp.value;
+          if (inp.getAttribute('data-field') === 'acdc' && v === '__new__') {
+            const nv = prompt('전원 구분 추가 (예: AC220, DC24)', '');
+            if (!nv || !nv.trim()) { Inspector.update(); return; }
+            App.userlib.addAcdc(nv);
+            v = String(nv).trim().toUpperCase();
+          }
+          commitField(id, inp.getAttribute('data-field'), v);
+          if (inp.getAttribute('data-field') === 'acdc') Inspector.update();
         });
       });
       root.querySelectorAll('.wire-sw').forEach(function (btn) {
