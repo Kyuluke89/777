@@ -193,7 +193,7 @@
     if (ps) ps.addEventListener('change', function () {
       const p = (App.userlib.presets() || []).find(function (x) { return x.name === ps.value; });
       if (!p) { App.ui.wireDefaults = null; return; }
-      App.ui.wireDefaults = { color: p.color, width: p.width, sq: p.sq, awg: p.awg, acdc: p.acdc || '' };
+      App.ui.wireDefaults = { color: p.color, width: p.width, sq: p.sq, awg: p.awg, acdc: p.acdc || '', preset: p.name };
       // 선택된 배선이 있으면 즉시 적용
       const sel = App.ui.selected;
       let n = 0;
@@ -201,7 +201,7 @@
         App.store.commit(function (s) {
           s.wires.forEach(function (w) {
             if (!sel.has(w.id)) return;
-            w.color = p.color; w.width = p.width; w.sq = p.sq; w.awg = p.awg; w.acdc = p.acdc || ''; n++;
+            w.color = p.color; w.width = p.width; w.sq = p.sq; w.awg = p.awg; w.acdc = p.acdc || ''; w.preset = p.name; n++;
           });
         });
         App.render.all(); App.inspector.update();
@@ -211,6 +211,51 @@
     // 프리셋 관리(만들기·수정·삭제) 모달
     const pManage = $('wire-preset-manage');
     if (pManage) pManage.onclick = function () { App.wirePresets.open(); };
+
+    // ── 프리셋 표시/숨김 (레이어처럼) ──────────────────────────
+    try {
+      const hp = JSON.parse(localStorage.getItem('panel-hidden-presets') || '[]');
+      App.ui.hiddenWirePresets = new Set(Array.isArray(hp) ? hp : []);
+    } catch (e) { App.ui.hiddenWirePresets = new Set(); }
+    function saveHiddenPresets() {
+      try { localStorage.setItem('panel-hidden-presets', JSON.stringify(Array.from(App.ui.hiddenWirePresets))); } catch (e) {}
+    }
+    const visBtn = $('wire-vis');
+    let visPop = null;
+    function closeVisPop() { if (visPop) { visPop.remove(); visPop = null; } }
+    function openVisPop() {
+      closeVisPop();
+      const names = (App.userlib.presets() || []).map(function (p) { return p.name; });
+      visPop = document.createElement('div');
+      visPop.id = 'wire-vis-pop';
+      const r = visBtn.getBoundingClientRect();
+      visPop.style.cssText = 'position:fixed;left:' + Math.round(r.left) + 'px;top:' + Math.round(r.bottom + 4) +
+        'px;z-index:70;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(2,6,23,.15);padding:8px 10px;min-width:170px;';
+      let hh = '<div style="font-size:10px;color:#64748b;font-weight:700;margin-bottom:4px">프리셋 표시 (레이어)</div>';
+      names.concat(['']).forEach(function (nm) {
+        const on = !App.ui.hiddenWirePresets.has(nm);
+        hh += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#334155;padding:2px 0;cursor:pointer">' +
+          '<input type="checkbox" class="vis-cb" data-preset="' + App.esc(nm) + '"' + (on ? ' checked' : '') + '/> ' +
+          (nm ? App.esc(nm) : '(프리셋 미지정)') + '</label>';
+      });
+      visPop.innerHTML = hh;
+      document.body.appendChild(visPop);
+      visPop.querySelectorAll('.vis-cb').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          const nm = cb.getAttribute('data-preset');
+          if (cb.checked) App.ui.hiddenWirePresets.delete(nm);
+          else App.ui.hiddenWirePresets.add(nm);
+          saveHiddenPresets();
+          App.render.all();
+        });
+      });
+      setTimeout(function () {
+        document.addEventListener('pointerdown', function onDoc(e) {
+          if (visPop && !visPop.contains(e.target) && e.target !== visBtn) { closeVisPop(); document.removeEventListener('pointerdown', onDoc); }
+        });
+      }, 0);
+    }
+    if (visBtn) visBtn.onclick = function () { if (visPop) closeVisPop(); else openVisPop(); };
 
     // 라인번호 일괄 재부여
     const renum = $('wire-renum');

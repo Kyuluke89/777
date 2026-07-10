@@ -437,6 +437,7 @@
             if (wd.sq != null) w.sq = wd.sq;
             if (wd.awg != null) w.awg = wd.awg;
             if (wd.acdc != null) w.acdc = wd.acdc;
+            if (wd.preset) w.preset = wd.preset; // 프리셋 이름 기록(레이어식 표시/숨김용)
           }
           s.wires.push(w);
         });
@@ -640,6 +641,7 @@
     // 배선은 경계상자가 아니라 "실제 선분"이 영역과 겹칠 때만 선택
     // (ㄷ자 경로의 빈 안쪽을 드래그했을 때 엉뚱한 선까지 잡히지 않게)
     (state.wires || []).forEach(function (w) {
+      if (App.ui.hiddenWirePresets && App.ui.hiddenWirePresets.has(w.preset || '')) return; // 숨긴 프리셋 제외
       const pts = App.wires.route(state, w);
       if (!pts) return;
       for (let i = 0; i < pts.length - 1; i++) {

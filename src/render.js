@@ -597,6 +597,7 @@
     clear(g);
     const off = (App.ui && App.ui.spreadWires === false) ? null : App.wires.spreadOffsets(state);
     state.wires.forEach(function (w) {
+      if (App.ui && App.ui.hiddenWirePresets && App.ui.hiddenWirePresets.has(w.preset || '')) return; // 레이어 숨김
       const pts = App.wires.displayRoute(state, w, off);
       if (!pts) return;
       const sel = isSelected(w.id);
@@ -856,6 +857,7 @@
     const woff = (App.ui && App.ui.spreadWires === false) ? null : App.wires.spreadOffsets(state);
     state.wires.forEach(function (w) {
       if (!isSelected(w.id)) return;
+      if (App.ui && App.ui.hiddenWirePresets && App.ui.hiddenWirePresets.has(w.preset || '')) return; // 레이어 숨김
       // 세그먼트 이동 핸들 — 최상위 레이어라 겹친 선에 가려지지 않음
       const hs = App.viewport.pxToMM(5);
       App.wires.editSegments(state, w).forEach(function (s) {
