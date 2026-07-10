@@ -302,6 +302,33 @@
       return;
     }
 
+    // 사이 센터 모드: 기준 2개 클릭(예: 위 덕트, 아래 덕트) → 선택 항목을 그 사이 정중앙으로
+    if (App.ui.centerBetween) {
+      const cbEl = e.target.closest && e.target.closest('[data-id][data-kind]');
+      const cb = App.ui.centerBetween;
+      if (cbEl) {
+        const rid = cbEl.getAttribute('data-id'), rkind = cbEl.getAttribute('data-kind');
+        if (cb.ids.indexOf(rid) >= 0) {
+          if (App.toolbar) App.toolbar.flash('대상 자신은 기준이 될 수 없습니다 — 다른 항목을 클릭하세요');
+          return;
+        }
+        const rf = App.store.findById(rid);
+        if (rf) {
+          cb.refs.push(App.geom.bounds(rkind, rf.item));
+          if (cb.refs.length === 1) {
+            if (App.toolbar) App.toolbar.flash('기준 2번째 클릭 (예: 아래 덕트)');
+          } else {
+            applyCenterBetween(cb);
+            App.ui.centerBetween = null;
+          }
+        }
+        return;
+      }
+      App.ui.centerBetween = null; // 빈 곳 클릭 → 취소
+      if (App.toolbar) App.toolbar.flash('사이 센터 취소');
+      return;
+    }
+
     const tool = App.ui.tool;
 
     // 와이어 도구: 단자 클릭 → 단자 클릭
@@ -866,6 +893,62 @@
   }
   Interact.startMatchProp = startMatchProp;
 
+  // 사이 센터 — 선택 항목을 기준 2개 사이 정중앙으로 (예: 찬넬을 위/아래 덕트 사이 센터에)
+  function startCenterBetween() {
+    if (!App.ui.selected.size) {
+      if (App.toolbar) App.toolbar.flash('사이 센터: 이동할 대상(찬넬/부품 등)을 먼저 선택하세요');
+      return;
+    }
+    App.ui.centerBetween = { ids: Array.from(App.ui.selected), refs: [] };
+    if (App.toolbar) App.toolbar.flash('기준 1번째 클릭 (예: 위 덕트)');
+  }
+  Interact.startCenterBetween = startCenterBetween;
+
+  function applyCenterBetween(cb) {
+    const b1 = cb.refs[0], b2 = cb.refs[1];
+    // 두 기준이 위아래로 떨어져 있으면 세로 센터, 좌우면 가로 센터 (간격이 큰 축 기준)
+    const gapV = Math.max(b1.y - (b2.y + b2.h), b2.y - (b1.y + b1.h));
+    const gapH = Math.max(b1.x - (b2.x + b2.w), b2.x - (b1.x + b1.w));
+    const axis = gapV >= gapH ? 'y' : 'x';
+    let mid;
+    if (axis === 'y') {
+      const upper = (b1.y + b1.h / 2) <= (b2.y + b2.h / 2) ? b1 : b2;
+      const lower = upper === b1 ? b2 : b1;
+      mid = ((upper.y + upper.h) + lower.y) / 2; // 마주보는 모서리 사이 정중앙
+    } else {
+      const left = (b1.x + b1.w / 2) <= (b2.x + b2.w / 2) ? b1 : b2;
+      const right = left === b1 ? b2 : b1;
+      mid = ((left.x + left.w) + right.x) / 2;
+    }
+    // 선택 그룹의 경계 상자 중심을 mid 로 이동 (그룹 형태 유지)
+    const state = App.store.get();
+    let minC = Infinity, maxC = -Infinity, any = false;
+    cb.ids.forEach(function (id) {
+      const f = App.store.findById(id);
+      if (!f || f.item.locked) return;
+      const b = App.geom.bounds(f.kind, f.item);
+      const lo = axis === 'y' ? b.y : b.x, hi = axis === 'y' ? b.y + b.h : b.x + b.w;
+      minC = Math.min(minC, lo); maxC = Math.max(maxC, hi); any = true;
+    });
+    if (!any) return;
+    const delta = mid - (minC + maxC) / 2;
+    App.store.commit(function () {
+      cb.ids.forEach(function (id) {
+        const f = App.store.findById(id);
+        if (!f || f.item.locked) return;
+        if (f.kind === 'clines' || f.kind === 'dimensions') {
+          if (axis === 'y') { f.item.y1 += delta; f.item.y2 += delta; }
+          else { f.item.x1 += delta; f.item.x2 += delta; }
+        } else {
+          if (axis === 'y') f.item.y += delta; else f.item.x += delta;
+        }
+      });
+    });
+    App.render.all();
+    if (App.inspector) App.inspector.update();
+    if (App.toolbar) App.toolbar.flash('사이 센터 정렬 완료 (' + (axis === 'y' ? '세로' : '가로') + ')');
+  }
+
   // 방향키 미세 이동 (격자 단위, Shift=10배)
   function nudge(dx, dy, big) {
     if (!App.ui.selected.size) return;
@@ -930,6 +1013,7 @@
       App.ui.placing = null;
       App.ui.wireStart = null;
       App.ui.matchProp = null;
+      App.ui.centerBetween = null;
       App.ui.dim = { stage: 0 };
       App.ui.cline = { stage: 0 };
       App.render.wirePreview(null);
@@ -1065,6 +1149,7 @@
         items.push({ icon: '🔒', label: (f && f.item.locked) ? '잠금 해제' : '잠금', fn: toggleLock });
       }
       items.push({ icon: '🖌', label: '속성 복사 (다른 대상에 적용)', fn: startMatchProp });
+      if (kind !== 'wires') items.push({ icon: '⇹', label: '사이 센터 (기준 2개 클릭)', fn: startCenterBetween });
       items.push('sep');
       items.push({ icon: '🗑', label: '삭제', key: 'Del', danger: true, fn: deleteSelected });
     } else {

@@ -284,6 +284,7 @@
     $('act-rotate').onclick = function () { App.interact.rotateSelected(); };
     $('act-dup').onclick = function () { App.interact.duplicateSelected(); };
     if ($('act-matchprop')) $('act-matchprop').onclick = function () { App.interact.startMatchProp(); };
+    if ($('al-between')) $('al-between').onclick = function () { App.interact.startCenterBetween(); };
     $('act-lock').onclick = function () { App.interact.toggleLock(); };
 
     // 커스텀 부품 만들기 + 내 부품 내보내기/가져오기

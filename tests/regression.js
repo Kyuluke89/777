@@ -1711,6 +1711,61 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(clOps.rt, '센터선 저장 라운드트립 보존');
   assert(clOps.cleared, '센터선 삭제');
 
+  // === 사이 센터: 찬넬을 위/아래 덕트 사이 정중앙으로 ===
+  const cbtw = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.ducts.push(
+        { id: 'cbd1', orient: 'h', x: 0, y: 100, lengthMM: 300, widthMM: 60 },   // 위 덕트 (하단 160)
+        { id: 'cbd2', orient: 'h', x: 0, y: 400, lengthMM: 300, widthMM: 60 }    // 아래 덕트 (상단 400)
+      );
+      s.rails.push({ id: 'cbr1', orient: 'h', x: 20, y: 200, lengthMM: 260, widthMM: 35, type: 'DIN35' });
+    });
+    App.render.all();
+    App.ui.selected = new Set(['cbr1']);
+    App.interact.startCenterBetween();
+    const armed = !!App.ui.centerBetween;
+    function clickOn(id) {
+      const el = document.querySelector('[data-id="' + id + '"]');
+      const bb = el.getBoundingClientRect();
+      const ev = new PointerEvent('pointerdown', { clientX: bb.left + bb.width / 2, clientY: bb.top + bb.height / 2, button: 0, bubbles: true });
+      Object.defineProperty(ev, 'target', { value: el });
+      document.getElementById('canvas').dispatchEvent(ev);
+    }
+    clickOn('cbd1');
+    const stage1 = App.ui.centerBetween && App.ui.centerBetween.refs.length === 1;
+    clickOn('cbd2');
+    const rail = App.store.get().rails.find(r => r.id === 'cbr1');
+    // 틈 160~400 의 정중앙 280 → 레일(35) 상단 y = 262.5
+    const centered = rail && Math.abs((rail.y + 17.5) - 280) < 0.01;
+    const done = !App.ui.centerBetween;
+    // 가로 케이스: 세로 덕트 2개 좌우 → 가로 센터
+    App.store.commit(s => {
+      s.ducts.push(
+        { id: 'cbd3', orient: 'v', x: 100, y: 500, lengthMM: 200, widthMM: 60 },  // 우측 끝 160
+        { id: 'cbd4', orient: 'v', x: 400, y: 500, lengthMM: 200, widthMM: 60 }   // 좌측 끝 400
+      );
+    });
+    App.render.all();
+    App.ui.selected = new Set(['cbr1']);
+    App.interact.startCenterBetween();
+    clickOn('cbd3'); clickOn('cbd4');
+    const rail2 = App.store.get().rails.find(r => r.id === 'cbr1');
+    const centeredH = rail2 && Math.abs((rail2.x + 130) - 280) < 0.01; // 레일 길이 260 중심 → 280
+    // undo 로 이동 취소 가능
+    App.store.undo();
+    // 정리
+    App.store.commit(s => {
+      s.ducts = s.ducts.filter(d => ['cbd1', 'cbd2', 'cbd3', 'cbd4'].indexOf(d.id) < 0);
+      s.rails = s.rails.filter(r => r.id !== 'cbr1');
+    });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { armed, stage1, centered, done, centeredH };
+  });
+  assert(cbtw.armed && cbtw.stage1, '사이 센터 모드(기준 1·2 클릭 흐름)');
+  assert(cbtw.centered, '찬넬이 위/아래 덕트 사이 정중앙(세로) 배치');
+  assert(cbtw.done, '기준 2개 클릭 후 모드 자동 종료');
+  assert(cbtw.centeredH, '좌/우 기준 → 가로 센터 배치');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 
