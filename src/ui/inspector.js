@@ -469,6 +469,7 @@
           if (fnd) fnd.item[pr[1]] = (sel2.value === 'v');
         });
         App.render.all();
+        if (App.interact.saveLabelLayout) App.interact.saveLabelLayout(id); // 방향도 라이브러리에 기억
       };
     });
   };

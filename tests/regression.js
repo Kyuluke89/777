@@ -1971,6 +1971,44 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(peScroll, '부품 편집기 우측 패널 통합 스크롤');
 
+  // === 글씨 배치(위치/방향) 라이브러리 기억 → 재배치 시 동일 적용 ===
+  const lblmem = await page.evaluate(() => {
+    // 내부품 생성 + 배치
+    App.userlib.add({ partNo: 'MEM-1', type: 'RELAY', name: '배치기억', w: 40, h: 50, d: 40, terminals: 0 });
+    App.palette.reloadUser();
+    App.store.commit(s => {
+      s.components.push({ id: 'mm1', partNo: 'MEM-1', type: 'RELAY', partName: '배치기억', x: 620, y: 1700, widthMM: 40, heightMM: 50, rotation: 0, label: '배치기억', terminals: 0, term: null });
+    });
+    // 글씨를 옮긴 것처럼 오프셋/방향 설정 후 저장 훅 호출(드래그 종료와 동일 경로)
+    App.store.commit(s => {
+      const c = s.components.find(x => x.id === 'mm1');
+      c.labelDx = 25; c.labelDy = -12; c.typeDx = 8; c.tagDx = 5; c.labelVert = true;
+    });
+    App.interact.saveLabelLayout('mm1');
+    const lp = App.palette.getLibrary().find(p => p.partNo === 'MEM-1');
+    const savedToLib = lp && lp.labelDx === 25 && lp.labelDy === -12 && lp.typeDx === 8 && lp.labelVert === true;
+    // 같은 부품을 새로 배치 → 글씨 배치 동일 적용 (팔레트 배치 흐름)
+    App.ui.placing = lp;
+    const svg = document.getElementById('canvas');
+    const ctm = svg.getScreenCTM();
+    const pt = svg.createSVGPoint(); pt.x = 100; pt.y = 1800;
+    const cl = pt.matrixTransform(ctm);
+    svg.dispatchEvent(new PointerEvent('pointerdown', { clientX: cl.x, clientY: cl.y, button: 0, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: cl.x, clientY: cl.y, bubbles: true }));
+    const comps = App.store.get().components.filter(c => c.partNo === 'MEM-1');
+    const nc = comps[comps.length - 1];
+    const applied = comps.length === 2 && nc.labelDx === 25 && nc.labelDy === -12 && nc.typeDx === 8 && nc.labelVert === true;
+    // 정리
+    App.ui.placing = null;
+    App.store.commit(s => { s.components = s.components.filter(c => c.partNo !== 'MEM-1'); });
+    App.userlib.remove('MEM-1');
+    App.palette.reloadUser();
+    App.ui.selected.clear(); App.render.all();
+    return { savedToLib, applied };
+  });
+  assert(lblmem.savedToLib, '글씨 배치(위치/방향) 라이브러리에 저장');
+  assert(lblmem.applied, '같은 부품 재배치 시 글씨 배치 동일 적용');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

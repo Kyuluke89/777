@@ -64,6 +64,14 @@
       tag: '',                          // 호기번호(선택) — 인스펙터에서 입력
       partName: part.name || '',
       manufacturer: part.manufacturer || '',
+      // 라이브러리에 저장된 글씨 배치(위치/방향) 그대로 적용
+      labelDx: part.labelDx || 0, labelDy: part.labelDy || 0,
+      typeDx: part.typeDx || 0, typeDy: part.typeDy || 0,
+      tagDx: part.tagDx || 0, tagDy: part.tagDy || 0,
+      textVert: part.textVert || false,
+      labelVert: part.labelVert != null ? part.labelVert : null,
+      typeVert: part.typeVert != null ? part.typeVert : null,
+      tagVert: part.tagVert != null ? part.tagVert : null,
       terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null,
       sym: part.sym || null,
@@ -639,7 +647,13 @@
       App.store.touch();
     }
     else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
-    else if (gesture.type === 'labeldrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'labeldrag') {
+      if (gesture.moved) {
+        App.store.pushUndo(gesture.snap);
+        // 품명/타입/호기 글씨 배치를 라이브러리에도 기억 → 다음 배치에 동일 적용
+        if (gesture.kind === 'comp' || gesture.kind === 'tag' || gesture.kind === 'type') saveLabelLayout(gesture.id);
+      }
+    }
     else if (gesture.type === 'sticker') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'dresize') {
       if (gesture.moved) { App.store.pushUndo(gesture.snap); if (App.inspector) App.inspector.update(); }
@@ -928,6 +942,29 @@
     selectMany(newIds);
   }
   function duplicateSelected() { copySelected(); paste(); }
+
+  // 부품의 글씨 배치(품명/타입/호기 위치·방향)를 라이브러리 정의에 저장
+  // → 같은 부품을 다음에 배치할 때 동일한 글씨 배치로 나옴
+  function saveLabelLayout(compId) {
+    const f = App.store.findById(compId);
+    if (!f || f.kind !== 'components' || !f.item.partNo) return;
+    if (!App.userlib || !App.palette || !App.palette.getLibrary) return;
+    const c = f.item;
+    const libPart = App.palette.getLibrary().find(function (p) { return p.partNo === c.partNo; });
+    if (!libPart) return; // 라이브러리에 없는 부품(불러온 옛 프로젝트 등)은 통과
+    App.userlib.add(Object.assign({}, libPart, {
+      labelDx: c.labelDx || 0, labelDy: c.labelDy || 0,
+      typeDx: c.typeDx || 0, typeDy: c.typeDy || 0,
+      tagDx: c.tagDx || 0, tagDy: c.tagDy || 0,
+      textVert: c.textVert || false,
+      labelVert: c.labelVert != null ? c.labelVert : null,
+      typeVert: c.typeVert != null ? c.typeVert : null,
+      tagVert: c.tagVert != null ? c.tagVert : null
+    }));
+    App.palette.reloadUser();
+    if (App.toolbar) App.toolbar.flash('글씨 배치를 라이브러리에 기억했습니다 (' + c.partNo + ')');
+  }
+  Interact.saveLabelLayout = saveLabelLayout;
 
   // 속성 복사 (MATCHPROP) — 종류별로 복사되는 속성
   const MATCH_PROPS = {
