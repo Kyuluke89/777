@@ -16,6 +16,12 @@
       const w = Math.max(10, String(item.text || '').length * sz * 0.62);
       return { x: item.x, y: item.y - sz, w: w, h: sz * 1.5 };
     }
+    if (kind === 'clines') {
+      return {
+        x: Math.min(item.x1, item.x2) - 2, y: Math.min(item.y1, item.y2) - 2,
+        w: Math.abs(item.x2 - item.x1) + 4, h: Math.abs(item.y2 - item.y1) + 4
+      };
+    }
     if (kind === 'ducts') {
       const w = item.orient === 'h' ? item.lengthMM : item.widthMM;
       const h = item.orient === 'h' ? item.widthMM : item.lengthMM;

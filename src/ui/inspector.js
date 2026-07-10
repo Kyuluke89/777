@@ -120,6 +120,22 @@
       return;
     }
 
+    if (f.kind === 'clines') {
+      const len = Math.round(Math.hypot(it.x2 - it.x1, it.y2 - it.y1));
+      html = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">센터선(중심선)</div>';
+      html += row('길이(mm)', '<span class="text-xs text-slate-700 font-semibold">' + len + '</span>');
+      html += row('X1', numInput('x1', Math.round(it.x1)));
+      html += row('Y1', numInput('y1', Math.round(it.y1)));
+      html += row('X2', numInput('x2', Math.round(it.x2)));
+      html += row('Y2', numInput('y2', Math.round(it.y2)));
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">드래그로 이동. 일점쇄선으로 표시되며 DXF의 CENTER 레이어로 나갑니다.</div>';
+      root.innerHTML = html;
+      root.querySelectorAll('[data-field]').forEach(function (inp) {
+        inp.addEventListener('change', function () { commitField(id, inp.getAttribute('data-field'), inp.value); });
+      });
+      return;
+    }
+
     if (f.kind === 'texts') {
       html = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">자유 텍스트</div>';
       html += row('내용', '<input data-field="text" type="text" value="' + App.esc(it.text || '') +

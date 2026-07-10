@@ -661,6 +661,17 @@
   function renderDims(state) {
     const g = App.viewport.layers().dims;
     clear(g);
+    // 센터선(중심선) — 일점쇄선. 두 점 클릭으로 생성, 드래그로 이동
+    (state.clines || []).forEach(function (cl) {
+      const sel = isSelected(cl.id);
+      const grp = App.el('g', { 'data-id': cl.id, 'data-kind': 'clines', style: 'cursor:move' }, g);
+      App.el('line', { x1: cl.x1, y1: cl.y1, x2: cl.x2, y2: cl.y2, stroke: 'transparent', 'stroke-width': App.viewport.pxToMM(8) }, grp); // 클릭 영역
+      App.el('line', {
+        x1: cl.x1, y1: cl.y1, x2: cl.x2, y2: cl.y2,
+        stroke: sel ? '#0ea5e9' : '#dc2626', 'stroke-width': App.viewport.pxToMM(sel ? 1.4 : 1),
+        'stroke-dasharray': '12 3 3 3', 'pointer-events': 'none'
+      }, grp);
+    });
     const fontMM = App.viewport.pxToMM(13) * fonts(state).dim;   // 화면 기준 일정 크기 × 배율
     const lw = App.viewport.pxToMM(1);
     state.dimensions.forEach(function (dim) {
@@ -867,6 +878,19 @@
   };
 
   // 치수 미리보기 (그리는 중)
+  // 센터선 미리보기 (첫 점 클릭 후)
+  Render.clinePreview = function (l) {
+    const g = App.viewport.layers().overlay;
+    let p = g.querySelector('#cline-preview');
+    if (!l) { if (p) p.remove(); return; }
+    if (!p) p = App.el('line', { id: 'cline-preview' }, g);
+    p.setAttribute('x1', l.x1); p.setAttribute('y1', l.y1);
+    p.setAttribute('x2', l.x2); p.setAttribute('y2', l.y2);
+    p.setAttribute('stroke', '#dc2626');
+    p.setAttribute('stroke-width', App.viewport.pxToMM(1));
+    p.setAttribute('stroke-dasharray', '12 3 3 3');
+  };
+
   Render.dimPreview = function (dim) {
     const g = App.viewport.layers().overlay;
     let p = g.querySelector('#dim-preview');

@@ -40,6 +40,7 @@
       wires: [],      // 단자 연결선
       dimensions: [], // 치수선
       texts: [],      // 자유 텍스트(주석)
+      clines: [],     // 센터선(중심선, 일점쇄선)
       labels: [],     // (다음 단계) 라인 라벨
       meta: { createdAt: null, updatedAt: null }
     };
@@ -118,7 +119,7 @@
   // --- 엔티티 헬퍼 ---
   Store.findById = function (id) {
     if (!id) return null;
-    const groups = ['ducts', 'rails', 'components', 'wires', 'dimensions', 'texts'];
+    const groups = ['ducts', 'rails', 'components', 'wires', 'dimensions', 'texts', 'clines'];
     for (let i = 0; i < groups.length; i++) {
       const arr = state[groups[i]];
       for (let j = 0; j < arr.length; j++) {

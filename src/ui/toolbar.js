@@ -4,7 +4,7 @@
   const App = (global.App = global.App || {});
   const Toolbar = (App.toolbar = {});
 
-  const TOOLS = ['select', 'duct-h', 'duct-v', 'rail-h', 'rail-v', 'wire', 'dim', 'text'];
+  const TOOLS = ['select', 'duct-h', 'duct-v', 'rail-h', 'rail-v', 'wire', 'dim', 'text', 'cline'];
 
   function $(id) { return document.getElementById(id); }
 
@@ -28,7 +28,11 @@
     App.ui.placing = null;
     App.ui.wireStart = null;
     App.ui.dim = { stage: 0 };
-    if (App.render) { App.render.dimPreview(null); App.render.snapMarker(null); App.render.wirePreview(null); }
+    App.ui.cline = { stage: 0 };
+    if (App.render) {
+      App.render.dimPreview(null); App.render.snapMarker(null); App.render.wirePreview(null);
+      if (App.render.clinePreview) App.render.clinePreview(null);
+    }
     if (App.palette) App.palette.refresh();
     Toolbar.syncTool();
   }

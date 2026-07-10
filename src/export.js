@@ -335,6 +335,9 @@
     (state.texts || []).forEach(function (t) {
       text('NOTES', t.x, t.y, t.size || 8, t.text);
     });
+    (state.clines || []).forEach(function (cl) {
+      line('CENTER', cl.x1, cl.y1, cl.x2, cl.y2);
+    });
     push(0, 'ENDSEC', 0, 'EOF');
     return L.join('\n') + '\n';
   };

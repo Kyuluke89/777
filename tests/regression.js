@@ -1636,6 +1636,81 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     assert(mprop.escCleared, '속성 복사 Esc 종료');
   }
 
+  // === 센터선(중심선) 도구 ===
+  await page.click('#tool-cline');
+  const clTool = await page.evaluate(() => App.ui.tool === 'cline');
+  assert(clTool, '센터선 도구 선택');
+  {
+    // 위 점 → 아래 점 클릭 (거의 수직 → 자동 수직 정렬)
+    const pts = await page.evaluate(() => {
+      const p = App.store.get().panel;
+      App.viewport.fitTo(p.widthMM, p.heightMM); // 클릭 좌표가 화면 안에 오도록
+      App.render.all();
+      const svg = document.getElementById('canvas');
+      const ctm = svg.getScreenCTM();
+      function toClient(x, y) {
+        const p = svg.createSVGPoint(); p.x = x; p.y = y;
+        const c = p.matrixTransform(ctm);
+        return { x: c.x, y: c.y };
+      }
+      return { a: toClient(300, 5), b: toClient(302, 795) }; // 2mm 어긋나게 → 수직 스냅 확인
+    });
+    await page.mouse.click(pts.a.x, pts.a.y);
+    await page.mouse.click(pts.b.x, pts.b.y);
+  }
+  const clMade = await page.evaluate(() => {
+    const s = App.store.get();
+    const cl = (s.clines || [])[0];
+    const node = document.querySelector('[data-kind="clines"]');
+    const dash = node && node.querySelectorAll('line')[1] && node.querySelectorAll('line')[1].getAttribute('stroke-dasharray');
+    return {
+      n: (s.clines || []).length,
+      vertical: cl && cl.x1 === cl.x2,   // 자동 수직 정렬
+      span: cl && Math.abs(cl.y2 - cl.y1) > 500,
+      hasNode: !!node, dash: dash,
+      sel: cl && App.ui.selected.has(cl.id)
+    };
+  });
+  assert(clMade.n === 1 && clMade.hasNode, '센터선 두 점 클릭 생성');
+  assert(clMade.vertical, '거의 수직 클릭 → 완전 수직 자동 정렬');
+  assert(clMade.dash && clMade.dash.split(' ').length === 4, '일점쇄선(dash-dot) 렌더');
+  assert(clMade.sel, '생성 직후 선택');
+  // 이동(4좌표), 인스펙터, 복제, DXF, 시트/저장 라운드트립, 삭제
+  const clOps = await page.evaluate(() => {
+    const cl = App.store.get().clines[0];
+    const id = cl.id, ox1 = cl.x1, oy1 = cl.y1;
+    // 인스펙터 X1 수정
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set([id]);
+    App.inspector.update();
+    const inp = document.querySelector('#inspector [data-field="x1"]');
+    inp.value = String(ox1 + 50);
+    inp.dispatchEvent(new Event('change'));
+    const edited = App.store.get().clines[0].x1 === ox1 + 50;
+    // 복제 → 2개 + 오프셋
+    App.ui.selected = new Set([id]);
+    App.interact.duplicateSelected();
+    const dup = App.store.get().clines.length === 2;
+    // DXF CENTER 레이어
+    const dxf = App.exporter.dxfString(App.store.get()).indexOf('CENTER') >= 0;
+    // 저장 라운드트립
+    const json = JSON.stringify(App.store.get());
+    App.store.replace(App.createEmptyProject());
+    App.store.replace(JSON.parse(json));
+    const rt = App.store.get().clines.length === 2;
+    // 전체 삭제
+    App.ui.selected = new Set(App.store.get().clines.map(c => c.id));
+    App.interact.deleteSelected();
+    const cleared = App.store.get().clines.length === 0;
+    App.render.all(); App.inspector.update();
+    return { edited, dup, dxf, rt, cleared };
+  });
+  assert(clOps.edited, '센터선 인스펙터 좌표 편집');
+  assert(clOps.dup, '센터선 복제');
+  assert(clOps.dxf, 'DXF에 센터선(CENTER) 포함');
+  assert(clOps.rt, '센터선 저장 라운드트립 보존');
+  assert(clOps.cleared, '센터선 삭제');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

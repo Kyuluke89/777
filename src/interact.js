@@ -173,7 +173,10 @@
     const origPos = {};
     App.ui.selected.forEach(function (id) {
       const f = App.store.findById(id);
-      if (f && !f.item.locked) origPos[id] = { x: f.item.x, y: f.item.y }; // 잠긴 항목은 이동 제외
+      if (!f || f.item.locked) return; // 잠긴 항목은 이동 제외
+      if (f.kind === 'clines' || f.kind === 'dimensions') {
+        origPos[id] = { pts: true, x1: f.item.x1, y1: f.item.y1, x2: f.item.x2, y2: f.item.y2 };
+      } else origPos[id] = { x: f.item.x, y: f.item.y };
     });
     gesture = { type: 'move', sp: sp, snap: snap, origPos: origPos, moved: false };
   }
@@ -189,8 +192,14 @@
     for (const id in gesture.origPos) {
       const f = App.store.findById(id);
       if (!f) continue;
-      f.item.x = snapV(gesture.origPos[id].x + dx);
-      f.item.y = snapV(gesture.origPos[id].y + dy);
+      const o = gesture.origPos[id];
+      if (o.pts) { // 두 점 엔티티(센터선/치수) — 양 끝점을 함께 이동
+        f.item.x1 = snapV(o.x1 + dx); f.item.y1 = snapV(o.y1 + dy);
+        f.item.x2 = snapV(o.x2 + dx); f.item.y2 = snapV(o.y2 + dy);
+        continue;
+      }
+      f.item.x = snapV(o.x + dx);
+      f.item.y = snapV(o.y + dy);
       // 부품은 가까운 찬넬(레일) 중심에 자동 정렬
       if (f.kind === 'components') {
         const rt = App.geom.snapToRail(state, f.item.x, f.item.y, f.item.heightMM);
@@ -358,6 +367,30 @@
       return;
     }
 
+    // 센터선 도구: 두 점(위/아래 또는 좌/우) 클릭 → 일점쇄선 중심선 (수직/수평 근처면 자동 정렬)
+    if (tool === 'cline') {
+      const state = App.store.get();
+      const c = App.ui.cline || (App.ui.cline = { stage: 0 });
+      const pt = App.geom.snapPoint(state, sp.x, sp.y, App.viewport.pxToMM(8));
+      if (c.stage === 0) {
+        c.p1 = pt; c.stage = 1;
+      } else {
+        let x2 = pt.x, y2 = pt.y;
+        const adx = Math.abs(x2 - c.p1.x), ady = Math.abs(y2 - c.p1.y);
+        if (adx < ady * 0.15) x2 = c.p1.x;       // 거의 수직 → 수직 정렬
+        else if (ady < adx * 0.15) y2 = c.p1.y;  // 거의 수평 → 수평 정렬
+        const id = App.uid('cl');
+        App.store.commit(function (s) {
+          s.clines = s.clines || [];
+          s.clines.push({ id: id, x1: c.p1.x, y1: c.p1.y, x2: x2, y2: y2 });
+        });
+        App.ui.cline = { stage: 0 };
+        App.render.clinePreview(null); App.render.snapMarker(null);
+        selectOnly(id);
+      }
+      return;
+    }
+
     // 자유 텍스트 도구: 클릭 지점에 주석 텍스트 배치
     if (tool === 'text') {
       const tid = App.uid('txt');
@@ -473,7 +506,7 @@
     if (!r || (r.w < 1 && r.h < 1)) return;
     const state = App.store.get();
     const hit = [];
-    ['components', 'ducts', 'rails', 'wires', 'dimensions', 'texts'].forEach(function (k) {
+    ['components', 'ducts', 'rails', 'wires', 'dimensions', 'texts', 'clines'].forEach(function (k) {
       (state[k] || []).forEach(function (it) {
         if (rectsIntersect(r, App.geom.bounds(k, it))) hit.push(it.id);
       });
@@ -510,6 +543,19 @@
         if (d.stage === 1) App.render.dimPreview({ x1: d.p1.x, y1: d.p1.y, x2: snap.x, y2: snap.y, off: 0 });
         else App.render.dimPreview(null);
       }
+    }
+    // 센터선 미리보기 + 스냅 마커
+    if (App.ui.tool === 'cline') {
+      const cp2 = App.viewport.clientToWorld(e.clientX, e.clientY);
+      const snap = App.geom.snapPoint(App.store.get(), cp2.x, cp2.y, App.viewport.pxToMM(8));
+      App.render.snapMarker(snap);
+      const c = App.ui.cline || { stage: 0 };
+      if (c.stage === 1) {
+        let x2 = snap.x, y2 = snap.y;
+        const adx = Math.abs(x2 - c.p1.x), ady = Math.abs(y2 - c.p1.y);
+        if (adx < ady * 0.15) x2 = c.p1.x; else if (ady < adx * 0.15) y2 = c.p1.y;
+        App.render.clinePreview({ x1: c.p1.x, y1: c.p1.y, x2: x2, y2: y2 });
+      } else App.render.clinePreview(null);
     }
     // 와이어 미리보기 (버튼 안 눌러도 동작)
     if (App.ui.tool === 'wire' && App.ui.wireStart) {
@@ -735,7 +781,7 @@
     if (!App.ui.selected.size) return;
     const ids = Array.from(App.ui.selected);
     App.store.commit(function (s) {
-      ['ducts', 'rails', 'components', 'wires', 'dimensions', 'texts'].forEach(function (k) {
+      ['ducts', 'rails', 'components', 'wires', 'dimensions', 'texts', 'clines'].forEach(function (k) {
         if (s[k]) s[k] = s[k].filter(function (it) { return ids.indexOf(it.id) < 0; });
       });
       // 삭제된 부품에 연결된 와이어도 제거
@@ -764,7 +810,7 @@
     const ids = Array.from(App.ui.selected);
     const s = App.store.get();
     const items = [];
-    ['components', 'ducts', 'rails', 'texts', 'dimensions'].forEach(function (k) {
+    ['components', 'ducts', 'rails', 'texts', 'dimensions', 'clines'].forEach(function (k) {
       (s[k] || []).forEach(function (it) {
         if (ids.indexOf(it.id) >= 0) items.push({ kind: k, item: App.clone(it) });
       });
@@ -777,13 +823,13 @@
     // 하위호환: 예전 클립보드(부품 배열)도 처리
     const list = App.ui.clipboard.map(function (e) { return e && e.kind ? e : { kind: 'components', item: e }; });
     const g = App.store.get().panel.gridMM * 2;
-    const prefix = { components: 'cmp', ducts: 'duct', rails: 'rail', texts: 'txt', dimensions: 'dim' };
+    const prefix = { components: 'cmp', ducts: 'duct', rails: 'rail', texts: 'txt', dimensions: 'dim', clines: 'cl' };
     const newIds = [];
     App.store.commit(function (s) {
       list.forEach(function (e) {
         const nc = App.clone(e.item);
         nc.id = App.uid(prefix[e.kind] || 'id');
-        if (e.kind === 'dimensions') { nc.x1 += g; nc.y1 += g; nc.x2 += g; nc.y2 += g; }
+        if (e.kind === 'dimensions' || e.kind === 'clines') { nc.x1 += g; nc.y1 += g; nc.x2 += g; nc.y2 += g; }
         else { nc.x += g; nc.y += g; }
         nc.locked = false;
         if (nc.stickers) nc.stickers.forEach(function (st) { st.id = App.uid('stk'); }); // 스티커 id 재발급
@@ -878,14 +924,17 @@
       if (k === 'w') { App.toolbar.setTool('wire'); return; }
       if (k === 'd') { App.toolbar.setTool('dim'); return; }
       if (k === 't') { App.toolbar.setTool('text'); return; }
+      if (k === 'c') { App.toolbar.setTool('cline'); return; }
     }
     if (e.key === 'Escape') {
       App.ui.placing = null;
       App.ui.wireStart = null;
       App.ui.matchProp = null;
       App.ui.dim = { stage: 0 };
+      App.ui.cline = { stage: 0 };
       App.render.wirePreview(null);
       App.render.dimPreview(null);
+      if (App.render.clinePreview) App.render.clinePreview(null);
       App.render.snapMarker(null);
       App.ui.selected.clear();
       if (App.palette) App.palette.refresh();
@@ -1022,7 +1071,7 @@
       items.push({ icon: '📋', label: '붙여넣기', key: 'Ctrl+V', fn: paste });
       items.push({ icon: '⬚', label: '전체 선택', key: 'Ctrl+A', fn: function () {
         const s = App.store.get();
-        App.ui.selected = new Set([].concat(s.components, s.ducts, s.rails, s.wires, s.dimensions || []).map(function (it) { return it.id; }));
+        App.ui.selected = new Set([].concat(s.components, s.ducts, s.rails, s.wires, s.dimensions || [], s.texts || [], s.clines || []).map(function (it) { return it.id; }));
         App.render.all(); if (App.inspector) App.inspector.update();
       } });
       items.push('sep');
