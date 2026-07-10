@@ -855,6 +855,17 @@
           style: 'cursor:' + (s.orient === 'H' ? 'ns-resize' : 'ew-resize')
         }, g);
       });
+      // 끝점(단자) 핸들 — 드래그해서 다른 단자로 연결 변경
+      const RR = App.wires.route(state, w);
+      if (RR && RR.length) {
+        [['a', RR[0]], ['b', RR[RR.length - 1]]].forEach(function (pr) {
+          App.el('circle', {
+            cx: pr[1].x, cy: pr[1].y, r: App.viewport.pxToMM(6),
+            fill: 'transparent', stroke: '#f59e0b', 'stroke-width': App.viewport.pxToMM(1.4),
+            'pointer-events': 'all', 'data-wend': pr[0], 'data-wire': w.id, style: 'cursor:grab'
+          }, g);
+        });
+      }
       // 양 끝 라인번호 이동 핸들
       if (!w.label) return;
       const wpts = App.wires.displayRoute(state, w, woff);

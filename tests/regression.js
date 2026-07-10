@@ -2382,6 +2382,46 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(walign.aligned, '선 정렬: 상대선이 기준선 좌표로 이동(450→250)');
   assert(walign.escOff, '선 정렬: Esc 종료');
 
+  // === 배선 끝점 드래그로 단자 재연결 ===
+  const wend = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'we1', partNo: 'WE', type: 'MC', x: 50, y: 600, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'we2', partNo: 'WE', type: 'MC', x: 300, y: 600, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'we3', partNo: 'WE', type: 'MC', x: 450, y: 600, widthMM: 30, heightMM: 40, rotation: 0, label: 'c', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'wew1', fromComp: 'we1', fromTerm: 0, toComp: 'we2', toTerm: 0, label: 'E1', color: '#e11d2a', width: 1.2, corners: null, midY: null });
+    });
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set(['wew1']);
+    App.render.all();
+    const handle = document.querySelector('[data-wend="b"][data-wire="wew1"]');
+    if (!handle) return { fail: 'no-handle' };
+    const svg = document.getElementById('canvas');
+    const ctm = svg.getScreenCTM();
+    function cl(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; const c = p.matrixTransform(ctm); return { x: c.x, y: c.y }; }
+    const a = cl(315, 602);       // 현재 B 끝(we2 단자 근처)
+    const b = cl(465, 602);       // we3 단자(450+15, 600+2)
+    const dn = new PointerEvent('pointerdown', { clientX: a.x, clientY: a.y, button: 0, bubbles: true });
+    Object.defineProperty(dn, 'target', { value: handle });
+    svg.dispatchEvent(dn);
+    svg.dispatchEvent(new PointerEvent('pointermove', { clientX: b.x, clientY: b.y, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x, clientY: b.y, bubbles: true }));
+    const w = App.store.get().wires.find(x => x.id === 'wew1');
+    const reconnected = w.toComp === 'we3' && w.toTerm === 0 && w.fromComp === 'we1';
+    // 실행취소로 원복
+    App.store.undo();
+    const undone = App.store.get().wires.find(x => x.id === 'wew1').toComp === 'we2';
+    App.store.commit(s => {
+      s.wires = s.wires.filter(x => x.id !== 'wew1');
+      s.components = s.components.filter(c => c.partNo !== 'WE');
+    });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { reconnected, undone };
+  });
+  assert(wend.reconnected, '배선 끝점 드래그 → 다른 단자로 재연결');
+  assert(wend.undone, '재연결 실행취소');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

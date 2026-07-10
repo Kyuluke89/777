@@ -505,6 +505,14 @@
       return null;
     }
 
+    // 배선 끝점 핸들 드래그 — 다른 단자에 놓으면 연결 변경
+    const wendEl = pick('data-wend');
+    if (wendEl) {
+      startWireEnd(wendEl.getAttribute('data-wire'), wendEl.getAttribute('data-wend'), sp);
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
+
     // 와이어 세그먼트 핸들 드래그 (선택된 와이어 편집) — 라벨보다 우선
     const segEl = pick('data-seg');
     if (segEl) {
@@ -673,6 +681,7 @@
     else if (gesture.type === 'dimoff') updateDimOff(cp);
     else if (gesture.type === 'labeldrag') updateLabelDrag(cp);
     else if (gesture.type === 'sticker') updateStickerDrag(cp);
+    else if (gesture.type === 'wend') updateWireEnd(cp);
     else if (gesture.type === 'dresize') updateDuctResize(cp);
     else if (gesture.type === 'titledrag') updateTitleDrag(cp);
     else if (gesture.type === 'marquee') updateMarquee(cp);
@@ -699,6 +708,7 @@
       }
     }
     else if (gesture.type === 'sticker') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'wend') finishWireEnd();
     else if (gesture.type === 'dresize') {
       if (gesture.moved) { App.store.pushUndo(gesture.snap); if (App.inspector) App.inspector.update(); }
     }
@@ -774,6 +784,47 @@
     }
     gesture.moved = true;
     App.store.touch();
+  }
+
+  // ── 배선 끝점 재연결 — 끝점 핸들을 끌어 다른 단자에 놓으면 연결 변경 ──
+  function startWireEnd(wireId, end, sp) {
+    const f = App.store.findById(wireId);
+    if (!f || f.kind !== 'wires') return;
+    gesture = { type: 'wend', snap: App.store.snapshot(), wireId: wireId, end: end, sp: sp, target: null };
+  }
+  function updateWireEnd(cp) {
+    const state = App.store.get();
+    const f = App.store.findById(gesture.wireId);
+    if (!f) return;
+    const w = f.item;
+    const near = App.geom.nearestTerminal(state, cp.x, cp.y, 15);
+    gesture.target = near;
+    App.render.snapMarker(near ? { x: near.x, y: near.y, snapped: true } : null);
+    // 미리보기: 고정된 반대쪽 끝 → 커서(또는 스냅 단자)
+    const fixed = gesture.end === 'a'
+      ? App.terminals.point(state, w.toComp, w.toTerm)
+      : App.terminals.point(state, w.fromComp, w.fromTerm);
+    const to = near ? { x: near.x, y: near.y } : cp;
+    if (fixed) App.render.wirePreview([{ x: fixed.x, y: fixed.y }, { x: to.x, y: fixed.y }, { x: to.x, y: to.y }]);
+  }
+  function finishWireEnd() {
+    App.render.wirePreview(null);
+    App.render.snapMarker(null);
+    const t = gesture.target;
+    const f = App.store.findById(gesture.wireId);
+    if (!f) return;
+    const w = f.item;
+    if (!t) { if (App.toolbar) App.toolbar.flash('단자 위에 놓아야 연결이 변경됩니다'); App.render.all(); return; }
+    // 같은 단자면 변경 없음
+    if (gesture.end === 'a' && w.fromComp === t.compId && w.fromTerm === t.index) { App.render.all(); return; }
+    if (gesture.end === 'b' && w.toComp === t.compId && w.toTerm === t.index) { App.render.all(); return; }
+    App.store.pushUndo(gesture.snap);
+    if (gesture.end === 'a') { w.fromComp = t.compId; w.fromTerm = t.index; }
+    else { w.toComp = t.compId; w.toTerm = t.index; }
+    w.corners = null; w.midY = null; // 새 경로로 재라우팅
+    App.store.touch();
+    if (App.inspector) App.inspector.update();
+    if (App.toolbar) App.toolbar.flash('배선 연결 변경됨 (' + (w.label || '') + ')');
   }
 
   // 덕트 라벨 스티커 드래그 — 덕트 길이 방향으로만 이동 (off 클램프). copy=true 면 복사본을 끌기
