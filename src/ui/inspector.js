@@ -259,30 +259,36 @@
       html += row('폭', numInput('widthMM', it.widthMM));
       html += row('방향', '<span class="text-xs text-slate-600">' + (it.orient === 'h' ? '가로' : '세로') + '</span>');
       html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
-      // 덕트 라벨 스티커 (기본: 가로 3칸, 칸당 30×24mm — 칸수/크기 조절 가능)
+      // 덕트 라벨 스티커 (세로 3줄, 기본 30×24mm) — 1줄=유형·2줄=품명(부품 연동), 3줄=직접 작성
       if (f.kind === 'ducts') {
-        html += '<div class="text-[10px] text-slate-500 px-1 mt-3 font-semibold">라벨 스티커 (가로 칸 · 기본 30×24mm)</div>';
+        const stComps = App.store.get().components.filter(function (c) { return !c.sym; });
+        html += '<div class="text-[10px] text-slate-500 px-1 mt-3 font-semibold">라벨 스티커 (세로 3줄 · 기본 30×24mm)</div>';
         (it.stickers || []).forEach(function (st, si) {
           const dm = App.stickerDims(st);
-          const ln = st.lines || [];
+          const ln = App.stickerLines(App.store.get(), st);
+          const linked = !!st.linkId;
           html += '<div class="border border-slate-200 rounded p-1 mt-1" data-stbox="' + App.esc(st.id) + '">';
-          // 형태/칸수/칸 크기
-          html += '<div class="flex items-center gap-1 mb-1 text-[10px] text-slate-500 flex-wrap">' +
-            '<select data-stmode data-stid="' + App.esc(st.id) + '" class="px-1 py-0.5 text-[10px] border border-slate-300 rounded">' +
-            '<option value="cols"' + (dm.mode === 'cols' ? ' selected' : '') + '>가로 칸</option>' +
-            '<option value="rows"' + (dm.mode === 'rows' ? ' selected' : '') + '>세로 3줄</option></select>';
-          if (dm.mode === 'cols') {
-            html += '칸수 <input data-stn data-stid="' + App.esc(st.id) + '" type="number" min="1" max="8" value="' + dm.n +
-              '" class="w-10 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right" />';
-          }
-          html += '너비 <input data-stcw data-stid="' + App.esc(st.id) + '" type="number" min="5" value="' + dm.cw +
+          // 부품 연동 — 1줄(유형)·2줄(품명) 자동 채움
+          let lopt = '<option value="">(직접 입력)</option>';
+          stComps.forEach(function (c2) {
+            lopt += '<option value="' + App.esc(c2.id) + '"' + (st.linkId === c2.id ? ' selected' : '') + '>' +
+              App.esc((c2.type ? c2.type + ' · ' : '') + (c2.partName || c2.label || c2.partNo)) + '</option>';
+          });
+          html += '<div class="flex items-center gap-1 mb-1 text-[10px] text-slate-500">연동' +
+            '<select data-stlink data-stid="' + App.esc(st.id) + '" class="px-1 py-0.5 text-[10px] border border-slate-300 rounded" style="flex:1;min-width:0">' + lopt + '</select></div>';
+          // 크기
+          html += '<div class="flex items-center gap-1 mb-1 text-[10px] text-slate-500">' +
+            '너비 <input data-stcw data-stid="' + App.esc(st.id) + '" type="number" min="5" value="' + dm.cw +
             '" class="w-12 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right" />' +
             '높이 <input data-stch data-stid="' + App.esc(st.id) + '" type="number" min="5" value="' + dm.ch +
             '" class="w-12 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right" /></div>';
-          // 칸별 텍스트
-          for (let li = 0; li < dm.n; li++) {
+          // 3줄 텍스트 — 연동 시 1·2줄은 자동(잠금)
+          const ph = ['1줄: 유형', '2줄: 품명', '3줄: 직접 작성'];
+          for (let li = 0; li < 3; li++) {
+            const auto = linked && li < 2;
             html += '<input data-stline="' + li + '" data-stid="' + App.esc(st.id) + '" type="text" value="' + App.esc(ln[li] || '') +
-              '" placeholder="' + (li + 1) + '칸 텍스트" class="w-full mb-0.5 px-2 py-0.5 text-xs border border-slate-300 rounded" />';
+              '" placeholder="' + ph[li] + '"' + (auto ? ' disabled title="부품 연동으로 자동 입력"' : '') +
+              ' class="w-full mb-0.5 px-2 py-0.5 text-xs border border-slate-300 rounded' + (auto ? ' bg-slate-50 text-slate-500' : '') + '" />';
           }
           html += '<div class="flex items-center justify-between mt-0.5">' +
             '<label class="text-[10px] text-slate-500">위치 <input data-stoff data-stid="' + App.esc(st.id) + '" type="number" value="' + Math.round(st.off || 0) +
@@ -290,7 +296,7 @@
             '<button class="insp-st-del text-[10px] text-red-500" data-stid="' + App.esc(st.id) + '">🗑 삭제</button></div></div>';
         });
         html += '<button id="insp-st-add" class="mt-1 w-full px-2 py-1 text-xs rounded bg-slate-700 text-white" style="background:#334155;color:#fff">＋ 스티커 추가</button>';
-        html += '<div class="text-[10px] text-slate-400 px-1 mt-1">캔버스에서 드래그로 덕트 위 위치 이동, 더블클릭으로 칸별 텍스트 편집.</div>';
+        html += '<div class="text-[10px] text-slate-400 px-1 mt-1">드래그: 이동 · Ctrl+드래그: 복사 · 더블클릭: 텍스트 편집. 연동하면 부품의 유형/품명이 자동 표시됩니다.</div>';
       }
     }
 
@@ -389,7 +395,7 @@
     if (stAdd) stAdd.onclick = function () {
       withSticker(null, function (duct) {
         const n = duct.stickers.length;
-        const stNew = { id: App.uid('stk'), off: 0, mode: 'cols', n: 3, cellW: 30, cellH: 24, lines: ['LABEL ' + (n + 1), '', ''] };
+        const stNew = { id: App.uid('stk'), off: 0, cellW: 30, cellH: 24, linkId: null, lines: ['LABEL ' + (n + 1), '', ''] };
         const max = Math.max(0, duct.lengthMM - App.stickerDims(stNew).len);
         stNew.off = Math.min(max, 10 + n * (App.stickerDims(stNew).len + 10));
         duct.stickers.push(stNew);
@@ -412,15 +418,12 @@
         editSticker(inp, function (st) { st.lines = st.lines || []; st.lines[li] = inp.value; });
       });
     });
-    root.querySelectorAll('[data-stmode]').forEach(function (inp) {
+    root.querySelectorAll('[data-stlink]').forEach(function (inp) {
       inp.addEventListener('change', function () {
-        editSticker(inp, function (st) { st.mode = inp.value; });
-        Inspector.update();
-      });
-    });
-    root.querySelectorAll('[data-stn]').forEach(function (inp) {
-      inp.addEventListener('change', function () {
-        editSticker(inp, function (st) { st.n = Math.max(1, Math.min(8, parseInt(inp.value, 10) || 3)); });
+        editSticker(inp, function (st) {
+          st.linkId = inp.value || null;
+          if (st.mode) st.mode = undefined; // 연동 시 세로 3줄 형식 보장
+        });
         Inspector.update();
       });
     });

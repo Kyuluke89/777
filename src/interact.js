@@ -485,10 +485,10 @@
       return;
     }
 
-    // 덕트 라벨 스티커 드래그 (덕트 길이 방향 이동)
+    // 덕트 라벨 스티커 드래그 (덕트 길이 방향 이동) — Ctrl+드래그: 복사해서 끌기
     const stkEl = pick('data-sticker');
     if (stkEl) {
-      startStickerDrag(stkEl.getAttribute('data-duct'), stkEl.getAttribute('data-sticker'), sp);
+      startStickerDrag(stkEl.getAttribute('data-duct'), stkEl.getAttribute('data-sticker'), sp, e.ctrlKey || e.metaKey);
       svg.setPointerCapture(e.pointerId);
       return;
     }
@@ -718,13 +718,22 @@
     App.store.touch();
   }
 
-  // 덕트 라벨 스티커 드래그 — 덕트 길이 방향으로만 이동 (off 클램프)
-  function startStickerDrag(ductId, stId, sp) {
+  // 덕트 라벨 스티커 드래그 — 덕트 길이 방향으로만 이동 (off 클램프). copy=true 면 복사본을 끌기
+  function startStickerDrag(ductId, stId, sp, copy) {
     const f = App.store.findById(ductId);
     if (!f || f.kind !== 'ducts') return;
     const st = (f.item.stickers || []).find(function (s) { return s.id === stId; });
     if (!st) return;
-    gesture = { type: 'sticker', snap: App.store.snapshot(), sp: sp, ductId: ductId, stId: stId, origOff: st.off || 0, moved: false };
+    const snap = App.store.snapshot();
+    let dragId = stId;
+    if (copy) {
+      const cl = App.clone(st);
+      cl.id = App.uid('stk');
+      f.item.stickers.push(cl);
+      dragId = cl.id;
+      App.store.touch();
+    }
+    gesture = { type: 'sticker', snap: snap, sp: sp, ductId: ductId, stId: dragId, origOff: st.off || 0, moved: !!copy };
   }
   function updateStickerDrag(cp) {
     const f = App.store.findById(gesture.ductId);
@@ -792,13 +801,21 @@
       const fd = App.store.findById(did);
       const st = fd && (fd.item.stickers || []).find(function (s) { return s.id === sid; });
       if (st) {
-        const nCells = App.stickerDims(st).n;
         const cur = st.lines || [];
-        const next = [];
-        for (let ci = 0; ci < nCells; ci++) {
-          const v = prompt((ci + 1) + '칸 텍스트 (예: POWER S/W 01)', cur[ci] || '');
-          if (v == null) return;
-          next.push(v);
+        let next;
+        if (st.linkId) {
+          // 부품 연동 스티커: 1·2줄은 자동 — 3줄(직접 작성)만 편집
+          const v3 = prompt('3줄 (직접 작성, 예: MAS-025 25A)', cur[2] || '');
+          if (v3 == null) return;
+          next = [cur[0] || '', cur[1] || '', v3];
+        } else {
+          next = [];
+          const hints = ['1줄 (유형, 예: POWER S/W 01)', '2줄 (품명, 예: MAIN POWER S/W)', '3줄 (직접 작성, 예: MAS-025 25A)'];
+          for (let ci = 0; ci < 3; ci++) {
+            const v = prompt(hints[ci], cur[ci] || '');
+            if (v == null) return;
+            next.push(v);
+          }
         }
         App.store.commit(function () {
           const fd2 = App.store.findById(did);
@@ -1180,7 +1197,7 @@
             if (!fd) return;
             const duct = fd.item;
             duct.stickers = duct.stickers || [];
-            const stNew = { id: App.uid('stk'), off: 0, mode: 'cols', n: 3, cellW: 30, cellH: 24, lines: ['LABEL', '', ''] };
+            const stNew = { id: App.uid('stk'), off: 0, cellW: 30, cellH: 24, linkId: null, lines: ['LABEL', '', ''] };
             const len = App.stickerDims(stNew).len;
             const max = Math.max(0, duct.lengthMM - len);
             const off = duct.orient === 'h' ? (pos.x - duct.x - len / 2) : (pos.y - duct.y - len / 2);

@@ -164,8 +164,8 @@
         'stroke-dasharray': '3 3', 'pointer-events': 'none'
       }, grp);
       if (d.locked) lockBadge(grp, d.x + 1, d.y + 6);
-      // 라벨 스티커 (24mm 라벨테이프 × 30mm, 3칸) — 사진처럼 어두운 바탕+흰 글씨
-      (d.stickers || []).forEach(function (st) { drawSticker(grp, d, w, h, st); });
+      // 라벨 스티커 (24mm 라벨테이프, 세로 3줄) — 사진처럼 어두운 바탕+흰 글씨
+      (d.stickers || []).forEach(function (st) { drawSticker(grp, d, w, h, st, state); });
     });
   }
 
@@ -177,16 +177,30 @@
     return null; // solid
   };
 
-  // 덕트 라벨 스티커 — 기본: 가로 3칸(칸당 30×24mm). 세로 덕트에선 90° 회전.
-  // mode 'cols'(가로 칸 나열, 기본) | 'rows'(한 칸에 3줄 — 구버전 호환). 칸수/칸크기 조절 가능.
+  // 덕트 라벨 스티커 — 세로 3줄(기본 30×24mm), 크기 조절 가능. 세로 덕트에선 90° 회전.
+  // 1줄=유형, 2줄=품명(부품 연동 시 자동), 3줄=직접 작성. 'cols'는 구버전 호환 렌더만.
   App.STICKER = { W: 30, H: 24 };
   App.stickerDims = function (st) {
     const cw = st.cellW || App.STICKER.W, ch = st.cellH || App.STICKER.H;
-    if (st.mode === 'rows') return { mode: 'rows', n: 3, cw: cw, ch: ch, len: cw, th: ch };
-    const n = Math.max(1, Math.min(8, st.n || 3));
-    return { mode: 'cols', n: n, cw: cw, ch: ch, len: n * cw, th: ch };
+    if (st.mode === 'cols') { // 구버전 호환
+      const n = Math.max(1, Math.min(8, st.n || 3));
+      return { mode: 'cols', n: n, cw: cw, ch: ch, len: n * cw, th: ch };
+    }
+    return { mode: 'rows', n: 3, cw: cw, ch: ch, len: cw, th: ch };
   };
-  function drawSticker(parent, d, w, h, st) {
+  // 스티커 표시 줄 — 부품 연동 시 1줄=유형, 2줄=품명 자동, 3줄=사용자 작성
+  App.stickerLines = function (state, st) {
+    const lines = (st.lines || []).slice();
+    if (st.linkId) {
+      const c = (state.components || []).find(function (x) { return x.id === st.linkId; });
+      if (c) {
+        lines[0] = c.type || '';
+        lines[1] = c.partName || c.label || c.partNo || '';
+      }
+    }
+    return lines;
+  };
+  function drawSticker(parent, d, w, h, st, state) {
     const dm = App.stickerDims(st);
     const off = st.off || 0;
     let cx, cy, rot;
@@ -199,7 +213,7 @@
     const L = dm.len, T = dm.th;
     App.el('rect', { x: -L / 2, y: -T / 2, width: L, height: T, fill: '#111827', stroke: '#1f2937', 'stroke-width': 0.5, rx: 0.8 }, g);
     App.el('rect', { x: -L / 2 + 0.9, y: -T / 2 + 0.9, width: L - 1.8, height: T - 1.8, fill: 'none', stroke: '#f8fafc', 'stroke-width': 0.55, 'pointer-events': 'none' }, g);
-    const lines = st.lines || [];
+    const lines = App.stickerLines(state || App.store.get(), st);
     if (dm.mode === 'cols') {
       // 가로 칸 나열 — 칸 구분 세로선 + 칸별 텍스트
       for (let i = 1; i < dm.n; i++) {
