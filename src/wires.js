@@ -478,12 +478,13 @@
   };
 
   // 양 끝 라벨 — 선 끝에서 30mm 안쪽, 선에 정렬(마킹튜브 방식)
-  W.LABEL_INSET = 30;
+  W.LABEL_INSET = 30; // 기본값 — App.ui.wireLabelInset 로 조절(슬라이더)
   W.endLabels = function (state, wire, pts) {
     pts = pts || W.route(state, wire);
     if (!pts || pts.length < 2) return null;
     const L = polyLen(pts);
-    const d = Math.min(W.LABEL_INSET, L * 0.45);   // 너무 짧으면 안쪽으로 조정
+    const inset = (App.ui && App.ui.wireLabelInset != null) ? App.ui.wireLabelInset : W.LABEL_INSET;
+    const d = Math.min(inset, L * 0.45);           // 너무 짧으면 안쪽으로 조정
     const A = pointAlong(pts, d);
     const B = pointAlong(pts.slice().reverse(), d);
     return {

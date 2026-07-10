@@ -2614,6 +2614,41 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(blkLbl.auto, '다중 선택 라인번호: 자동 증가(R100→R101)');
   assert(blkLbl.same, '다중 선택 라인번호: 동일 번호 적용');
 
+  // === 라인번호 위치(단자 거리) 슬라이더 ===
+  const inset = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'in1', partNo: 'IN', type: 'MC', x: 1500, y: 950, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'in2', partNo: 'IN', type: 'MC', x: 1800, y: 950, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'inw1', fromComp: 'in1', fromTerm: 0, toComp: 'in2', toTerm: 0, label: 'N1', color: '#111', width: 1.2, corners: null, midY: 900 });
+    });
+    const st = App.store.get();
+    const w = st.wires.find(x => x.id === 'inw1');
+    const sl = document.getElementById('wire-label-inset');
+    if (!sl) return { fail: 'no-slider' };
+    sl.value = '10'; sl.dispatchEvent(new Event('input'));
+    const e10 = App.wires.endLabels(st, w);
+    sl.value = '50'; sl.dispatchEvent(new Event('input'));
+    const e50 = App.wires.endLabels(st, w);
+    // 단자(1515,952)로부터 라벨까지 경로상 거리 10mm vs 50mm — 시작 라벨 위치가 달라야 함
+    const d10 = Math.hypot(e10.a.x - 1515, e10.a.y - 952);
+    const d50 = Math.hypot(e50.a.x - 1515, e50.a.y - 952);
+    const works = d10 < d50 && d10 <= 12 && d50 <= 52;
+    let saved = null;
+    try { saved = localStorage.getItem('panel-wire-label-inset'); } catch (e) {}
+    // 원복
+    sl.value = '30'; sl.dispatchEvent(new Event('input'));
+    App.store.commit(s => {
+      s.wires = s.wires.filter(x => x.id !== 'inw1');
+      s.components = s.components.filter(c => c.partNo !== 'IN');
+    });
+    App.render.all();
+    return { works, saved };
+  });
+  assert(inset.works, '라인번호 위치 슬라이더(10mm↔50mm 반영)');
+  assert(inset.saved === '50', '라인번호 위치 localStorage 유지');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

@@ -161,6 +161,24 @@
       });
     }
 
+    // 라인번호 위치(단자로부터 거리 mm) — 슬라이더, localStorage 유지
+    const wli = $('wire-label-inset');
+    try {
+      const savedInset = parseFloat(localStorage.getItem('panel-wire-label-inset'));
+      if (!isNaN(savedInset) && savedInset >= 0) App.ui.wireLabelInset = savedInset;
+    } catch (e) { /* 무시 */ }
+    if (wli) {
+      if (App.ui.wireLabelInset != null) wli.value = App.ui.wireLabelInset;
+      const wliVal = $('wire-label-inset-val');
+      if (wliVal) wliVal.textContent = (App.ui.wireLabelInset != null ? App.ui.wireLabelInset : 30) + 'mm';
+      wli.addEventListener('input', function () {
+        App.ui.wireLabelInset = Math.max(0, parseFloat(this.value) || 0);
+        if (wliVal) wliVal.textContent = App.ui.wireLabelInset + 'mm';
+        try { localStorage.setItem('panel-wire-label-inset', String(App.ui.wireLabelInset)); } catch (e) {}
+        App.render.all();
+      });
+    }
+
     // 라인번호 크기(전역 단일값, 화면 고정) — 모든 라인에 동일 적용
     const wlpx = $('wire-label-px');
     if (wlpx) wlpx.addEventListener('input', function () {
