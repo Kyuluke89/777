@@ -68,6 +68,8 @@
         });
         mfAd += '<option value="__new__">＋추가…</option>';
         mh += row('전원구분', '<select data-mf="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + mfAd + '</select>');
+        mh += row('라인번호', '<input data-mf="label" type="text" placeholder="시작번호 입력" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
+        mh += '<label class="flex items-center gap-1 px-1 text-[10px] text-slate-500"><input id="insp-same-label" type="checkbox" /> 모두 같은 번호로 (해제 = 위→아래 자동 증가)</label>';
       } else if (onlyComps) {
         mh += row('타입 일괄', '<select data-mf="type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option>' + App.types.optionsHtml('').replace('<option value="__new__">＋ 새 타입…</option>', '') + '</select>');
         mh += row('글자 방향', '<select data-mf="textVert" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="h">가로</option><option value="v">세로</option></select>');
@@ -99,6 +101,25 @@
             if (!nv || !nv.trim()) { Inspector.update(); return; }
             App.userlib.addAcdc(nv);
             v = String(nv).trim().toUpperCase();
+          }
+          if (f3 === 'label') {
+            // 라인번호 일괄: 위→아래, 왼→오 순서로 자동 증가(또는 동일 번호)
+            if (!v.trim()) return;
+            const sameOn = !!(root.querySelector('#insp-same-label') && root.querySelector('#insp-same-label').checked);
+            const st2 = App.store.get();
+            const ws = st2.wires.filter(function (w) { return sel.has(w.id); })
+              .map(function (w) { const R = App.wires.route(st2, w); return { w: w, p: (R && R[0]) || { x: 0, y: 0 } }; });
+            ws.sort(function (A, B) { return (A.p.y - B.p.y) || (A.p.x - B.p.x); });
+            let cur = v.trim();
+            App.store.commit(function () {
+              ws.forEach(function (it2) {
+                it2.w.label = cur;
+                if (!sameOn) cur = App.wires.incLabel(cur);
+              });
+            });
+            App.render.all();
+            if (App.toolbar) App.toolbar.flash('라인번호 ' + ws.length + '개 ' + (sameOn ? '동일 적용' : '자동 증가 부여'));
+            return;
           }
           applyAll(function (it, k) {
             if (f3 === 'sq') { if (v) { it.sq = v; if (App.wires.SQ_AWG[v]) it.awg = App.wires.SQ_AWG[v]; if (App.wires.SQ_WIDTH && App.wires.SQ_WIDTH[v]) it.width = App.wires.SQ_WIDTH[v]; } }

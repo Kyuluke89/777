@@ -2573,6 +2573,47 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(trace.names, '인스펙터 연결 정보에 단자 이름 표시');
   assert(trace.centered, '시작 부품으로 화면 이동 버튼');
 
+  // === 다중 선택 라인번호 일괄 변경 ===
+  const blkLbl = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'bl1', partNo: 'BL', type: 'MC', x: 1500, y: 700, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'bl2', partNo: 'BL', type: 'MC', x: 1700, y: 700, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'bl3', partNo: 'BL', type: 'MC', x: 1500, y: 850, widthMM: 30, heightMM: 40, rotation: 0, label: 'c', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'bl4', partNo: 'BL', type: 'MC', x: 1700, y: 850, widthMM: 30, heightMM: 40, rotation: 0, label: 'd', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push(
+        { id: 'blw1', fromComp: 'bl1', fromTerm: 0, toComp: 'bl2', toTerm: 0, label: 'Z1', color: '#111', width: 1.2, corners: null, midY: 650 },
+        { id: 'blw2', fromComp: 'bl3', fromTerm: 0, toComp: 'bl4', toTerm: 0, label: 'Z2', color: '#111', width: 1.2, corners: null, midY: 800 }
+      );
+    });
+    App.ui.selected = new Set(['blw1', 'blw2']);
+    App.inspector.update();
+    const inp = document.querySelector('#inspector [data-mf="label"]');
+    if (!inp) return { fail: 'no-input' };
+    // 자동 증가: R100 → 위(blw1)=R100, 아래(blw2)=R101
+    inp.value = 'R100';
+    inp.dispatchEvent(new Event('change'));
+    const st1 = App.store.get();
+    const auto = st1.wires.find(w => w.id === 'blw1').label === 'R100' && st1.wires.find(w => w.id === 'blw2').label === 'R101';
+    // 동일 번호 체크 → 둘 다 같은 번호
+    App.inspector.update();
+    document.getElementById('insp-same-label').checked = true;
+    const inp2 = document.querySelector('#inspector [data-mf="label"]');
+    inp2.value = 'COM';
+    inp2.dispatchEvent(new Event('change'));
+    const st2 = App.store.get();
+    const same = st2.wires.find(w => w.id === 'blw1').label === 'COM' && st2.wires.find(w => w.id === 'blw2').label === 'COM';
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'blw1' && w.id !== 'blw2');
+      s.components = s.components.filter(c => c.partNo !== 'BL');
+    });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { auto, same };
+  });
+  assert(blkLbl.auto, '다중 선택 라인번호: 자동 증가(R100→R101)');
+  assert(blkLbl.same, '다중 선택 라인번호: 동일 번호 적용');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함
