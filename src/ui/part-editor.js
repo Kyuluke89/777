@@ -543,7 +543,7 @@
 
   function saveToLibrary() {
     readInputs();
-    if (!st.name) { alert('품명을 입력하세요.'); return; }
+    if (!st.name) { alert('타이틀을 입력하세요.'); return; }
     const cnt = saveAll(null);
     if (App.toolbar) App.toolbar.flash('라이브러리 저장' + (cnt ? ' · 배치 ' + cnt + '개 갱신' : ''));
     PE.close();

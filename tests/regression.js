@@ -192,7 +192,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     wl: App.exporter.wiringRows()
   }));
   assert(rows.bom.length === 2 && rows.bom[1][3] === 2, 'BOM 집계 (수량 2)');
-  assert(rows.bom[0][1] === '품명' && rows.bom[0][6] === '호기번호', 'BOM 품명·호기 컬럼');
+  assert(rows.bom[0][0] === '부품번호(타이틀)' && rows.bom[0][6] === '호기번호', 'BOM 타이틀·호기 컬럼');
   assert(rows.wl[0].indexOf('전원') >= 0, '배선표 전원 컬럼');
   assert(rows.wl[1][0] === 'W1', '배선표 행 W1');
   // 배선 길이: 인스펙터/배선표/총길이
@@ -387,7 +387,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const copy = lib.find(x => x.partNo === 'XBM-DN16S-COPY');
     const oldGone = !lib.some(x => x.partNo === 'XBM-DN16S');
     return {
-      titleChanged: !!renamed, nameChanged: renamed && renamed.name === 'PLC새이름', oldGone: oldGone,
+      titleChanged: !!renamed, nameChanged: renamed && renamed.name === 'PLC-RENAMED', oldGone: oldGone, // 타이틀=품명 통일
       dupExists: !!copy, dupSameShape: copy && copy.w === wRef
     };
   }, wRef);
@@ -1569,7 +1569,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
       );
     });
     const rows = App.xlsx.partsRows(App.store.get());
-    const ebs = rows.find(r => r.spec === 'EBS32Fb 15A');
+    const ebs = rows.find(r => r.name === 'EBS32Fb 15A'); // 타이틀=품명 (PART NAME 칸)
     const agg = ebs && ebs.qty === 2 && ebs.maker === 'LSIS';
     // prompt/다운로드 스텁 후 실제 xlsx 생성 → unzip 해서 내용 검증
     const answers = ['A260504', '타스코', 'Carton 시스템'];

@@ -129,9 +129,8 @@
       if (title !== p.partNo && library.some(function (x) { return x.partNo === title; })) {
         let i = 2; while (library.some(function (x) { return x.partNo === title + '-' + i; })) i++; title = title + '-' + i;
       }
-      let nm = prompt('부품 이름(품명) 수정', p.name || '');
-      if (nm == null) nm = p.name || '';
-      nm = nm.trim();
+      // 타이틀 = 품명 (별도 품명 입력 없음 — 이름을 타이틀로 통일)
+      const nm = title;
       const oldPN = p.partNo;
       App.userlib.add(Object.assign({}, p, { partNo: title, name: nm })); // 시드면 사용자 오버라이드
       if (title !== oldPN) { if (p.custom) App.userlib.remove(oldPN); else App.userlib.hide(oldPN); }

@@ -34,8 +34,9 @@
     App.exporter.allSheets(state).forEach(function (sh) {
       (sh.st.components || []).forEach(function (c) {
         if (c.sym) return; // 계통도 심볼은 구매 리스트 제외
-        const spec = c.partNo || '(미지정)';
-        const name = c.partName || c.label || c.type || '';
+        // 타이틀(품번) = 품명. 옛 품명이 따로 있으면 규격(SPEC) 칸에 참고로
+        const name = c.partNo || c.partName || c.label || '(미지정)';
+        const spec = (c.partName && c.partName !== c.partNo) ? c.partName : '';
         const k = name + '|' + spec;
         if (!map[k]) {
           const lp = lib.find(function (p) { return p.partNo === c.partNo; });

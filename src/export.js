@@ -34,11 +34,12 @@
     const map = {};
     state.components.forEach(function (c) {
       const k = c.partNo || '(미지정)';
-      if (!map[k]) map[k] = { partNo: k, name: c.partName || c.label || '', type: c.type || '', w: c.widthMM, h: c.heightMM, qty: 0, tags: [] };
+      // 타이틀(품번)=품명 — 품명 칸엔 타이틀과 다른 옛 품명만 참고로 표기
+      if (!map[k]) map[k] = { partNo: k, name: (c.partName && c.partName !== c.partNo) ? c.partName : '', type: c.type || '', w: c.widthMM, h: c.heightMM, qty: 0, tags: [] };
       map[k].qty += 1;
       if (c.tag) map[k].tags.push(c.tag);
     });
-    const rows = [['부품번호', '품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호']];
+    const rows = [['부품번호(타이틀)', '구품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호']];
     Object.keys(map).sort().forEach(function (k) {
       const r = map[k];
       rows.push([r.partNo, r.name, r.type, r.qty, r.w, r.h, r.tags.join(' ')]);
@@ -93,13 +94,13 @@
       Ex.allSheets(state).forEach(function (sh) {
         (sh.st.components || []).forEach(function (c) {
           const k = c.partNo || '(미지정)';
-          if (!map[k]) map[k] = { partNo: k, name: c.partName || c.label || '', type: c.type || '', w: c.widthMM, h: c.heightMM, qty: 0, tags: [], sheets: {} };
+          if (!map[k]) map[k] = { partNo: k, name: (c.partName && c.partName !== c.partNo) ? c.partName : '', type: c.type || '', w: c.widthMM, h: c.heightMM, qty: 0, tags: [], sheets: {} };
           map[k].qty += 1;
           if (c.tag) map[k].tags.push(c.tag);
           map[k].sheets[sh.name] = 1;
         });
       });
-      rows = [['부품번호', '품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호', '시트']];
+      rows = [['부품번호(타이틀)', '구품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호', '시트']];
       Object.keys(map).sort().forEach(function (k) {
         const r = map[k];
         rows.push([r.partNo, r.name, r.type, r.qty, r.w, r.h, r.tags.join(' '), Object.keys(r.sheets).join(' ')]);
@@ -328,7 +329,7 @@
         else if (sh.kind === 'text' && sh.text) text('PARTS', c.x + sh.x, c.y + sh.y, sh.size || 5, sh.text);
       });
       const cy = by + bh / 2;
-      text('TEXT', bx + 2, cy, 4, c.label || c.partName || c.partNo || '');
+      text('TEXT', bx + 2, cy, 4, (c.label && c.label !== c.partName) ? c.label : (c.partNo || c.partName || '')); // 타이틀 표시
       if (c.tag) text('TEXT', bx + 2, by + 7, 4, c.tag);
       App.terminals.world(c).forEach(function (t) {
         circle('TERMS', t.x, t.y, (t.w || 3.6) / 2);
