@@ -39,7 +39,7 @@
       map[k].qty += 1;
       if (c.tag) map[k].tags.push(c.tag);
     });
-    const rows = [['부품번호(타이틀)', '구품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호']];
+    const rows = [['품명', '구품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호']];
     Object.keys(map).sort().forEach(function (k) {
       const r = map[k];
       rows.push([r.partNo, r.name, r.type, r.qty, r.w, r.h, r.tags.join(' ')]);
@@ -100,7 +100,7 @@
           map[k].sheets[sh.name] = 1;
         });
       });
-      rows = [['부품번호(타이틀)', '구품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호', '시트']];
+      rows = [['품명', '구품명', '타입', '수량', '가로(mm)', '세로(mm)', '호기번호', '시트']];
       Object.keys(map).sort().forEach(function (k) {
         const r = map[k];
         rows.push([r.partNo, r.name, r.type, r.qty, r.w, r.h, r.tags.join(' '), Object.keys(r.sheets).join(' ')]);

@@ -122,14 +122,14 @@
     };
     item.querySelector('.pal-edit').onclick = function (e) {
       e.stopPropagation();
-      let title = prompt('라이브러리 타이틀(품번) 수정', p.partNo);
+      let title = prompt('품명 수정', p.partNo);
       if (title == null) return;
       title = title.trim() || p.partNo;
       // 품번 중복 방지(다른 부품과 충돌 시 자동 번호)
       if (title !== p.partNo && library.some(function (x) { return x.partNo === title; })) {
         let i = 2; while (library.some(function (x) { return x.partNo === title + '-' + i; })) i++; title = title + '-' + i;
       }
-      // 타이틀 = 품명 (별도 품명 입력 없음 — 이름을 타이틀로 통일)
+      // 품명 하나로 통일 (라이브러리 품명 = 표시 이름)
       const nm = title;
       const oldPN = p.partNo;
       App.userlib.add(Object.assign({}, p, { partNo: title, name: nm })); // 시드면 사용자 오버라이드

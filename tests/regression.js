@@ -192,7 +192,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     wl: App.exporter.wiringRows()
   }));
   assert(rows.bom.length === 2 && rows.bom[1][3] === 2, 'BOM 집계 (수량 2)');
-  assert(rows.bom[0][0] === '부품번호(타이틀)' && rows.bom[0][6] === '호기번호', 'BOM 타이틀·호기 컬럼');
+  assert(rows.bom[0][0] === '품명' && rows.bom[0][6] === '호기번호', 'BOM 품명·호기 컬럼');
   assert(rows.wl[0].indexOf('전원') >= 0, '배선표 전원 컬럼');
   assert(rows.wl[1][0] === 'W1', '배선표 행 W1');
   // 배선 길이: 인스펙터/배선표/총길이
@@ -365,8 +365,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     window.__op = window.prompt;
     window.prompt = (msg) => {
       if (msg.indexOf('복제') >= 0) return 'XBM-DN16S-COPY';
-      if (msg.indexOf('타이틀') >= 0) return 'PLC-RENAMED';
-      if (msg.indexOf('이름') >= 0) return 'PLC새이름';
+      if (msg.indexOf('품명') >= 0) return 'PLC-RENAMED';
       return '';
     };
   });
