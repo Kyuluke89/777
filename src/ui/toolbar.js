@@ -227,6 +227,14 @@
         flash(n ? '균등 간격 ' + n + '개' : '부품 3개 이상 선택하세요');
       };
     });
+    // 간격 배열 — 겹친 부품을 지정 간격으로 나란히
+    [['al-packh', 'h'], ['al-packv', 'v']].forEach(function (pair) {
+      const btn = $(pair[0]);
+      if (btn) btn.onclick = function () {
+        const gap = Math.max(0, parseFloat($('al-gap') && $('al-gap').value) || 0);
+        App.interact.packSelected(pair[1], gap);
+      };
+    });
 
     // 줌 컨트롤(캔버스 우하단)
     function zoomCenter(factor) {

@@ -1245,6 +1245,31 @@
     return items.length;
   }
 
+  // 선택 부품을 지정 간격(mm)으로 나란히 배열 — 겹친 것들을 옆으로 붙여 배치
+  // axis 'h': 왼→오, 'v': 위→아래. 첫 부품 위치 기준, 간격 0 = 딱 붙임
+  function packSelected(axis, gapMM) {
+    gapMM = gapMM || 0;
+    const ids = Array.from(App.ui.selected);
+    const items = App.store.get().components.filter(function (c) { return ids.indexOf(c.id) >= 0 && !c.locked; });
+    if (items.length < 2) {
+      if (App.toolbar) App.toolbar.flash('간격 배열: 부품 2개 이상을 선택하세요');
+      return 0;
+    }
+    const key = axis === 'h' ? 'x' : 'y', size = axis === 'h' ? 'widthMM' : 'heightMM';
+    items.sort(function (a, b) { return a[key] - b[key] || (axis === 'h' ? a.y - b.y : a.x - b.x); });
+    let pos = items[0][key];
+    const target = {};
+    items.forEach(function (c) { target[c.id] = Math.round(pos * 10) / 10; pos += c[size] + gapMM; });
+    App.store.commit(function (s) {
+      s.components.forEach(function (c) { if (target[c.id] != null) c[key] = target[c.id]; });
+    });
+    App.render.all();
+    if (App.inspector) App.inspector.update();
+    if (App.toolbar) App.toolbar.flash('간격 배열: ' + items.length + '개 · 간격 ' + gapMM + 'mm');
+    return items.length;
+  }
+  Interact.packSelected = packSelected;
+
   Interact.alignSelected = alignSelected;
   Interact.distributeSelected = distributeSelected;
   Interact.deleteSelected = deleteSelected;

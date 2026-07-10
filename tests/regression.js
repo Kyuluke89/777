@@ -2174,6 +2174,42 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(altdup.dup, 'Alt+드래그: 복제본 생성');
   assert(altdup.origStays && altdup.copyMoved, 'Alt+드래그: 원본 제자리, 복제본 이동');
 
+  // === 간격 배열: 겹친 부품을 지정 간격으로 나란히 ===
+  const pack = await page.evaluate(() => {
+    App.store.commit(s => {
+      // 3개가 같은 자리에 겹침 (폭 12)
+      s.components.push(
+        { id: 'pk1', partNo: 'PK', type: 'TB', x: 100, y: 1950, widthMM: 12, heightMM: 40, rotation: 0, label: 'p', terminals: 0, term: null },
+        { id: 'pk2', partNo: 'PK', type: 'TB', x: 100, y: 1950, widthMM: 12, heightMM: 40, rotation: 0, label: 'p', terminals: 0, term: null },
+        { id: 'pk3', partNo: 'PK', type: 'TB', x: 100, y: 1950, widthMM: 12, heightMM: 40, rotation: 0, label: 'p', terminals: 0, term: null }
+      );
+    });
+    App.ui.selected = new Set(['pk1', 'pk2', 'pk3']);
+    // 간격 2mm 가로 배열 → 100, 114, 128
+    document.getElementById('al-gap').value = '2';
+    document.getElementById('al-packh').click();
+    const xs = App.store.get().components.filter(c => c.partNo === 'PK').map(c => c.x).sort((a, b) => a - b);
+    const gap2 = xs[0] === 100 && xs[1] === 114 && xs[2] === 128;
+    // 간격 0 → 딱 붙음: 100, 112, 124
+    App.ui.selected = new Set(['pk1', 'pk2', 'pk3']);
+    document.getElementById('al-gap').value = '0';
+    document.getElementById('al-packh').click();
+    const xs0 = App.store.get().components.filter(c => c.partNo === 'PK').map(c => c.x).sort((a, b) => a - b);
+    const gap0 = xs0[0] === 100 && xs0[1] === 112 && xs0[2] === 124;
+    // 세로 배열 (간격 5) → y 1950, 1995, 2040
+    App.ui.selected = new Set(['pk1', 'pk2', 'pk3']);
+    document.getElementById('al-gap').value = '5';
+    document.getElementById('al-packv').click();
+    const ys = App.store.get().components.filter(c => c.partNo === 'PK').map(c => c.y).sort((a, b) => a - b);
+    const vpack = ys[0] === 1950 && ys[1] === 1995 && ys[2] === 2040;
+    App.store.commit(s => { s.components = s.components.filter(c => c.partNo !== 'PK'); });
+    App.ui.selected.clear(); App.render.all();
+    return { gap2, gap0, vpack };
+  });
+  assert(pack.gap2, '간격 배열: 겹친 3개 → 2mm 간격 가로 배열');
+  assert(pack.gap0, '간격 배열: 0mm → 딱 붙임');
+  assert(pack.vpack, '간격 배열: 세로 방향(5mm)');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함
