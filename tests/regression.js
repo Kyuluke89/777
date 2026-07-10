@@ -2422,6 +2422,114 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wend.reconnected, '배선 끝점 드래그 → 다른 단자로 재연결');
   assert(wend.undone, '재연결 실행취소');
 
+  // === 덕트망 자동 라우팅 + 이동 시 배선 경로 유지 ===
+  const droute = await page.evaluate(() => {
+    // 빈 영역(x+1400)에 ㄱ자 덕트망: 위 가로덕트 + 왼쪽 세로덕트 (교차)
+    App.store.commit(s => {
+      s.ducts.push(
+        { id: 'dg1', orient: 'h', x: 1440, y: 80, lengthMM: 460, widthMM: 60 },   // 중심 y=110
+        { id: 'dg2', orient: 'v', x: 1440, y: 80, lengthMM: 420, widthMM: 60 }    // 중심 x=1470
+      );
+      s.components.push(
+        { id: 'dgc1', partNo: 'DG', type: 'MC', x: 1550, y: 400, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'dgc2', partNo: 'DG', type: 'MC', x: 1800, y: 200, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'dgw1', fromComp: 'dgc1', fromTerm: 0, toComp: 'dgc2', toTerm: 0, label: 'G1', color: '#111', width: 1.2, corners: null, midY: null });
+    });
+    const st = App.store.get();
+    const R = App.wires.route(st, st.wires.find(w => w.id === 'dgw1'));
+    // 세로덕트(x=1470) 타고 올라가 교차점(1470,110) 지나 가로덕트(y=110) 경유해야 함
+    const viaV = R.some(p => Math.round(p.x) === 1470);
+    const viaH = R.some(p => Math.round(p.y) === 110);
+    const viaCross = R.some(p => Math.round(p.x) === 1470 && Math.round(p.y) === 110);
+    // 이동 시 편집 경로 유지: 경로를 실체화(편집된 상태처럼)한 뒤 부품 이동 → 모양 따라감
+    App.store.commit(s => {
+      const w = s.wires.find(x => x.id === 'dgw1');
+      w.corners = App.wires.route(s, w).slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+    });
+    const origFirst = JSON.parse(JSON.stringify(App.store.get().wires.find(w => w.id === 'dgw1').corners[0]));
+    App.toolbar.setTool('select');
+    App.ui.selected.clear();
+    App.viewport.centerOn(1670, 300); // 빈 영역으로 뷰 이동(다른 테스트 잔여물과 화면 좌표 안 겹치게)
+    const svg = document.getElementById('canvas');
+    App.render.all();
+    const ctm = svg.getScreenCTM();
+    function cl(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; const c = p.matrixTransform(ctm); return { x: c.x, y: c.y }; }
+    const grp = document.querySelector('#layer-components [data-id="dgc1"]');
+    const a = cl(1553, 437), b = cl(1583, 457); // 모서리 클릭(+30,+20 이동)
+    const dn = new PointerEvent('pointerdown', { clientX: a.x, clientY: a.y, button: 0, bubbles: true });
+    Object.defineProperty(dn, 'target', { value: grp });
+    svg.dispatchEvent(dn);
+    svg.dispatchEvent(new PointerEvent('pointermove', { clientX: b.x, clientY: b.y, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x, clientY: b.y, bubbles: true }));
+    const cd = App.store.get().components.find(c => c.id === 'dgc1');
+    const w2 = App.store.get().wires.find(w => w.id === 'dgw1');
+    const dxr = cd.x - 1550, dyr = cd.y - 400;
+    const moved = dxr !== 0 || dyr !== 0;
+    // 첫 스터브 corner 가 부품 이동량만큼 따라감, 나머지 경로는 유지
+    const followed = Math.abs(w2.corners[0].x - (origFirst.x + dxr)) < 0.6 && Math.abs(w2.corners[0].y - (origFirst.y + dyr)) < 0.6;
+    const restKept = Math.round(w2.corners[1].x) === 1470 && Math.round(w2.corners[2].y) === 110;
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'dgw1');
+      s.components = s.components.filter(c => c.partNo !== 'DG');
+      s.ducts = s.ducts.filter(d => d.id !== 'dg1' && d.id !== 'dg2');
+    });
+    App.ui.selected.clear();
+    const p = App.store.get().panel;
+    App.viewport.fitTo(p.widthMM, p.heightMM);
+    App.render.all(); App.inspector.update();
+    return { viaV, viaH, viaCross, moved, followed, restKept };
+  });
+  assert(droute.viaV && droute.viaH && droute.viaCross, '덕트망 자동 라우팅: 세로→교차점→가로 덕트 경유');
+  assert(droute.moved && droute.followed, '부품 이동 시 편집된 배선 경로가 따라감(초기화 안 됨)');
+  assert(droute.restKept, '이동 후 나머지 경로(덕트 경유) 유지');
+
+  // === 마퀴 선택: 배선은 실제 선분과 겹칠 때만 ===
+  const mq = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'mq1', partNo: 'MQ', type: 'MC', x: 1500, y: 600, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'mq2', partNo: 'MQ', type: 'MC', x: 1800, y: 800, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'mqw1', fromComp: 'mq1', fromTerm: 0, toComp: 'mq2', toTerm: 0, label: 'M1', color: '#111', width: 1.2, corners: null, midY: null });
+      s.texts.push({ id: 'mqt1', x: 1650, y: 750, text: '안쪽텍스트', size: 8 });
+    });
+    App.toolbar.setTool('select');
+    App.ui.selected.clear();
+    App.viewport.centerOn(1670, 700);
+    App.render.all();
+    const svg = document.getElementById('canvas');
+    const ctm = svg.getScreenCTM();
+    function cl(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; const c = p.matrixTransform(ctm); return { x: c.x, y: c.y }; }
+    function marquee(x1, y1, x2, y2) {
+      App.ui.selected.clear();
+      const a = cl(x1, y1), b = cl(x2, y2);
+      svg.dispatchEvent(new PointerEvent('pointerdown', { clientX: a.x, clientY: a.y, button: 0, bubbles: true }));
+      svg.dispatchEvent(new PointerEvent('pointermove', { clientX: b.x, clientY: b.y, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x, clientY: b.y, bubbles: true }));
+      return Array.from(App.ui.selected);
+    }
+    // 배선 경로: x=1515 수직(592~700), y=700 수평(1515~1815), x=1815 수직(700~792)
+    // ㄷ자 안쪽 빈 공간(선분 없음, 텍스트만) 드래그 → 배선은 선택 안 되고 텍스트만
+    const inner = marquee(1600, 720, 1760, 780);
+    const innerOk = inner.indexOf('mqt1') >= 0 && inner.indexOf('mqw1') < 0;
+    // 수평 선분을 가로지르는 드래그 → 배선 선택
+    const cross = marquee(1600, 660, 1650, 720);
+    const crossOk = cross.indexOf('mqw1') >= 0;
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'mqw1');
+      s.components = s.components.filter(c => c.partNo !== 'MQ');
+      s.texts = s.texts.filter(t => t.id !== 'mqt1');
+    });
+    App.ui.selected.clear();
+    const p = App.store.get().panel;
+    App.viewport.fitTo(p.widthMM, p.heightMM);
+    App.render.all(); App.inspector.update();
+    return { inner, innerOk, crossOk };
+  });
+  assert(mq.innerOk, '마퀴: 배선 경로 안쪽 빈 공간 드래그 → 겹친 배선 미선택');
+  assert(mq.crossOk, '마퀴: 선분을 실제로 지나면 배선 선택');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

@@ -188,7 +188,15 @@
         origPos[id] = { pts: true, x1: f.item.x1, y1: f.item.y1, x2: f.item.x2, y2: f.item.y2 };
       } else origPos[id] = { x: f.item.x, y: f.item.y };
     });
-    gesture = { type: 'move', sp: sp, snap: snap, origPos: origPos, moved: false };
+    // 편집된 배선 경로가 부품 이동을 따라가도록 원본 corners 보관
+    const wireFollow = [];
+    App.store.get().wires.forEach(function (w) {
+      if (!w.corners || !w.corners.length) return;
+      const fromMov = !!origPos[w.fromComp], toMov = !!origPos[w.toComp];
+      if (!fromMov && !toMov) return;
+      wireFollow.push({ id: w.id, both: fromMov && toMov, from: fromMov, orig: App.clone(w.corners) });
+    });
+    gesture = { type: 'move', sp: sp, snap: snap, origPos: origPos, moved: false, wireFollow: wireFollow };
   }
 
   function updateMove(cp) {
@@ -223,6 +231,28 @@
       const f1 = App.store.findById(ids[0]);
       if (f1 && f1.kind === 'components') guides = smartAlign(state, f1.item);
     }
+    // 편집된 배선 경로 따라가기 — 부품의 "실제" 이동량(스냅 포함)만큼 corners 이동
+    (gesture.wireFollow || []).forEach(function (wf) {
+      const wobj = state.wires.find(function (x) { return x.id === wf.id; });
+      if (!wobj) return;
+      function rd(v) { return Math.round(v * 10) / 10; }
+      function deltaOf(cid) {
+        const o = gesture.origPos[cid];
+        const c2 = state.components.find(function (x) { return x.id === cid; });
+        if (!o || o.pts || !c2) return { dx: dx, dy: dy };
+        return { dx: c2.x - o.x, dy: c2.y - o.y };
+      }
+      if (wf.both) {
+        const d = deltaOf(wobj.fromComp);
+        wobj.corners = wf.orig.map(function (c) { return { x: rd(c.x + d.dx), y: rd(c.y + d.dy) }; });
+      } else {
+        const d = deltaOf(wf.from ? wobj.fromComp : wobj.toComp);
+        const cs = wf.orig.map(function (c) { return { x: c.x, y: c.y }; });
+        if (wf.from) { cs[0] = { x: rd(wf.orig[0].x + d.dx), y: rd(wf.orig[0].y + d.dy) }; }
+        else { const L = cs.length - 1; cs[L] = { x: rd(wf.orig[L].x + d.dx), y: rd(wf.orig[L].y + d.dy) }; }
+        wobj.corners = cs;
+      }
+    });
     App.store.touch();
     if (App.render.guides) App.render.guides(guides); // touch 재렌더 후 그려야 유지됨
   }
@@ -602,10 +632,24 @@
     if (!r || (r.w < 1 && r.h < 1)) return;
     const state = App.store.get();
     const hit = [];
-    ['components', 'ducts', 'rails', 'wires', 'dimensions', 'texts', 'clines'].forEach(function (k) {
+    ['components', 'ducts', 'rails', 'dimensions', 'texts', 'clines'].forEach(function (k) {
       (state[k] || []).forEach(function (it) {
         if (rectsIntersect(r, App.geom.bounds(k, it))) hit.push(it.id);
       });
+    });
+    // 배선은 경계상자가 아니라 "실제 선분"이 영역과 겹칠 때만 선택
+    // (ㄷ자 경로의 빈 안쪽을 드래그했을 때 엉뚱한 선까지 잡히지 않게)
+    (state.wires || []).forEach(function (w) {
+      const pts = App.wires.route(state, w);
+      if (!pts) return;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p = pts[i], q = pts[i + 1];
+        const seg = {
+          x: Math.min(p.x, q.x), y: Math.min(p.y, q.y),
+          w: Math.abs(q.x - p.x), h: Math.abs(q.y - p.y)
+        };
+        if (rectsIntersect(r, seg)) { hit.push(w.id); break; }
+      }
     });
     if (gesture.add) hit.forEach(function (id) { App.ui.selected.add(id); });
     else selectMany(hit);

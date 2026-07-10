@@ -38,12 +38,88 @@
     return bestD ? Math.round(bestD.y + bestD.widthMM / 2) : null;
   }
 
+  // ── 덕트망 자동 라우팅 — 덕트 중심선들을 그래프로 보고 최단 경로로 경유 ──
+  // 실제 배선처럼 덕트를 타고 돌아가는 경로를 만든다. (가로+세로 덕트 연결 인식)
+  function ductGraphRoute(state, sa, sb) {
+    const ducts = state.ducts || [];
+    if (!ducts.length) return null;
+    const lines = ducts.map(function (d) {
+      return d.orient === 'h'
+        ? { o: 'H', c: d.y + d.widthMM / 2, lo: d.x, hi: d.x + d.lengthMM }
+        : { o: 'V', c: d.x + d.widthMM / 2, lo: d.y, hi: d.y + d.lengthMM };
+    });
+    // 스터브 → 가장 가까운 덕트 진입점 (150mm 이내)
+    function entry(p) {
+      let best = null, bd = 150;
+      lines.forEach(function (L, li) {
+        let pt, d;
+        if (L.o === 'H') {
+          const x = Math.max(L.lo, Math.min(L.hi, p.x));
+          pt = { x: x, y: L.c };
+          d = (p.x >= L.lo && p.x <= L.hi) ? Math.abs(p.y - L.c) : Math.hypot(p.x - x, p.y - L.c);
+        } else {
+          const y = Math.max(L.lo, Math.min(L.hi, p.y));
+          pt = { x: L.c, y: y };
+          d = (p.y >= L.lo && p.y <= L.hi) ? Math.abs(p.x - L.c) : Math.hypot(p.x - L.c, p.y - y);
+        }
+        if (d < bd) { bd = d; best = { li: li, pt: pt }; }
+      });
+      return best;
+    }
+    const ea = entry(sa), eb = entry(sb);
+    if (!ea || !eb) return null;
+    if (ea.li === eb.li) return [ea.pt, eb.pt]; // 같은 덕트 — 바로 경유
+    // 덕트 교차점 노드
+    const nodes = [];
+    for (let i = 0; i < lines.length; i++) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const A = lines[i], B = lines[j];
+        if (A.o === B.o) continue;
+        const H = A.o === 'H' ? A : B, V = A.o === 'H' ? B : A;
+        const hIdx = A.o === 'H' ? i : j, vIdx = A.o === 'H' ? j : i;
+        if (V.c >= H.lo - 1 && V.c <= H.hi + 1 && H.c >= V.lo - 1 && H.c <= V.hi + 1) {
+          nodes.push({ x: V.c, y: H.c, on: [hIdx, vIdx] });
+        }
+      }
+    }
+    const pts = [{ x: ea.pt.x, y: ea.pt.y, on: [ea.li] }, { x: eb.pt.x, y: eb.pt.y, on: [eb.li] }].concat(nodes);
+    // 같은 덕트 위 노드끼리 연결 — 다익스트라 최단 경로 (맨해튼 거리)
+    const N = pts.length;
+    const dist = new Array(N).fill(Infinity), prev = new Array(N).fill(-1), done = new Array(N).fill(false);
+    dist[0] = 0;
+    for (let it = 0; it < N; it++) {
+      let u = -1, du = Infinity;
+      for (let k = 0; k < N; k++) if (!done[k] && dist[k] < du) { du = dist[k]; u = k; }
+      if (u < 0 || u === 1) break;
+      done[u] = true;
+      for (let v = 0; v < N; v++) {
+        if (done[v]) continue;
+        let shared = false;
+        for (let s = 0; s < pts[u].on.length; s++) if (pts[v].on.indexOf(pts[u].on[s]) >= 0) { shared = true; break; }
+        if (!shared) continue;
+        const wgt = Math.abs(pts[u].x - pts[v].x) + Math.abs(pts[u].y - pts[v].y);
+        if (dist[u] + wgt < dist[v]) { dist[v] = dist[u] + wgt; prev[v] = u; }
+      }
+    }
+    if (!isFinite(dist[1])) return null;
+    const path = [];
+    for (let v = 1; v !== -1; v = prev[v]) path.unshift({ x: Math.round(pts[v].x), y: Math.round(pts[v].y) });
+    return path;
+  }
+
   // 기본 꺾임점 (Z자). stub 점도 꼭짓점으로 포함 → 단자에서 나오는 수직선도
   // 좌우로 움직일 수 있게 됨(편집 가능한 세그먼트가 됨).
   function defaultCorners(state, wire) {
     const a = term(state, wire, 'from'), b = term(state, wire, 'to');
     if (!a || !b) return [];
     const sa = stub(a), sb = stub(b);
+    // 덕트망 경유 라우팅(사용자가 midY 를 직접 지정하지 않았을 때)
+    if (wire.midY == null) {
+      const dg = ductGraphRoute(state, sa, sb);
+      if (dg && dg.length) {
+        return [{ x: sa.x, y: sa.y }].concat(dg, [{ x: sb.x, y: sb.y }]);
+      }
+    }
     let midY = (wire.midY != null) ? wire.midY : ductMidY(state, sa, sb);
     if (midY == null) midY = Math.round((sa.y + sb.y) / 2);
     return [
