@@ -63,6 +63,7 @@
       label: part.name || part.partNo,  // 기본 표시 = 품명
       tag: '',                          // 호기번호(선택) — 인스펙터에서 입력
       partName: part.name || '',
+      manufacturer: part.manufacturer || '',
       terminals: part.terminals != null ? part.terminals : App.terminals.defaultCount(part.type),
       term: part.term ? App.clone(part.term) : null,
       sym: part.sym || null,
@@ -269,6 +270,29 @@
       return;
     }
 
+    // 속성 복사 모드 (캐드 MATCHPROP): 원본 속성을 클릭한 같은 종류 대상에 적용, Esc 종료
+    if (App.ui.matchProp) {
+      const mpEl = e.target.closest && e.target.closest('[data-id][data-kind]');
+      const mp = App.ui.matchProp;
+      if (mpEl) {
+        const mid = mpEl.getAttribute('data-id'), mkind = mpEl.getAttribute('data-kind');
+        if (mkind === mp.kind && mid !== mp.srcId) {
+          App.store.commit(function () {
+            const fm = App.store.findById(mid);
+            if (fm) { for (const k in mp.props) fm.item[k] = App.clone(mp.props[k]); }
+          });
+          App.render.all();
+          if (App.toolbar) App.toolbar.flash('속성 적용 — 계속 클릭하거나 Esc로 종료');
+        } else if (mkind !== mp.kind) {
+          if (App.toolbar) App.toolbar.flash('같은 종류에만 적용할 수 있습니다');
+        }
+        return;
+      }
+      App.ui.matchProp = null; // 빈 곳 클릭 → 종료
+      if (App.toolbar) App.toolbar.flash('속성 복사 종료');
+      return;
+    }
+
     const tool = App.ui.tool;
 
     // 와이어 도구: 단자 클릭 → 단자 클릭
@@ -345,8 +369,20 @@
       return;
     }
 
-    if (tool === 'duct-h') { startDraw('h', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
-    if (tool === 'duct-v') { startDraw('v', 'ducts', sp); svg.setPointerCapture(e.pointerId); return; }
+    // 덕트: 길이를 미리 입력해 두면(덕트길이 칸) 클릭 한 번으로 그 크기 배치, 아니면 드래그
+    if (tool === 'duct-h' || tool === 'duct-v') {
+      const fixedLen = App.ui.ductLen || 0;
+      if (fixedLen > 0) {
+        const orient = tool === 'duct-h' ? 'h' : 'v';
+        const id = App.uid('dct');
+        App.store.commit(function (s) {
+          s.ducts.push({ id: id, orient: orient, x: snapV(sp.x), y: snapV(sp.y), lengthMM: fixedLen, widthMM: App.ui.ductWidth || 60 });
+        });
+        selectOnly(id);
+        return;
+      }
+      startDraw(tool === 'duct-h' ? 'h' : 'v', 'ducts', sp); svg.setPointerCapture(e.pointerId); return;
+    }
     if (tool === 'rail-h') { startDraw('h', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
     if (tool === 'rail-v') { startDraw('v', 'rails', sp); svg.setPointerCapture(e.pointerId); return; }
 
@@ -376,6 +412,14 @@
     const dimEl = pick('data-dim');
     if (dimEl) {
       startDimOff(dimEl.getAttribute('data-dim'), sp);
+      svg.setPointerCapture(e.pointerId);
+      return;
+    }
+
+    // 덕트 라벨 스티커 드래그 (덕트 길이 방향 이동)
+    const stkEl = pick('data-sticker');
+    if (stkEl) {
+      startStickerDrag(stkEl.getAttribute('data-duct'), stkEl.getAttribute('data-sticker'), sp);
       svg.setPointerCapture(e.pointerId);
       return;
     }
@@ -494,6 +538,7 @@
     else if (gesture.type === 'wireseg') updateWireSeg(cp);
     else if (gesture.type === 'dimoff') updateDimOff(cp);
     else if (gesture.type === 'labeldrag') updateLabelDrag(cp);
+    else if (gesture.type === 'sticker') updateStickerDrag(cp);
     else if (gesture.type === 'titledrag') updateTitleDrag(cp);
     else if (gesture.type === 'marquee') updateMarquee(cp);
   }
@@ -512,6 +557,7 @@
     }
     else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'labeldrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'sticker') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'titledrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
     else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
@@ -555,6 +601,27 @@
       const o = { dx: Math.round(gesture.orig.dx + dx), dy: Math.round(gesture.orig.dy + dy) };
       if (gesture.end === 'a') it.lblA = o; else it.lblB = o;
     }
+    gesture.moved = true;
+    App.store.touch();
+  }
+
+  // 덕트 라벨 스티커 드래그 — 덕트 길이 방향으로만 이동 (off 클램프)
+  function startStickerDrag(ductId, stId, sp) {
+    const f = App.store.findById(ductId);
+    if (!f || f.kind !== 'ducts') return;
+    const st = (f.item.stickers || []).find(function (s) { return s.id === stId; });
+    if (!st) return;
+    gesture = { type: 'sticker', snap: App.store.snapshot(), sp: sp, ductId: ductId, stId: stId, origOff: st.off || 0, moved: false };
+  }
+  function updateStickerDrag(cp) {
+    const f = App.store.findById(gesture.ductId);
+    if (!f) return;
+    const d = f.item;
+    const st = (d.stickers || []).find(function (s) { return s.id === gesture.stId; });
+    if (!st) return;
+    const delta = d.orient === 'h' ? (cp.x - gesture.sp.x) : (cp.y - gesture.sp.y);
+    const max = Math.max(0, d.lengthMM - App.STICKER.W);
+    st.off = Math.round(Math.max(0, Math.min(max, gesture.origOff + delta)));
     gesture.moved = true;
     App.store.touch();
   }
@@ -603,6 +670,27 @@
       const id = wireGrp.getAttribute('data-id');
       selectOnly(id);
       addBendAt(id, App.viewport.clientToWorld(e.clientX, e.clientY));
+      return;
+    }
+    // 라벨 스티커 더블클릭 → 3칸 내용 편집
+    const stkEl2 = pick('[data-sticker]');
+    if (stkEl2) {
+      const did = stkEl2.getAttribute('data-duct'), sid = stkEl2.getAttribute('data-sticker');
+      const fd = App.store.findById(did);
+      const st = fd && (fd.item.stickers || []).find(function (s) { return s.id === sid; });
+      if (st) {
+        const cur = st.lines || ['', '', ''];
+        const l1 = prompt('1칸 (예: POWER S/W 01)', cur[0] || ''); if (l1 == null) return;
+        const l2 = prompt('2칸 (예: MAIN POWER S/W)', cur[1] || ''); if (l2 == null) return;
+        const l3 = prompt('3칸 (예: MAS-025 25A)', cur[2] || ''); if (l3 == null) return;
+        App.store.commit(function () {
+          const fd2 = App.store.findById(did);
+          const st2 = fd2 && (fd2.item.stickers || []).find(function (s) { return s.id === sid; });
+          if (st2) st2.lines = [l1, l2, l3];
+        });
+        App.render.all();
+        if (App.inspector) App.inspector.update();
+      }
       return;
     }
     // 자유 텍스트 더블클릭 → 내용 즉시 편집
@@ -671,29 +759,66 @@
     App.render.all();
   }
 
-  // 선택 부품 복사 → 클립보드 (부품만; 와이어는 단자 종속이라 제외)
+  // 선택 항목 복사 → 클립보드 (부품·덕트·레일·텍스트·치수. 와이어는 단자 종속이라 제외)
   function copySelected() {
     const ids = Array.from(App.ui.selected);
-    const comps = App.store.get().components.filter(function (c) { return ids.indexOf(c.id) >= 0; });
-    if (comps.length) App.ui.clipboard = App.clone(comps);
+    const s = App.store.get();
+    const items = [];
+    ['components', 'ducts', 'rails', 'texts', 'dimensions'].forEach(function (k) {
+      (s[k] || []).forEach(function (it) {
+        if (ids.indexOf(it.id) >= 0) items.push({ kind: k, item: App.clone(it) });
+      });
+    });
+    if (items.length) App.ui.clipboard = items;
   }
-  // 붙여넣기 (격자 2칸 오프셋, 호기번호 재발급)
+  // 붙여넣기 (격자 2칸 오프셋, id 재발급)
   function paste() {
     if (!App.ui.clipboard || !App.ui.clipboard.length) return;
+    // 하위호환: 예전 클립보드(부품 배열)도 처리
+    const list = App.ui.clipboard.map(function (e) { return e && e.kind ? e : { kind: 'components', item: e }; });
     const g = App.store.get().panel.gridMM * 2;
+    const prefix = { components: 'cmp', ducts: 'duct', rails: 'rail', texts: 'txt', dimensions: 'dim' };
     const newIds = [];
     App.store.commit(function (s) {
-      App.ui.clipboard.forEach(function (c) {
-        const nc = App.clone(c);
-        nc.id = App.uid('cmp');
-        nc.x += g; nc.y += g;
-        s.components.push(nc); // 품명 라벨 유지 (호기번호는 인스펙터에서 부여)
+      list.forEach(function (e) {
+        const nc = App.clone(e.item);
+        nc.id = App.uid(prefix[e.kind] || 'id');
+        if (e.kind === 'dimensions') { nc.x1 += g; nc.y1 += g; nc.x2 += g; nc.y2 += g; }
+        else { nc.x += g; nc.y += g; }
+        nc.locked = false;
+        if (nc.stickers) nc.stickers.forEach(function (st) { st.id = App.uid('stk'); }); // 스티커 id 재발급
+        s[e.kind].push(nc); // 품명 라벨 유지 (호기번호는 인스펙터에서 부여)
         newIds.push(nc.id);
       });
     });
     selectMany(newIds);
   }
   function duplicateSelected() { copySelected(); paste(); }
+
+  // 속성 복사 (MATCHPROP) — 종류별로 복사되는 속성
+  const MATCH_PROPS = {
+    wires: ['color', 'width', 'sq', 'awg', 'acdc'],
+    components: ['type', 'textVert'],
+    ducts: ['widthMM'],
+    rails: ['widthMM', 'type'],
+    texts: ['size', 'color', 'bold'],
+    dimensions: ['off']
+  };
+  const KIND_NAMES = { wires: '배선', components: '부품', ducts: '덕트', rails: '레일', texts: '텍스트', dimensions: '치수' };
+  function startMatchProp() {
+    if (App.ui.selected.size !== 1) {
+      if (App.toolbar) App.toolbar.flash('속성 복사: 원본 1개를 먼저 선택하세요');
+      return;
+    }
+    const id = Array.from(App.ui.selected)[0];
+    const f = App.store.findById(id);
+    if (!f || !MATCH_PROPS[f.kind]) { if (App.toolbar) App.toolbar.flash('이 항목은 속성 복사를 지원하지 않습니다'); return; }
+    const props = {};
+    MATCH_PROPS[f.kind].forEach(function (k) { if (f.item[k] != null) props[k] = App.clone(f.item[k]); });
+    App.ui.matchProp = { kind: f.kind, srcId: id, props: props };
+    if (App.toolbar) App.toolbar.flash('속성 복사: 적용할 ' + KIND_NAMES[f.kind] + '를 클릭하세요 (Esc 종료)');
+  }
+  Interact.startMatchProp = startMatchProp;
 
   // 방향키 미세 이동 (격자 단위, Shift=10배)
   function nudge(dx, dy, big) {
@@ -757,6 +882,7 @@
     if (e.key === 'Escape') {
       App.ui.placing = null;
       App.ui.wireStart = null;
+      App.ui.matchProp = null;
       App.ui.dim = { stage: 0 };
       App.render.wirePreview(null);
       App.render.dimPreview(null);
@@ -869,10 +995,27 @@
         items.push({ icon: '✎', label: '크기·단자 편집', fn: function () { App.partEditor.open({ component: f.item }); } });
         items.push({ icon: '⟳', label: '회전', key: 'R', fn: rotateSelected });
       }
+      if (kind === 'ducts') {
+        items.push({ icon: '🏷', label: '라벨 스티커 추가', fn: function () {
+          const pos = App.viewport.clientToWorld(e.clientX, e.clientY);
+          App.store.commit(function () {
+            const fd = App.store.findById(id);
+            if (!fd) return;
+            const duct = fd.item;
+            duct.stickers = duct.stickers || [];
+            const max = Math.max(0, duct.lengthMM - App.STICKER.W);
+            const off = duct.orient === 'h' ? (pos.x - duct.x - App.STICKER.W / 2) : (pos.y - duct.y - App.STICKER.W / 2);
+            duct.stickers.push({ id: App.uid('stk'), off: Math.round(Math.max(0, Math.min(max, off))), lines: ['LABEL', '', ''] });
+          });
+          App.render.all();
+          if (App.inspector) App.inspector.update();
+        } });
+      }
       if (kind !== 'wires') {
         items.push({ icon: '⎘', label: '복제', key: 'Ctrl+D', fn: duplicateSelected });
         items.push({ icon: '🔒', label: (f && f.item.locked) ? '잠금 해제' : '잠금', fn: toggleLock });
       }
+      items.push({ icon: '🖌', label: '속성 복사 (다른 대상에 적용)', fn: startMatchProp });
       items.push('sep');
       items.push({ icon: '🗑', label: '삭제', key: 'Del', danger: true, fn: deleteSelected });
     } else {

@@ -1447,6 +1447,195 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(t4xref.hasBtn, '크로스레퍼런스 버튼(같은 라벨 심볼) 노출');
   assert(t4xref.jumped, '크로스레퍼런스 점프(선택 이동)');
 
+  // === 덕트 라벨 스티커 (24×30mm 3칸) ===
+  const stk = await page.evaluate(() => {
+    App.store.commit(s => { s.ducts.push({ id: 'sd1', orient: 'h', x: 0, y: 900, lengthMM: 200, widthMM: 60 }); });
+    App.ui.selected = new Set(['sd1']);
+    App.inspector.update();
+    const addBtn = document.getElementById('insp-st-add');
+    if (!addBtn) return { fail: 'no-add-btn' };
+    addBtn.click();
+    const d = App.store.get().ducts.find(x => x.id === 'sd1');
+    const created = d.stickers && d.stickers.length === 1;
+    // 3칸 내용 입력 (사진과 동일한 예)
+    const vals = ['POWER S/W 01', 'MAIN POWER S/W', 'MAS-025 25A'];
+    for (let li = 0; li < 3; li++) {
+      const inp = document.querySelector('#inspector [data-stline="' + li + '"]');
+      inp.value = vals[li];
+      inp.dispatchEvent(new Event('change'));
+    }
+    const st = App.store.get().ducts.find(x => x.id === 'sd1').stickers[0];
+    const linesOk = st.lines.join('|') === vals.join('|');
+    // 렌더: 어두운 배경 + 3행 텍스트
+    App.render.all();
+    const node = document.querySelector('[data-sticker="' + st.id + '"]');
+    const texts = node ? Array.from(node.querySelectorAll('text')).map(e => e.textContent) : [];
+    const sepLines = node ? node.querySelectorAll('line').length : 0;
+    // 위치 클램프: 9999 → lengthMM-30
+    const offInp = document.querySelector('#inspector [data-stoff]');
+    offInp.value = '9999';
+    offInp.dispatchEvent(new Event('change'));
+    const clamped = App.store.get().ducts.find(x => x.id === 'sd1').stickers[0].off === 170;
+    // DXF 포함
+    const dxf = App.exporter.dxfString(App.store.get());
+    const inDxf = dxf.indexOf('LABELS') >= 0 && dxf.indexOf('MAS-025 25A') >= 0;
+    // 저장 라운드트립 (덕트 내장이라 자동)
+    const rt = JSON.parse(JSON.stringify(App.store.get())).ducts.find(x => x.id === 'sd1').stickers.length === 1;
+    // 삭제
+    document.querySelector('#inspector .insp-st-del').click();
+    const deleted = App.store.get().ducts.find(x => x.id === 'sd1').stickers.length === 0;
+    App.store.commit(s => { s.ducts = s.ducts.filter(x => x.id !== 'sd1'); });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { created, linesOk, texts, sepLines, clamped, inDxf, rt, deleted };
+  });
+  assert(stk.created, '스티커 추가(인스펙터)');
+  assert(stk.linesOk, '스티커 3칸 내용 입력');
+  assert(stk.texts.length === 3 && stk.texts[0] === 'POWER S/W 01', '스티커 3행 텍스트 렌더');
+  assert(stk.sepLines >= 2, '스티커 칸 구분선 렌더');
+  assert(stk.clamped, '스티커 위치 덕트 길이로 클램프');
+  assert(stk.inDxf, 'DXF에 스티커(LABELS) 포함');
+  assert(stk.rt && stk.deleted, '스티커 저장 보존 + 삭제');
+
+  // === 파츠리스트 XLSX (발주 양식) ===
+  const xl = await page.evaluate(() => {
+    // 같은 규격 2개 + 다른 규격 1개 → 수량 집계 확인
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'xc1', partNo: 'EBS32Fb 15A', type: 'MCCB', partName: '누전차단기', manufacturer: 'LSIS', x: 10, y: 1400, widthMM: 30, heightMM: 40, rotation: 0, label: '누전차단기', terminals: 0, term: null },
+        { id: 'xc2', partNo: 'EBS32Fb 15A', type: 'MCCB', partName: '누전차단기', manufacturer: 'LSIS', x: 60, y: 1400, widthMM: 30, heightMM: 40, rotation: 0, label: '누전차단기', terminals: 0, term: null },
+        { id: 'xc3', partNo: 'FDR-120-24', type: 'SMPS', partName: 'SMPS', manufacturer: 'ORIENT', x: 110, y: 1400, widthMM: 30, heightMM: 40, rotation: 0, label: 'SMPS', terminals: 0, term: null }
+      );
+    });
+    const rows = App.xlsx.partsRows(App.store.get());
+    const ebs = rows.find(r => r.spec === 'EBS32Fb 15A');
+    const agg = ebs && ebs.qty === 2 && ebs.maker === 'LSIS';
+    // prompt/다운로드 스텁 후 실제 xlsx 생성 → unzip 해서 내용 검증
+    const answers = ['A260504', '타스코', 'Carton 시스템'];
+    let ai = 0;
+    const oldPrompt = window.prompt, oldClick = HTMLAnchorElement.prototype.click;
+    window.prompt = () => answers[ai++ % 3];
+    let zipped = null;
+    const oldZip = fflate.zipSync;
+    fflate.zipSync = function (files, o) { zipped = oldZip(files, o); return zipped; };
+    HTMLAnchorElement.prototype.click = function () {};
+    const n = App.xlsx.partsList(App.store.get());
+    window.prompt = oldPrompt; HTMLAnchorElement.prototype.click = oldClick; fflate.zipSync = oldZip;
+    if (!zipped) return { agg, fail: 'no-zip' };
+    const un = fflate.unzipSync(zipped);
+    const dec = new TextDecoder();
+    const sheet = dec.decode(un['xl/worksheets/sheet1.xml']);
+    const wb = dec.decode(un['xl/workbook.xml']);
+    const hasParts = ['[Content_Types].xml', '_rels/.rels', 'xl/styles.xml'].every(k => !!un[k]);
+    App.store.commit(s => { s.components = s.components.filter(c => ['xc1', 'xc2', 'xc3'].indexOf(c.id) < 0); });
+    App.render.all();
+    return {
+      agg, n, hasParts,
+      sheetName: wb.indexOf('파트리스트') >= 0,
+      title: sheet.indexOf('PARTS LIST') >= 0,
+      heads: ['PART NO.', 'PART NAME', 'SPECIFICATION', '구매품수량', '재고품수량', '제조사', '총합', '구매요청일', '입고예정', '진행'].every(h => sheet.indexOf(h) >= 0),
+      labels: [' PROJECT  NO :', 'CUSTOMER :', 'PRODUCT (GROUP) :', 'Prepared by', 'Checked by', 'Approved by'].every(h => sheet.indexOf(h) >= 0),
+      vals: sheet.indexOf('A260504') >= 0 && sheet.indexOf('타스코') >= 0 && sheet.indexOf('A260504-01-000-01') >= 0,
+      merges: sheet.indexOf('<mergeCell ref="D2:F2"/>') >= 0 && sheet.indexOf('<mergeCell ref="A2:B2"/>') >= 0,
+      qty: sheet.indexOf('EBS32Fb 15A') >= 0 && sheet.indexOf('LSIS') >= 0
+    };
+  });
+  assert(xl.agg, '파츠리스트 집계(같은 규격 수량 합산+제조사)');
+  assert(xl.n >= 2 && xl.hasParts, 'XLSX 패키지 생성(zip 구조)');
+  assert(xl.sheetName, 'XLSX 시트명 "파트리스트"');
+  assert(xl.title && xl.heads, 'XLSX 머리글(PARTS LIST + 표 헤더 10종)');
+  assert(xl.labels, 'XLSX 좌측 라벨/결재란(PROJECT NO·CUSTOMER·Prepared by…)');
+  assert(xl.vals, 'XLSX 값 채움 + PART NO. 자동넘버링');
+  assert(xl.merges, 'XLSX 셀 병합(원본과 동일)');
+  assert(xl.qty, 'XLSX 데이터 행(규격/제조사)');
+
+  // === 덕트 복제 / 크기 사전 지정 / 속성 복사 ===
+  const dupFix = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.ducts.push({ id: 'dd1', orient: 'h', x: 0, y: 1500, lengthMM: 150, widthMM: 60, stickers: [{ id: 'ds1', off: 5, lines: ['A', '', ''] }] });
+      s.texts.push({ id: 'dt1', x: 0, y: 1600, text: '복제확인', size: 8 });
+    });
+    const before = { d: App.store.get().ducts.length, t: App.store.get().texts.length };
+    App.ui.selected = new Set(['dd1', 'dt1']);
+    App.interact.duplicateSelected();
+    const s2 = App.store.get();
+    const dupDuct = s2.ducts.length === before.d + 1;
+    const dupText = s2.texts.length === before.t + 1;
+    const newDuct = s2.ducts[s2.ducts.length - 1];
+    const stickerCopied = newDuct.stickers && newDuct.stickers.length === 1 && newDuct.stickers[0].id !== 'ds1';
+    // 정리
+    App.store.commit(s => {
+      s.ducts = s.ducts.filter(d => d.id === undefined || (d.id !== 'dd1' && d.id !== newDuct.id));
+      s.texts = s.texts.filter(t => t.id !== 'dt1' && t.text !== '복제확인');
+    });
+    App.ui.selected.clear();
+    return { dupDuct, dupText, stickerCopied };
+  });
+  assert(dupFix.dupDuct, '덕트 복제(Ctrl+D) 동작');
+  assert(dupFix.dupText, '텍스트 복제 동작');
+  assert(dupFix.stickerCopied, '복제 시 스티커 id 재발급');
+
+  // 덕트 길이 사전 지정 → 클릭 한 번 배치
+  await page.evaluate(() => {
+    document.getElementById('duct-len').value = '250';
+    document.getElementById('duct-len').dispatchEvent(new Event('input'));
+  });
+  await page.click('#tool-duct-h');
+  {
+    const box = await page.evaluate(() => {
+      const r = document.getElementById('canvas').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    await page.mouse.click(box.x, box.y);
+  }
+  const fixedDuct = await page.evaluate(() => {
+    const s = App.store.get();
+    const d = s.ducts[s.ducts.length - 1];
+    const ok = d && d.lengthMM === 250 && d.orient === 'h';
+    App.store.commit(s2 => { s2.ducts = s2.ducts.filter(x => x.id !== d.id); });
+    document.getElementById('duct-len').value = '';
+    document.getElementById('duct-len').dispatchEvent(new Event('input'));
+    App.toolbar.setTool('select');
+    App.ui.selected.clear(); App.render.all();
+    return ok;
+  });
+  assert(fixedDuct, '덕트 길이 지정 후 클릭 한 번 배치(250mm)');
+
+  // 속성 복사(MATCHPROP): 와이어 색/두께를 다른 와이어에 적용
+  const mprop = await page.evaluate(() => {
+    const s = App.store.get();
+    if (s.wires.length < 2) return { skip: true };
+    const w1 = s.wires[0], w2 = s.wires[1];
+    App.store.commit(ss => {
+      ss.wires[0].color = '#16a34a'; ss.wires[0].width = 2.4; ss.wires[0].sq = '2.5';
+      ss.wires[1].color = '#111111'; ss.wires[1].width = 1;
+    });
+    App.ui.selected = new Set([w1.id]);
+    App.interact.startMatchProp();
+    const armed = !!App.ui.matchProp && App.ui.matchProp.kind === 'wires';
+    // 대상 클릭 시뮬레이션 대신 같은 적용 로직 검증: matchProp 상태에서 클릭 핸들러가 쓰는 props 확인
+    const propsOk = App.ui.matchProp.props.color === '#16a34a' && App.ui.matchProp.props.width === 2.4 && App.ui.matchProp.props.sq === '2.5';
+    // 실제 클릭 경로: 대상 와이어 DOM 좌표로 pointerdown
+    const el = document.querySelector('[data-id="' + w2.id + '"][data-kind="wires"]');
+    let applied = false, escCleared = false;
+    if (el) {
+      const bb = el.getBoundingClientRect();
+      const ev = new PointerEvent('pointerdown', { clientX: bb.left + bb.width / 2, clientY: bb.top + bb.height / 2, button: 0, bubbles: true });
+      Object.defineProperty(ev, 'target', { value: el });
+      document.getElementById('canvas').dispatchEvent(ev);
+      const w2n = App.store.get().wires.find(x => x.id === w2.id);
+      applied = w2n.color === '#16a34a' && w2n.width === 2.4 && w2n.sq === '2.5';
+    }
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    escCleared = !App.ui.matchProp;
+    App.ui.selected.clear(); App.render.all();
+    return { armed, propsOk, applied, escCleared };
+  });
+  if (!mprop.skip) {
+    assert(mprop.armed && mprop.propsOk, '속성 복사 모드 시작(원본 속성 추출)');
+    assert(mprop.applied, '속성 복사: 대상 와이어에 색/두께/SQ 적용');
+    assert(mprop.escCleared, '속성 복사 Esc 종료');
+  }
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

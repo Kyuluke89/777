@@ -243,6 +243,24 @@
       html += row('폭', numInput('widthMM', it.widthMM));
       html += row('방향', '<span class="text-xs text-slate-600">' + (it.orient === 'h' ? '가로' : '세로') + '</span>');
       html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
+      // 덕트 라벨 스티커 (24mm 테이프 × 30mm, 3칸)
+      if (f.kind === 'ducts') {
+        html += '<div class="text-[10px] text-slate-500 px-1 mt-3 font-semibold">라벨 스티커 (30×24mm · 3칸)</div>';
+        (it.stickers || []).forEach(function (st, si) {
+          const ln = st.lines || ['', '', ''];
+          html += '<div class="border border-slate-200 rounded p-1 mt-1" data-stbox="' + App.esc(st.id) + '">';
+          for (let li = 0; li < 3; li++) {
+            html += '<input data-stline="' + li + '" data-stid="' + App.esc(st.id) + '" type="text" value="' + App.esc(ln[li] || '') +
+              '" placeholder="' + (li + 1) + '칸" class="w-full mb-0.5 px-2 py-0.5 text-xs border border-slate-300 rounded" />';
+          }
+          html += '<div class="flex items-center justify-between mt-0.5">' +
+            '<label class="text-[10px] text-slate-500">위치 <input data-stoff data-stid="' + App.esc(st.id) + '" type="number" value="' + Math.round(st.off || 0) +
+            '" class="w-14 px-1 py-0.5 text-xs border border-slate-300 rounded text-right" /> mm</label>' +
+            '<button class="insp-st-del text-[10px] text-red-500" data-stid="' + App.esc(st.id) + '">🗑 삭제</button></div></div>';
+        });
+        html += '<button id="insp-st-add" class="mt-1 w-full px-2 py-1 text-xs rounded bg-slate-700 text-white" style="background:#334155;color:#fff">＋ 스티커 추가</button>';
+        html += '<div class="text-[10px] text-slate-400 px-1 mt-1">캔버스에서 드래그로 덕트 위 위치 이동, 더블클릭으로 편집.</div>';
+      }
     }
 
     root.innerHTML = html;
@@ -324,6 +342,52 @@
         App.render.all();
         Inspector.update();
         if (App.toolbar && App.toolbar.updateZoomPct) App.toolbar.updateZoomPct();
+      };
+    });
+    // 덕트 라벨 스티커: 추가/내용/위치/삭제
+    function withSticker(stId, fn) {
+      App.store.commit(function () {
+        const fnd = App.store.findById(id);
+        if (!fnd) return;
+        fnd.item.stickers = fnd.item.stickers || [];
+        fn(fnd.item);
+      });
+      App.render.all();
+    }
+    const stAdd = root.querySelector('#insp-st-add');
+    if (stAdd) stAdd.onclick = function () {
+      withSticker(null, function (duct) {
+        const n = duct.stickers.length;
+        const max = Math.max(0, duct.lengthMM - App.STICKER.W);
+        duct.stickers.push({ id: App.uid('stk'), off: Math.min(max, 10 + n * (App.STICKER.W + 10)), lines: ['LABEL ' + (n + 1), '', ''] });
+      });
+      Inspector.update();
+    };
+    root.querySelectorAll('[data-stline]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        const sid = inp.getAttribute('data-stid'), li = parseInt(inp.getAttribute('data-stline'), 10);
+        withSticker(sid, function (duct) {
+          const st = duct.stickers.find(function (s) { return s.id === sid; });
+          if (st) { st.lines = st.lines || ['', '', '']; st.lines[li] = inp.value; }
+        });
+      });
+    });
+    root.querySelectorAll('[data-stoff]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        const sid = inp.getAttribute('data-stid');
+        withSticker(sid, function (duct) {
+          const st = duct.stickers.find(function (s) { return s.id === sid; });
+          if (st) st.off = Math.max(0, Math.min(Math.max(0, duct.lengthMM - App.STICKER.W), parseFloat(inp.value) || 0));
+        });
+      });
+    });
+    root.querySelectorAll('.insp-st-del').forEach(function (btn) {
+      btn.onclick = function () {
+        const sid = btn.getAttribute('data-stid');
+        withSticker(sid, function (duct) {
+          duct.stickers = duct.stickers.filter(function (s) { return s.id !== sid; });
+        });
+        Inspector.update();
       };
     });
     // 글자 방향(가로/세로)

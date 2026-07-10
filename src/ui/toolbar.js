@@ -93,9 +93,29 @@
       });
     });
 
-    // 덕트 폭
+    // 덕트 폭 — "직접입력…" 선택 시 원하는 폭을 입력해 목록에 추가
     $('duct-width').addEventListener('change', function () {
+      if (this.value === 'custom') {
+        const v = parseInt(prompt('덕트 폭 (mm)', App.ui.ductWidth || 60), 10);
+        if (v > 0) {
+          let opt = Array.from(this.options).find(function (o) { return o.value === String(v); });
+          if (!opt) {
+            opt = document.createElement('option');
+            opt.value = String(v); opt.textContent = String(v);
+            this.insertBefore(opt, this.querySelector('option[value="custom"]'));
+          }
+          this.value = String(v);
+          App.ui.ductWidth = v;
+        } else {
+          this.value = String(App.ui.ductWidth || 60);
+        }
+        return;
+      }
       App.ui.ductWidth = parseInt(this.value, 10) || 60;
+    });
+    // 덕트 길이 사전 지정 — 입력 시 클릭 한 번으로 배치
+    if ($('duct-len')) $('duct-len').addEventListener('input', function () {
+      App.ui.ductLen = parseInt(this.value, 10) || 0;
     });
 
     // 다음 라인번호(배선)
@@ -259,6 +279,7 @@
     $('act-delete').onclick = function () { App.interact.deleteSelected(); };
     $('act-rotate').onclick = function () { App.interact.rotateSelected(); };
     $('act-dup').onclick = function () { App.interact.duplicateSelected(); };
+    if ($('act-matchprop')) $('act-matchprop').onclick = function () { App.interact.startMatchProp(); };
     $('act-lock').onclick = function () { App.interact.toggleLock(); };
 
     // 커스텀 부품 만들기 + 내 부품 내보내기/가져오기
@@ -286,6 +307,10 @@
 
     // 내보내기
     $('act-bom').onclick = function () { const n = App.exporter.bom(); flash('BOM ' + n + '행 저장'); };
+    if ($('act-plist')) $('act-plist').onclick = function () {
+      const n = App.xlsx.partsList();
+      if (n) flash('파츠리스트 ' + n + '품목 저장 (.xlsx)');
+    };
     $('act-wlist').onclick = function () { const n = App.exporter.wiringList(); flash('배선표 ' + n + '행 저장'); };
     $('act-png').onclick = function () { App.exporter.png(2); flash('PNG 내보내기'); };
     if ($('act-io')) $('act-io').onclick = function () { const n = App.exporter.ioList(); flash('I/O 리스트 ' + n + '행 저장'); };

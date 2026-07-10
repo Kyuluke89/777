@@ -164,7 +164,40 @@
         'stroke-dasharray': '3 3', 'pointer-events': 'none'
       }, grp);
       if (d.locked) lockBadge(grp, d.x + 1, d.y + 6);
+      // 라벨 스티커 (24mm 라벨테이프 × 30mm, 3칸) — 사진처럼 어두운 바탕+흰 글씨
+      (d.stickers || []).forEach(function (st) { drawSticker(grp, d, w, h, st); });
     });
+  }
+
+  // 덕트 라벨 스티커 — 30(길이)×24(테이프폭)mm, 3행. 세로 덕트에선 90° 회전.
+  App.STICKER = { W: 30, H: 24 };
+  function drawSticker(parent, d, w, h, st) {
+    const SW = App.STICKER.W, SH = App.STICKER.H;
+    const off = st.off || 0;
+    let cx, cy, rot;
+    if (d.orient === 'h') { cx = d.x + off + SW / 2; cy = d.y + h / 2; rot = 0; }
+    else { cx = d.x + w / 2; cy = d.y + off + SW / 2; rot = 90; }
+    const g = App.el('g', {
+      transform: 'translate(' + cx + ' ' + cy + ')' + (rot ? ' rotate(' + rot + ')' : ''),
+      'data-sticker': st.id, 'data-duct': d.id, style: 'cursor:move'
+    }, parent);
+    App.el('rect', { x: -SW / 2, y: -SH / 2, width: SW, height: SH, fill: '#111827', stroke: '#1f2937', 'stroke-width': 0.5, rx: 0.8 }, g);
+    App.el('rect', { x: -SW / 2 + 0.9, y: -SH / 2 + 0.9, width: SW - 1.8, height: SH - 1.8, fill: 'none', stroke: '#f8fafc', 'stroke-width': 0.55, 'pointer-events': 'none' }, g);
+    const rowH = (SH - 1.8) / 3, top = -SH / 2 + 0.9;
+    for (let i = 1; i < 3; i++) {
+      App.el('line', { x1: -SW / 2 + 0.9, y1: top + rowH * i, x2: SW / 2 - 0.9, y2: top + rowH * i, stroke: '#f8fafc', 'stroke-width': 0.45, 'pointer-events': 'none' }, g);
+    }
+    const lines = st.lines || [];
+    for (let i = 0; i < 3; i++) {
+      const s = lines[i] || '';
+      if (!s) continue;
+      const fs = Math.max(1.8, Math.min(4.3, (SW - 4) / (String(s).length * 0.62)));
+      const t = App.el('text', {
+        x: 0, y: top + rowH * i + rowH / 2, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+        'font-size': fs, fill: '#ffffff', 'font-family': 'Arial, sans-serif', 'pointer-events': 'none'
+      }, g);
+      t.textContent = s;
+    }
   }
 
   function renderRails(state) {

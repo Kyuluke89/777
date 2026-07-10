@@ -265,6 +265,23 @@
       const w = d.orient === 'h' ? d.lengthMM : d.widthMM;
       const h = d.orient === 'h' ? d.widthMM : d.lengthMM;
       rect('DUCTS', d.x, d.y, w, h);
+      // 라벨 스티커 (30×24, 3칸)
+      (d.stickers || []).forEach(function (st) {
+        const SW = 30, SH = 24, off = st.off || 0;
+        let sx, sy, vert = d.orient !== 'h';
+        if (!vert) { sx = d.x + off; sy = d.y + (h - SH) / 2; rect('LABELS', sx, sy, SW, SH); }
+        else { sx = d.x + (w - SH) / 2; sy = d.y + off; rect('LABELS', sx, sy, SH, SW); }
+        const rowH = SH / 3;
+        for (let i = 1; i < 3; i++) {
+          if (!vert) line('LABELS', sx, sy + rowH * i, sx + SW, sy + rowH * i);
+          else line('LABELS', sx + rowH * i, sy, sx + rowH * i, sy + SW);
+        }
+        (st.lines || []).forEach(function (s, i) {
+          if (!s) return;
+          if (!vert) text('LABELS', sx + 2, sy + rowH * i + rowH * 0.72, 3.2, s);
+          else text('LABELS', sx + rowH * i + rowH * 0.72, sy + SW - 2, 3.2, s);
+        });
+      });
     });
     (state.rails || []).forEach(function (r) {
       const w = r.orient === 'h' ? r.lengthMM : (r.widthMM || 35);
