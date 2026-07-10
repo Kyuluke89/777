@@ -60,7 +60,8 @@
       x: x, y: y,
       widthMM: part.w, heightMM: part.h,
       rotation: 0,
-      label: part.name || part.partNo,  // 기본 표시 = 품명
+      // 기본 표시 = 라이브러리 타이틀(품번). 심볼은 예외(품명/라벨 유지)
+      label: part.type === 'SYM' ? (part.name || part.partNo) : (part.partNo || part.name),
       tag: '',                          // 호기번호(선택) — 인스펙터에서 입력
       partName: part.name || '',
       manufacturer: part.manufacturer || '',

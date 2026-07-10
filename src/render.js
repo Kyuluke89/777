@@ -519,7 +519,9 @@
       }
       // 품명 — 기본 크기 × 배율, 선택 시 드래그로 위치 이동. panel.showNames=false 면 숨김
       if (state.panel.showNames !== false) {
-        const txt = c.label || c.partName || c.partNo || '';
+        // 표시 글씨 = 라이브러리 타이틀(품번). 라벨이 품명 그대로면(구버전 기본) 타이틀로 대체.
+        const txt = c.sym ? (c.label || c.partName || c.partNo || '')
+          : ((c.label && c.label !== c.partName) ? c.label : (c.partNo || c.partName || ''));
         const fit = LABEL_BASE * F.cname;
         const lx = c.sym ? (c.x + c.widthMM + 3 + (c.labelDx || 0)) : (cx + (c.labelDx || 0));
         const ly = c.sym ? (cy + (c.labelDy || 0)) : (cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0));
@@ -776,7 +778,8 @@
       const ly = c.sym ? (cy + (c.labelDy || 0)) : (cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0));
       const p = rotPt(lx, ly, cx, cy, c.rotation || 0);
       if (state.panel.showNames !== false) { // 품명 숨김 시 드래그 핸들도 생략
-        const txt = c.label || c.partName || c.partNo || '';
+        const txt = c.sym ? (c.label || c.partName || c.partNo || '')
+          : ((c.label && c.label !== c.partName) ? c.label : (c.partNo || c.partName || ''));
         const fit = LABEL_BASE * F.cname;
         const hw = Math.max(8, txt.length * fit * 0.6), hh = fit * 1.6;
         App.el('rect', { x: p.x - hw / 2, y: p.y - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-labelfor': c.id, style: 'cursor:move' }, g);

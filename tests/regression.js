@@ -1922,7 +1922,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   // === 품명 표시 온/오프 + 글자 방향 분리(품명/타입/호기) ===
   const nmdir = await page.evaluate(() => {
     App.store.commit(s => {
-      s.components.push({ id: 'nd1', partNo: 'ND-1', type: 'MCCB', partName: '방향테스트', tag: 'M1', x: 560, y: 1700, widthMM: 40, heightMM: 60, rotation: 0, label: '방향테스트', terminals: 0, term: null });
+      s.components.push({ id: 'nd1', partNo: 'ND-1', type: 'MCCB', partName: '방향테스트품명', tag: 'M1', x: 560, y: 1700, widthMM: 40, heightMM: 60, rotation: 0, label: '방향테스트', terminals: 0, term: null });
     });
     App.render.all();
     function grp() { return document.querySelector('#layer-components [data-id="nd1"]'); }
@@ -2033,6 +2033,37 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     return retro;
   });
   assert(lblretro, '이미 배치된 같은 부품에도 글씨 배치 즉시 적용');
+
+  // === 부품 글씨 = 라이브러리 타이틀(품번), 품명 중복 제거 ===
+  const titleDisp = await page.evaluate(() => {
+    App.userlib.add({ partNo: 'TTL-1', type: 'MC', name: '타이틀부품', w: 40, h: 40, d: 40, terminals: 0 });
+    App.palette.reloadUser();
+    const lp = App.palette.getLibrary().find(p => p.partNo === 'TTL-1');
+    // 팔레트 배치 → 기본 라벨 = 타이틀(품번)
+    App.ui.placing = lp;
+    const svg = document.getElementById('canvas');
+    const pt = svg.createSVGPoint(); pt.x = 200; pt.y = 1850;
+    const cl = pt.matrixTransform(svg.getScreenCTM());
+    svg.dispatchEvent(new PointerEvent('pointerdown', { clientX: cl.x, clientY: cl.y, button: 0, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: cl.x, clientY: cl.y, bubbles: true }));
+    App.ui.placing = null;
+    const nc = App.store.get().components.filter(c => c.partNo === 'TTL-1')[0];
+    const defTitle = nc && nc.label === 'TTL-1';
+    // 구버전 부품(라벨=품명)도 화면엔 타이틀 표시
+    App.store.commit(s => {
+      s.components.push({ id: 'tt2', partNo: 'TTL-2', type: 'MC', partName: '옛품명', x: 300, y: 1850, widthMM: 40, heightMM: 40, rotation: 0, label: '옛품명', terminals: 0, term: null });
+    });
+    App.render.all();
+    const grp2 = document.querySelector('#layer-components [data-id="tt2"]');
+    const texts2 = Array.from(grp2.querySelectorAll('text')).map(t => t.textContent);
+    const legacyTitle = texts2.indexOf('TTL-2') >= 0 && texts2.indexOf('옛품명') < 0;
+    App.store.commit(s => { s.components = s.components.filter(c => c.partNo !== 'TTL-1' && c.id !== 'tt2'); });
+    App.userlib.remove('TTL-1');
+    App.palette.reloadUser(); App.render.all();
+    return { defTitle, legacyTitle };
+  });
+  assert(titleDisp.defTitle, '배치 기본 글씨 = 라이브러리 타이틀(품번)');
+  assert(titleDisp.legacyTitle, '기존 부품(라벨=품명)도 타이틀로 표시');
 
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
