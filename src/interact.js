@@ -312,6 +312,44 @@
       return;
     }
 
+    // 선 정렬 모드: 기준선(배선 구간) 클릭 → 상대선 클릭 → 같은 좌표로 정렬 (Esc 종료)
+    if (App.ui.wireAlign) {
+      const waEl = e.target.closest && e.target.closest('[data-id][data-kind="wires"]');
+      const wa = App.ui.wireAlign;
+      if (waEl) {
+        const wid = waEl.getAttribute('data-id');
+        const wf = App.store.findById(wid);
+        if (wf) {
+          if (wa.stage === 0) {
+            const seg = nearestWireSeg(App.store.get(), wf.item, sp, null);
+            if (seg) {
+              wa.stage = 1; wa.orient = seg.orient; wa.coord = seg.coord; wa.refId = wid;
+              selectOnly(wid);
+              if (App.toolbar) App.toolbar.flash('기준선 지정(' + (seg.orient === 'H' ? '수평 y=' : '수직 x=') + seg.coord + ') — 정렬할 선을 클릭하세요 (Esc 종료)');
+            }
+          } else {
+            if (wid === wa.refId) { if (App.toolbar) App.toolbar.flash('기준선 자신입니다 — 다른 선을 클릭하세요'); return; }
+            const seg = nearestWireSeg(App.store.get(), wf.item, sp, wa.orient);
+            if (!seg) { if (App.toolbar) App.toolbar.flash('같은 방향(' + (wa.orient === 'H' ? '수평' : '수직') + ') 구간이 없습니다'); return; }
+            App.store.commit(function () {
+              const wf2 = App.store.findById(wid);
+              if (!wf2) return;
+              const map = App.wires.beginSegmentDrag(App.store.get(), wf2.item, seg.i, seg.orient);
+              if (wa.orient === 'H') { wf2.item.corners[map.cP].y = wa.coord; wf2.item.corners[map.cQ].y = wa.coord; }
+              else { wf2.item.corners[map.cP].x = wa.coord; wf2.item.corners[map.cQ].x = wa.coord; }
+              wf2.item.corners = App.wires.cleanCorners(wf2.item.corners);
+            });
+            App.render.all();
+            if (App.toolbar) App.toolbar.flash('선 정렬 적용 — 계속 클릭하거나 Esc로 종료');
+          }
+        }
+        return;
+      }
+      App.ui.wireAlign = null; // 빈 곳 클릭 → 종료
+      if (App.toolbar) App.toolbar.flash('선 정렬 종료');
+      return;
+    }
+
     // 사이 센터 모드: 기준 2개 클릭(예: 위 덕트, 아래 덕트) → 선택 항목을 그 사이 정중앙으로
     if (App.ui.centerBetween) {
       const cbEl = e.target.closest && e.target.closest('[data-id][data-kind]');
@@ -1015,7 +1053,7 @@
 
   // 속성 복사 (MATCHPROP) — 종류별로 복사되는 속성
   const MATCH_PROPS = {
-    wires: ['color', 'width', 'sq', 'awg', 'acdc', 'ductAlign'],
+    wires: ['color', 'width', 'sq', 'awg', 'acdc'],
     components: ['type', 'textVert', 'labelVert', 'typeVert', 'tagVert', 'coverL', 'coverR'],
     ducts: ['widthMM'],
     rails: ['widthMM', 'type'],
@@ -1037,6 +1075,36 @@
     if (App.toolbar) App.toolbar.flash('속성 복사: 적용할 ' + KIND_NAMES[f.kind] + '를 클릭하세요 (Esc 종료)');
   }
   Interact.startMatchProp = startMatchProp;
+
+  // ── 선 정렬 (배선 구간 얼라인) ──────────────────────────────
+  // 클릭 지점에서 가장 가까운 배선 직선 구간 찾기 (orientFilter: 'H'|'V'|null)
+  function nearestWireSeg(state, wire, cp, orientFilter) {
+    const R = App.wires.route(state, wire);
+    if (!R) return null;
+    let best = null, bd = Infinity;
+    for (let i = 0; i < R.length - 1; i++) {
+      const p = R[i], q = R[i + 1];
+      const orient = (Math.round(p.x) === Math.round(q.x)) ? 'V' : (Math.round(p.y) === Math.round(q.y) ? 'H' : null);
+      if (!orient) continue;
+      if (orientFilter && orient !== orientFilter) continue;
+      if (Math.abs(p.x - q.x) + Math.abs(p.y - q.y) < 3) continue; // 스터브 등 짧은 구간 제외
+      let d;
+      if (orient === 'H') {
+        const cx = Math.max(Math.min(p.x, q.x), Math.min(Math.max(p.x, q.x), cp.x));
+        d = Math.hypot(cp.x - cx, cp.y - p.y);
+      } else {
+        const cy = Math.max(Math.min(p.y, q.y), Math.min(Math.max(p.y, q.y), cp.y));
+        d = Math.hypot(cp.x - p.x, cp.y - cy);
+      }
+      if (d < bd) { bd = d; best = { i: i, orient: orient, coord: Math.round(orient === 'H' ? p.y : p.x) }; }
+    }
+    return best;
+  }
+  function startWireAlign() {
+    App.ui.wireAlign = { stage: 0 };
+    if (App.toolbar) App.toolbar.flash('선 정렬: 기준이 될 배선 구간을 클릭하세요');
+  }
+  Interact.startWireAlign = startWireAlign;
 
   // 사이 센터 — 선택 항목을 기준 2개 사이 정중앙으로 (예: 찬넬을 위/아래 덕트 사이 센터에)
   function startCenterBetween() {
@@ -1159,6 +1227,7 @@
       App.ui.wireStart = null;
       App.ui.matchProp = null;
       App.ui.centerBetween = null;
+      App.ui.wireAlign = null;
       App.ui.dim = { stage: 0 };
       App.ui.cline = { stage: 0 };
       App.render.wirePreview(null);
@@ -1322,6 +1391,15 @@
         items.push({ icon: '🔒', label: (f && f.item.locked) ? '잠금 해제' : '잠금', fn: toggleLock });
       }
       items.push({ icon: '🖌', label: '속성 복사 (다른 대상에 적용)', fn: startMatchProp });
+      if (kind === 'wires') {
+        items.push({ icon: '≡', label: '이 선을 기준으로 선 정렬', fn: function () {
+          const cp = App.viewport.clientToWorld(e.clientX, e.clientY);
+          const seg = nearestWireSeg(App.store.get(), f.item, cp, null);
+          if (!seg) { if (App.toolbar) App.toolbar.flash('직선 구간을 찾지 못했습니다'); return; }
+          App.ui.wireAlign = { stage: 1, orient: seg.orient, coord: seg.coord, refId: id };
+          if (App.toolbar) App.toolbar.flash('기준선 지정 — 정렬할 선을 클릭하세요 (Esc 종료)');
+        } });
+      }
       if (kind !== 'wires') items.push({ icon: '⇹', label: '사이 센터 (기준 2개 클릭)', fn: startCenterBetween });
       items.push('sep');
       items.push({ icon: '🗑', label: '삭제', key: 'Del', danger: true, fn: deleteSelected });

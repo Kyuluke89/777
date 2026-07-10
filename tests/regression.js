@@ -2327,44 +2327,60 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(rndSpread.roundKept, '배선 라운드 설정 localStorage 유지');
   assert(rndSpread.onlyEnds, '겹선 분리: 단자 옆 구간만 오프셋');
 
-  // === 배선 덕트 정렬(중앙/안쪽/바깥쪽) ===
-  const dalign = await page.evaluate(() => {
-    // 위쪽(상단) 덕트 y=100~160, 부품 2개 아래쪽 — 배선이 덕트를 경유
+
+  // === 선 정렬 (기준선 클릭 → 상대선 클릭) ===
+  const walign = await page.evaluate(() => {
+    // 부품 4개 + 수평 구간 높이가 다른 배선 2개
     App.store.commit(s => {
-      s.ducts.push({ id: 'dal1', orient: 'h', x: 0, y: 100, lengthMM: 500, widthMM: 60 });
       s.components.push(
-        { id: 'dac1', partNo: 'DA', type: 'MC', x: 50, y: 200, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
-        { id: 'dac2', partNo: 'DA', type: 'MC', x: 350, y: 200, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+        { id: 'wa1', partNo: 'WA', type: 'MC', x: 50, y: 300, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wa2', partNo: 'WA', type: 'MC', x: 300, y: 300, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wa3', partNo: 'WA', type: 'MC', x: 50, y: 500, widthMM: 30, heightMM: 40, rotation: 0, label: 'c', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wa4', partNo: 'WA', type: 'MC', x: 300, y: 500, widthMM: 30, heightMM: 40, rotation: 0, label: 'd', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
       );
-      s.wires.push({ id: 'daw1', fromComp: 'dac1', fromTerm: 0, toComp: 'dac2', toTerm: 0, label: 'W91', color: '#e11d2a', width: 1.2, corners: null, midY: null });
+      s.wires.push(
+        { id: 'waw1', fromComp: 'wa1', fromTerm: 0, toComp: 'wa2', toTerm: 0, label: 'A1', color: '#e11d2a', width: 1.2, corners: null, midY: 250 },
+        { id: 'waw2', fromComp: 'wa3', fromTerm: 0, toComp: 'wa4', toTerm: 0, label: 'A2', color: '#e11d2a', width: 1.2, corners: null, midY: 450 }
+      );
     });
+    App.render.all();
     const st = App.store.get();
-    function midOf() {
-      const ys = App.wires.route(st, st.wires.find(w => w.id === 'daw1')).map(p => p.y);
-      return Math.min.apply(null, ys); // 덕트 경유선 y
+    function hy(wid) { // 수평 구간 y
+      const R = App.wires.route(st, st.wires.find(w => w.id === wid));
+      for (let i = 0; i < R.length - 1; i++) if (R[i].y === R[i + 1].y && Math.abs(R[i].x - R[i + 1].x) > 3) return R[i].y;
+      return null;
     }
-    const center = midOf();                          // 중앙 = 130
-    App.store.commit(s => { const w = s.wires.find(x => x.id === 'daw1'); w.ductAlign = 'in'; w.corners = null; w.midY = null; });
-    const inner = midOf();                           // 안쪽(전장 중심 쪽) = 155
-    App.store.commit(s => { const w = s.wires.find(x => x.id === 'daw1'); w.ductAlign = 'out'; w.corners = null; w.midY = null; });
-    const outer = midOf();                           // 바깥쪽 = 105
-    // 인스펙터 select 존재 확인
-    App.toolbar.setTool('select');
-    App.ui.selected = new Set(['daw1']);
-    App.inspector.update();
-    const hasSel = !!document.getElementById('insp-ductalign');
+    const before = { a: hy('waw1'), b: hy('waw2') };
+    // 모드 시작 → 기준선(waw1 수평 구간) 클릭 → 상대선(waw2) 클릭
+    App.interact.startWireAlign();
+    const svg = document.getElementById('canvas');
+    const ctm = svg.getScreenCTM();
+    function clickWire(wid, wx, wy) {
+      const el = document.querySelector('[data-id="' + wid + '"][data-kind="wires"]');
+      const p = svg.createSVGPoint(); p.x = wx; p.y = wy;
+      const c = p.matrixTransform(ctm);
+      const ev = new PointerEvent('pointerdown', { clientX: c.x, clientY: c.y, button: 0, bubbles: true });
+      Object.defineProperty(ev, 'target', { value: el });
+      svg.dispatchEvent(ev);
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: c.x, clientY: c.y, bubbles: true }));
+    }
+    clickWire('waw1', 190, 250);   // 기준 수평선 y=250
+    const armed = App.ui.wireAlign && App.ui.wireAlign.stage === 1 && App.ui.wireAlign.coord === 250;
+    clickWire('waw2', 190, 450);   // 상대선 수평 구간
+    const after = hy('waw2');
+    const aligned = after === 250 && before.b === 450 && before.a === 250;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    const escOff = !App.ui.wireAlign;
     App.store.commit(s => {
-      s.wires = s.wires.filter(w => w.id !== 'daw1');
-      s.components = s.components.filter(c => c.partNo !== 'DA');
-      s.ducts = s.ducts.filter(d => d.id !== 'dal1');
+      s.wires = s.wires.filter(w => w.id !== 'waw1' && w.id !== 'waw2');
+      s.components = s.components.filter(c => c.partNo !== 'WA');
     });
     App.ui.selected.clear(); App.render.all(); App.inspector.update();
-    return { center, inner, outer, hasSel };
+    return { armed, aligned, escOff };
   });
-  assert(dalign.center === 130, '배선 덕트 정렬: 중앙(130)');
-  assert(dalign.inner === 155, '배선 덕트 정렬: 안쪽 가장자리(155)');
-  assert(dalign.outer === 105, '배선 덕트 정렬: 바깥쪽 가장자리(105)');
-  assert(dalign.hasSel, '인스펙터 덕트 정렬 선택');
+  assert(walign.armed, '선 정렬: 기준선 지정(수평 y=250)');
+  assert(walign.aligned, '선 정렬: 상대선이 기준선 좌표로 이동(450→250)');
+  assert(walign.escOff, '선 정렬: Esc 종료');
 
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
