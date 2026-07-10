@@ -1667,8 +1667,8 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     if (s.wires.length < 2) return { skip: true };
     const w1 = s.wires[0], w2 = s.wires[1];
     App.store.commit(ss => {
-      ss.wires[0].color = '#16a34a'; ss.wires[0].width = 2.4; ss.wires[0].sq = '2.5';
-      ss.wires[1].color = '#111111'; ss.wires[1].width = 1;
+      ss.wires[0].color = '#16a34a'; ss.wires[0].width = 2.4; ss.wires[0].sq = '2.5'; ss.wires[0].label = 'R220';
+      ss.wires[1].color = '#111111'; ss.wires[1].width = 1; ss.wires[1].label = 'X9';
     });
     App.ui.selected = new Set([w1.id]);
     App.interact.startMatchProp();
@@ -1684,7 +1684,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
       Object.defineProperty(ev, 'target', { value: el });
       document.getElementById('canvas').dispatchEvent(ev);
       const w2n = App.store.get().wires.find(x => x.id === w2.id);
-      applied = w2n.color === '#16a34a' && w2n.width === 2.4 && w2n.sq === '2.5';
+      applied = w2n.color === '#16a34a' && w2n.width === 2.4 && w2n.sq === '2.5' && w2n.label === 'R220';
     }
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     escCleared = !App.ui.matchProp;
@@ -1693,7 +1693,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   if (!mprop.skip) {
     assert(mprop.armed && mprop.propsOk, '속성 복사 모드 시작(원본 속성 추출)');
-    assert(mprop.applied, '속성 복사: 대상 와이어에 색/두께/SQ 적용');
+    assert(mprop.applied, '속성 복사: 대상 와이어에 색/두께/SQ/라인번호 적용');
     assert(mprop.escCleared, '속성 복사 Esc 종료');
   }
 
