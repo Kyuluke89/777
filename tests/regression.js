@@ -2281,6 +2281,26 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     assert(wireExt.presetAuto && wireExt.wpAdHasNew, '프리셋 SQ→AWG·두께 자동 + 전원 추가 옵션');
   }
 
+  // === 스티커 표시 온/오프 ===
+  const stkToggle = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.ducts.push({ id: 'sv1', orient: 'h', x: 0, y: 2000, lengthMM: 200, widthMM: 60, stickers: [{ id: 'sst1', off: 10, cellW: 30, cellH: 24, lines: ['A', 'B', 'C'] }] });
+    });
+    App.render.all();
+    const shown = !!document.querySelector('[data-sticker="sst1"]');
+    const cb = document.getElementById('show-stickers');
+    cb.checked = false; cb.dispatchEvent(new Event('change'));
+    const hidden = !document.querySelector('[data-sticker="sst1"]');
+    const dxfOff = App.exporter.dxfString(App.store.get()).indexOf('LABELS') < 0;
+    cb.checked = true; cb.dispatchEvent(new Event('change'));
+    const back = !!document.querySelector('[data-sticker="sst1"]');
+    App.store.commit(s => { s.ducts = s.ducts.filter(d => d.id !== 'sv1'); });
+    App.render.all();
+    return { shown, hidden, dxfOff, back };
+  });
+  assert(stkToggle.shown && stkToggle.hidden && stkToggle.back, '스티커 표시 온/오프 토글');
+  assert(stkToggle.dxfOff, '스티커 숨김 시 DXF에서도 제외');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

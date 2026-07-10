@@ -266,8 +266,8 @@
       const w = d.orient === 'h' ? d.lengthMM : d.widthMM;
       const h = d.orient === 'h' ? d.widthMM : d.lengthMM;
       rect('DUCTS', d.x, d.y, w, h);
-      // 라벨 스티커 — cols(가로 칸)/rows(세로 3줄)
-      (d.stickers || []).forEach(function (st) {
+      // 라벨 스티커 — cols(가로 칸)/rows(세로 3줄). 표시 꺼져 있으면 DXF 도 제외
+      (state.panel.showStickers === false ? [] : (d.stickers || [])).forEach(function (st) {
         const dm = App.stickerDims(st);
         const stLines = App.stickerLines(state, st); // 부품 연동 자동 줄 반영
         const off = st.off || 0, vert = d.orient !== 'h';

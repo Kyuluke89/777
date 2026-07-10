@@ -164,8 +164,10 @@
         'stroke-dasharray': '3 3', 'pointer-events': 'none'
       }, grp);
       if (d.locked) lockBadge(grp, d.x + 1, d.y + 6);
-      // 라벨 스티커 (24mm 라벨테이프, 세로 3줄) — 사진처럼 어두운 바탕+흰 글씨
-      (d.stickers || []).forEach(function (st) { drawSticker(grp, d, w, h, st, state); });
+      // 라벨 스티커 (24mm 라벨테이프, 세로 3줄) — panel.showStickers=false 면 숨김
+      if (state.panel.showStickers !== false) {
+        (d.stickers || []).forEach(function (st) { drawSticker(grp, d, w, h, st, state); });
+      }
     });
   }
 
