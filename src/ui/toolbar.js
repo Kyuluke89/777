@@ -146,12 +146,20 @@
       App.render.all();
     });
 
-    // 배선 모서리 라운드(둥글기)
+    // 배선 모서리 라운드(둥글기) — 전역 설정: 새로고침/시트 전환에도 유지(localStorage)
     const wr = $('wire-round');
-    if (wr) wr.addEventListener('input', function () {
-      App.ui.wireRound = Math.max(0, parseFloat(this.value) || 0);
-      App.render.all();
-    });
+    try {
+      const savedRound = parseFloat(localStorage.getItem('panel-wire-round'));
+      if (!isNaN(savedRound) && savedRound > 0) App.ui.wireRound = savedRound;
+    } catch (e) { /* file:// 등 차단 시 무시 */ }
+    if (wr) {
+      wr.value = App.ui.wireRound || 0;
+      wr.addEventListener('input', function () {
+        App.ui.wireRound = Math.max(0, parseFloat(this.value) || 0);
+        try { localStorage.setItem('panel-wire-round', String(App.ui.wireRound)); } catch (e) {}
+        App.render.all();
+      });
+    }
 
     // 라인번호 크기(전역 단일값, 화면 고정) — 모든 라인에 동일 적용
     const wlpx = $('wire-label-px');

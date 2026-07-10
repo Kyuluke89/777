@@ -2301,6 +2301,32 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(stkToggle.shown && stkToggle.hidden && stkToggle.back, '스티커 표시 온/오프 토글');
   assert(stkToggle.dxfOff, '스티커 숨김 시 DXF에서도 제외');
 
+  // === 라운드 설정 유지 + 겹선 분리는 단자 옆 구간만 ===
+  const rndSpread = await page.evaluate(() => {
+    // 라운드 입력 → localStorage 에 저장(새로고침에도 유지)
+    const wr = document.getElementById('wire-round');
+    wr.value = '4';
+    wr.dispatchEvent(new Event('input'));
+    let saved = null;
+    try { saved = localStorage.getItem('panel-wire-round'); } catch (e) {}
+    const roundKept = App.ui.wireRound === 4 && saved === '4';
+    wr.value = '0'; wr.dispatchEvent(new Event('input'));
+    // 겹선 분리: 오프셋이 각 배선의 첫/끝 구간(단자 옆)에만 배정
+    const off = App.wires.spreadOffsets(App.store.get());
+    const st = App.store.get();
+    const onlyEnds = Object.keys(off).every(k => {
+      const wid = k.slice(0, k.lastIndexOf(':'));
+      const seg = +k.slice(k.lastIndexOf(':') + 1);
+      const w = st.wires.find(x => x.id === wid);
+      if (!w) return false;
+      const R = App.wires.route(st, w);
+      return seg === 0 || seg === R.length - 2;
+    });
+    return { roundKept, onlyEnds, offCount: Object.keys(off).length };
+  });
+  assert(rndSpread.roundKept, '배선 라운드 설정 localStorage 유지');
+  assert(rndSpread.onlyEnds, '겹선 분리: 단자 옆 구간만 오프셋');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

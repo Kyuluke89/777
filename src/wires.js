@@ -304,6 +304,8 @@
       const R = W.route(state, w);
       if (!R) return;
       for (let i = 0; i < R.length - 1; i++) {
+        // 단자 옆 구간(처음/끝)만 분리 — 중간 경로(덕트 구간)는 묶어서 지나감
+        if (i !== 0 && i !== R.length - 2) continue;
         const p = R[i], q = R[i + 1];
         if (Math.round(p.x) === Math.round(q.x)) {
           items.push({ wid: w.id, key: i, orient: 'V', c: Math.round(p.x), lo: Math.min(p.y, q.y), hi: Math.max(p.y, q.y) });
