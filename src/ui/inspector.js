@@ -258,6 +258,12 @@
           }
         }
       }
+      // 단자 커버(날개) — 개별 단자대용, 좌/우 각각 on/off
+      if (!it.sym) {
+        html += row('단자 커버', '<span class="flex items-center gap-2 text-xs text-slate-600">' +
+          '<label class="flex items-center gap-1"><input id="insp-cover-l" type="checkbox"' + (it.coverL ? ' checked' : '') + '/> 왼쪽</label>' +
+          '<label class="flex items-center gap-1"><input id="insp-cover-r" type="checkbox"' + (it.coverR ? ' checked' : '') + '/> 오른쪽</label></span>');
+      }
       html += '<div class="text-[10px] text-slate-400 px-1 mt-1">' + App.esc(it.partNo || '') + '</div>';
       html += '<button id="insp-edit-part" class="mt-2 w-full px-2 py-1 text-xs rounded bg-teal-600 text-white">✎ 크기·단자 편집</button>';
       html += '<label class="flex items-center gap-1 mt-2 text-xs text-slate-600"><input id="insp-lock" type="checkbox" ' + (it.locked ? 'checked' : '') + '/> 잠금(이동 고정)</label>';
@@ -312,6 +318,17 @@
       inp.addEventListener('change', function () {
         commitField(id, inp.getAttribute('data-field'), inp.value);
       });
+    });
+    // 단자 커버(날개) 좌/우 토글
+    [['insp-cover-l', 'coverL'], ['insp-cover-r', 'coverR']].forEach(function (pr) {
+      const cb = root.querySelector('#' + pr[0]);
+      if (cb) cb.onchange = function () {
+        App.store.commit(function () {
+          const fnd = App.store.findById(id);
+          if (fnd) fnd.item[pr[1]] = cb.checked;
+        });
+        App.render.all();
+      };
     });
     const editBtn = root.querySelector('#insp-edit-part');
     if (editBtn) editBtn.onclick = function () {

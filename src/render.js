@@ -474,6 +474,19 @@
         'stroke-width': isSelected(c.id) || over ? 2 : 1.2,
         'stroke-dasharray': (over || (c.sym && isSelected(c.id))) ? '4 2' : null
       }, grp);
+      // 단자 커버(날개, 엔드 플레이트) — 좌/우 개별 on/off
+      if (c.coverL || c.coverR) {
+        const covW = 2.5;
+        function cover(cxr) {
+          App.el('rect', {
+            x: cxr, y: c.y - 1.2, width: covW, height: c.heightMM + 2.4, rx: 0.6,
+            fill: '#94a3b8', 'fill-opacity': 0.9, stroke: '#64748b', 'stroke-width': 0.5,
+            'pointer-events': 'none'
+          }, grp);
+        }
+        if (c.coverL) cover(c.x - covW);
+        if (c.coverR) cover(c.x + c.widthMM);
+      }
       if (c.sym && !over) drawSym(grp, c);                 // 계통도 심볼
       // 부품 도형(라이브러리 편집기에서 그린 글쓰기·사각 라인)
       (c.shapes || []).forEach(function (sh) {

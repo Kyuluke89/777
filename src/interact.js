@@ -525,6 +525,11 @@
       } else if (!App.ui.selected.has(id)) {
         selectOnly(id);
       }
+      // Alt+드래그: 제자리 복제 후 복제본을 끌기 (캐드 방식)
+      if (e.altKey && App.ui.selected.size) {
+        const nids = duplicateInPlace();
+        if (nids.length) selectMany(nids);
+      }
       startMove(sp);
       svg.setPointerCapture(e.pointerId);
     } else {
@@ -944,6 +949,27 @@
   }
   function duplicateSelected() { copySelected(); paste(); }
 
+  // 선택 항목을 제자리에 복제 (Alt+드래그용) — 새 id 반환
+  function duplicateInPlace() {
+    const ids = Array.from(App.ui.selected);
+    const prefix = { components: 'cmp', ducts: 'duct', rails: 'rail', texts: 'txt', dimensions: 'dim', clines: 'cl' };
+    const newIds = [];
+    App.store.commit(function (s) {
+      ['components', 'ducts', 'rails', 'texts', 'dimensions', 'clines'].forEach(function (k) {
+        (s[k] || []).forEach(function (it) {
+          if (ids.indexOf(it.id) < 0) return;
+          const nc = App.clone(it);
+          nc.id = App.uid(prefix[k] || 'id');
+          nc.locked = false;
+          if (nc.stickers) nc.stickers.forEach(function (st) { st.id = App.uid('stk'); });
+          s[k].push(nc);
+          newIds.push(nc.id);
+        });
+      });
+    });
+    return newIds;
+  }
+
   // 부품의 글씨 배치(품명/타입/호기 위치·방향)를 라이브러리 정의에 저장
   // → 같은 부품을 다음에 배치할 때 동일한 글씨 배치로 나옴
   function saveLabelLayout(compId) {
@@ -990,7 +1016,7 @@
   // 속성 복사 (MATCHPROP) — 종류별로 복사되는 속성
   const MATCH_PROPS = {
     wires: ['color', 'width', 'sq', 'awg', 'acdc'],
-    components: ['type', 'textVert', 'labelVert', 'typeVert', 'tagVert'],
+    components: ['type', 'textVert', 'labelVert', 'typeVert', 'tagVert', 'coverL', 'coverR'],
     ducts: ['widthMM'],
     rails: ['widthMM', 'type'],
     texts: ['size', 'color', 'bold'],

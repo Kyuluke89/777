@@ -2099,6 +2099,81 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(titleDisp.defTitle, '배치 기본 글씨 = 라이브러리 타이틀(품번)');
   assert(titleDisp.legacyTitle, '기존 부품(라벨=품명)도 타이틀로 표시');
 
+  // === 단자 커버(날개) 좌/우 토글 + Alt+드래그 복제 ===
+  const cover = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'cv1', partNo: 'TB-CV', type: 'TB', x: 400, y: 1900, widthMM: 12, heightMM: 60, rotation: 0, label: 'TB', terminals: 0, term: null });
+    });
+    App.ui.selected = new Set(['cv1']);
+    App.inspector.update();
+    const cbl = document.getElementById('insp-cover-l');
+    const cbr = document.getElementById('insp-cover-r');
+    if (!cbl || !cbr) return { fail: 'no-checkbox' };
+    function coverRects() {
+      const grp = document.querySelector('#layer-components [data-id="cv1"]');
+      const c = App.store.get().components.find(x => x.id === 'cv1');
+      return Array.from(grp.querySelectorAll('rect')).filter(r => {
+        const x = parseFloat(r.getAttribute('x'));
+        return Math.abs(x - (c.x - 2.5)) < 0.01 || Math.abs(x - (c.x + c.widthMM)) < 0.01;
+      }).filter(r => parseFloat(r.getAttribute('height')) > 60);
+    }
+    const none = coverRects().length === 0;
+    cbl.checked = true; cbl.dispatchEvent(new Event('change'));
+    App.inspector.update();
+    const onlyL = coverRects().length === 1;
+    document.getElementById('insp-cover-r').checked = true;
+    document.getElementById('insp-cover-r').dispatchEvent(new Event('change'));
+    const both = coverRects().length === 2;
+    App.inspector.update();
+    document.getElementById('insp-cover-l').checked = false;
+    document.getElementById('insp-cover-l').dispatchEvent(new Event('change'));
+    const onlyR = coverRects().length === 1;
+    const st1 = App.store.get().components.find(x => x.id === 'cv1');
+    const persisted = st1.coverR === true && st1.coverL === false;
+    // DXF 에도 커버 사각형 포함 (rect = 4 LINE)
+    const dxfBefore = (App.exporter.dxfString(App.store.get()).match(/\nLINE\n/g) || []).length;
+    App.store.commit(s => { s.components.find(x => x.id === 'cv1').coverR = false; });
+    const dxfAfter = (App.exporter.dxfString(App.store.get()).match(/\nLINE\n/g) || []).length;
+    const dxfHas = dxfBefore - dxfAfter === 4;
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'cv1'); });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { none, onlyL, both, onlyR, persisted, dxfHas };
+  });
+  assert(cover.none && cover.onlyL && cover.both && cover.onlyR, '단자 커버 좌/우 개별 토글 렌더');
+  assert(cover.persisted, '단자 커버 상태 저장');
+  assert(cover.dxfHas, 'DXF에 단자 커버 포함');
+
+  // Alt+드래그 즉시 복제
+  const altdup = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'ad1', partNo: 'AD-1', type: 'MC', x: 460, y: 1900, widthMM: 30, heightMM: 30, rotation: 0, label: 'AD', terminals: 0, term: null });
+    });
+    App.render.all();
+    App.toolbar.setTool('select');
+    App.ui.selected.clear();
+    const before = App.store.get().components.length;
+    const grp = document.querySelector('#layer-components [data-id="ad1"]');
+    const bb = grp.getBoundingClientRect();
+    const svg = document.getElementById('canvas');
+    const dn = new PointerEvent('pointerdown', { clientX: bb.left + bb.width / 2, clientY: bb.top + bb.height / 2, button: 0, altKey: true, bubbles: true });
+    Object.defineProperty(dn, 'target', { value: grp });
+    svg.dispatchEvent(dn);
+    svg.dispatchEvent(new PointerEvent('pointermove', { clientX: bb.left + bb.width / 2 + 80, clientY: bb.top + bb.height / 2, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: bb.left + bb.width / 2 + 80, clientY: bb.top + bb.height / 2, bubbles: true }));
+    const s2 = App.store.get();
+    const copies = s2.components.filter(c => c.partNo === 'AD-1');
+    const orig = copies.find(c => c.id === 'ad1');
+    const copy = copies.find(c => c.id !== 'ad1');
+    const dup = s2.components.length === before + 1 && copies.length === 2;
+    const origStays = orig && orig.x === 460;                 // 원본 제자리
+    const copyMoved = copy && copy.x > 470;                   // 복제본이 끌려감
+    App.store.commit(s => { s.components = s.components.filter(c => c.partNo !== 'AD-1'); });
+    App.ui.selected.clear(); App.render.all();
+    return { dup, origStays, copyMoved };
+  });
+  assert(altdup.dup, 'Alt+드래그: 복제본 생성');
+  assert(altdup.origStays && altdup.copyMoved, 'Alt+드래그: 원본 제자리, 복제본 이동');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

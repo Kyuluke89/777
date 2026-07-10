@@ -323,6 +323,9 @@
         bw = c.heightMM; bh = c.widthMM; bx = ccx - bw / 2; by = ccy - bh / 2;
       }
       rect('PARTS', bx, by, bw, bh);
+      // 단자 커버(날개)
+      if (c.coverL) rect('PARTS', c.x - 2.5, c.y - 1.2, 2.5, c.heightMM + 2.4);
+      if (c.coverR) rect('PARTS', c.x + c.widthMM, c.y - 1.2, 2.5, c.heightMM + 2.4);
       // 부품 도형(글쓰기·사각 라인) — 회전 미반영(0도 기준)
       (c.shapes || []).forEach(function (sh) {
         if (sh.kind === 'rect') rect('PARTS', c.x + sh.x, c.y + sh.y, sh.w, sh.h);
