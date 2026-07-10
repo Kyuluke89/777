@@ -932,7 +932,7 @@
   // 속성 복사 (MATCHPROP) — 종류별로 복사되는 속성
   const MATCH_PROPS = {
     wires: ['color', 'width', 'sq', 'awg', 'acdc'],
-    components: ['type', 'textVert'],
+    components: ['type', 'textVert', 'labelVert', 'typeVert', 'tagVert'],
     ducts: ['widthMM'],
     rails: ['widthMM', 'type'],
     texts: ['size', 'color', 'bold'],

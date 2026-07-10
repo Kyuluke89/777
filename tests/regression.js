@@ -1919,6 +1919,58 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(pshape.drawn, '배치 부품 도면에 도형 렌더');
   assert(pshape.dxfHas, 'DXF에 부품 도형 포함');
 
+  // === 품명 표시 온/오프 + 글자 방향 분리(품명/타입/호기) ===
+  const nmdir = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'nd1', partNo: 'ND-1', type: 'MCCB', partName: '방향테스트', tag: 'M1', x: 560, y: 1700, widthMM: 40, heightMM: 60, rotation: 0, label: '방향테스트', terminals: 0, term: null });
+    });
+    App.render.all();
+    function grp() { return document.querySelector('#layer-components [data-id="nd1"]'); }
+    function texts() { return Array.from(grp().querySelectorAll('text')).map(t => ({ s: t.textContent, r: t.getAttribute('transform') || '' })); }
+    const shown = texts().some(t => t.s === '방향테스트');
+    // 품명 끄기
+    const cb = document.getElementById('show-names');
+    cb.checked = false;
+    cb.dispatchEvent(new Event('change'));
+    const hidden = !texts().some(t => t.s === '방향테스트');
+    const typeStill = texts().some(t => t.s === 'MCCB');   // 타입/호기는 유지
+    cb.checked = true;
+    cb.dispatchEvent(new Event('change'));
+    const backOn = texts().some(t => t.s === '방향테스트');
+    // 글자 방향 분리: 품명만 세로, 타입/호기는 가로 유지
+    App.ui.selected = new Set(['nd1']);
+    App.inspector.update();
+    const dl = document.getElementById('insp-dir-label');
+    dl.value = 'v'; dl.dispatchEvent(new Event('change'));
+    const after = texts();
+    const labelV = after.some(t => t.s === '방향테스트' && t.r.indexOf('rotate(-90') >= 0);
+    const typeH = after.some(t => t.s === 'MCCB' && t.r.indexOf('rotate') < 0);
+    const tagH = after.some(t => t.s === 'M1' && t.r.indexOf('rotate') < 0);
+    // 호기만 세로 추가
+    const dt = document.getElementById('insp-dir-tag');
+    dt.value = 'v'; dt.dispatchEvent(new Event('change'));
+    const tagV = texts().some(t => t.s === 'M1' && t.r.indexOf('rotate(-90') >= 0);
+    // 저장 라운드트립
+    const json = JSON.stringify(App.store.get());
+    const rt = JSON.parse(json).components.find(c => c.id === 'nd1');
+    const persisted = rt.labelVert === true && rt.tagVert === true && !rt.typeVert;
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'nd1'); });
+    App.ui.selected.clear(); App.render.all(); App.inspector.update();
+    return { shown, hidden, typeStill, backOn, labelV, typeH, tagH, tagV, persisted };
+  });
+  assert(nmdir.shown && nmdir.hidden && nmdir.backOn, '품명 표시 온/오프 토글');
+  assert(nmdir.typeStill, '품명 숨겨도 타입/호기는 유지');
+  assert(nmdir.labelV && nmdir.typeH && nmdir.tagH, '글자 방향 분리: 품명만 세로');
+  assert(nmdir.tagV, '호기 방향 개별 세로');
+  assert(nmdir.persisted, '방향 분리 값 저장');
+
+  // 편집기 우측 패널 통합 스크롤 (단자 목록 개별 스크롤 제거)
+  const peScroll = await page.evaluate(() => {
+    const t = document.getElementById('pe-terms');
+    return !t.className.match(/overflow-y-auto|flex-1/);
+  });
+  assert(peScroll, '부품 편집기 우측 패널 통합 스크롤');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

@@ -91,7 +91,7 @@
             else if (f3 === 'width') { const n = parseFloat(v); if (n) it.width = n; }
             else if (f3 === 'acdc') it.acdc = v;
             else if (f3 === 'type') it.type = v;
-            else if (f3 === 'textVert') it.textVert = (v === 'v');
+            else if (f3 === 'textVert') { it.textVert = (v === 'v'); it.labelVert = null; it.typeVert = null; it.tagVert = null; } // 전체 일괄 = 개별 설정 초기화
           });
         });
       });
@@ -215,9 +215,16 @@
         '" class="w-28 px-2 py-1 text-xs border border-slate-300 rounded" />');
       html += row('타입', '<select id="insp-type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
         App.types.optionsHtml(it.type) + '</select>');
-      html += row('글자 방향', '<select id="insp-textdir" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
-        '<option value="h"' + (it.textVert ? '' : ' selected') + '>가로</option>' +
-        '<option value="v"' + (it.textVert ? ' selected' : '') + '>세로</option></select>');
+      // 글자 방향 — 품명/타입/호기 각각 분리
+      function dirSel2(idd, cur) {
+        return '<select id="' + idd + '" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
+          '<option value="h"' + (cur ? '' : ' selected') + '>가로</option>' +
+          '<option value="v"' + (cur ? ' selected' : '') + '>세로</option></select>';
+      }
+      function vcur(spec) { return spec != null ? !!spec : !!it.textVert; }
+      html += row('품명 방향', dirSel2('insp-dir-label', vcur(it.labelVert)));
+      html += row('타입 방향', dirSel2('insp-dir-type', vcur(it.typeVert)));
+      html += row('호기 방향', dirSel2('insp-dir-tag', vcur(it.tagVert)));
       // 계통도 심볼 ↔ 배치도 부품 연동
       if (it.sym) {
         let lopts = '<option value="">(연동 안함)</option>';
@@ -453,12 +460,17 @@
         Inspector.update();
       };
     });
-    // 글자 방향(가로/세로)
-    const dirSel = root.querySelector('#insp-textdir');
-    if (dirSel) dirSel.onchange = function () {
-      App.store.commit(function () { const fnd = App.store.findById(id); if (fnd) fnd.item.textVert = (dirSel.value === 'v'); });
-      App.render.all();
-    };
+    // 글자 방향(가로/세로) — 품명/타입/호기 개별 적용
+    [['insp-dir-label', 'labelVert'], ['insp-dir-type', 'typeVert'], ['insp-dir-tag', 'tagVert']].forEach(function (pr) {
+      const sel2 = root.querySelector('#' + pr[0]);
+      if (sel2) sel2.onchange = function () {
+        App.store.commit(function () {
+          const fnd = App.store.findById(id);
+          if (fnd) fnd.item[pr[1]] = (sel2.value === 'v');
+        });
+        App.render.all();
+      };
+    });
   };
 
   Inspector.init = function (el) { root = el; Inspector.update(); };

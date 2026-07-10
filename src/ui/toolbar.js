@@ -78,6 +78,12 @@
       App.store.commit(function (s) { s.panel.frame = on; });
       App.render.all();
     });
+    // 품명 표시 온/오프
+    if ($('show-names')) $('show-names').addEventListener('change', function () {
+      const on = this.checked;
+      App.store.commit(function (s) { s.panel.showNames = on; });
+      App.render.all();
+    });
     // 제목은 입력 즉시 반영
     if ($('panel-title')) $('panel-title').addEventListener('input', applyPanel);
     $('panel-fit').onclick = function () {
@@ -384,6 +390,7 @@
     if ($('panel-grid')) $('panel-grid').value = p.gridMM;
     if ($('panel-field')) $('panel-field').checked = !!p.fieldZone;
     if ($('panel-frame')) $('panel-frame').checked = !!p.frame;
+    if ($('show-names')) $('show-names').checked = p.showNames !== false;
     const f = s.fonts || {};
     ['ctype', 'ctag', 'cname', 'term', 'wire', 'dim'].forEach(function (k) {
       if ($('font-' + k)) $('font-' + k).value = f[k] || f.comp || 1;

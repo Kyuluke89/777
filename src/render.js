@@ -493,15 +493,17 @@
       });
       // (기본 실물풍 그래픽은 제거 — 이미지는 사용자가 직접 넣었을 때만 표시)
       // 글자 방향(가로/세로) — true면 텍스트를 -90° 회전(각 앵커 기준)
-      const vert = !!c.textVert;
-      function vrot(x, y) { return vert ? ('rotate(-90 ' + x + ' ' + y + ')') : null; }
+      // 글자 방향 — 품명/타입/호기 각각 분리 (미지정 시 기존 textVert 상속)
+      function vertOf(spec) { return spec != null ? !!spec : !!c.textVert; }
+      const vLabel = vertOf(c.labelVert), vType = vertOf(c.typeVert), vTag = vertOf(c.tagVert);
+      function vrotIf(on, x, y) { return on ? ('rotate(-90 ' + x + ' ' + y + ')') : null; }
       // 호기번호(tag) — 입력 시 상단에 작게
       if (c.tag) {
         const tx = cx + (c.tagDx || 0), ty = c.y + Math.min(8, c.heightMM * 0.12) + (c.tagDy || 0);
         const tg = App.el('text', {
           x: tx, y: ty, 'text-anchor': 'middle',
           'font-size': Math.min(8, c.heightMM * 0.14) * F.ctag, fill: '#111827',
-          'font-weight': 'bold', 'pointer-events': 'none', transform: vrot(tx, ty)
+          'font-weight': 'bold', 'pointer-events': 'none', transform: vrotIf(vTag, tx, ty)
         }, grp);
         tg.textContent = c.tag;
       }
@@ -511,22 +513,24 @@
         const badge = App.el('text', {
           x: bx, y: by, 'text-anchor': 'middle',
           'font-size': Math.min(12, c.heightMM * 0.22) * F.ctype, fill: color,
-          'font-weight': 'bold', 'pointer-events': 'none', transform: vrot(bx, by)
+          'font-weight': 'bold', 'pointer-events': 'none', transform: vrotIf(vType, bx, by)
         }, grp);
         badge.textContent = c.type || '';
       }
-      // 품명 — 기본 크기 × 배율, 선택 시 드래그로 위치 이동
-      const txt = c.label || c.partName || c.partNo || '';
-      const fit = LABEL_BASE * F.cname;
-      const lx = c.sym ? (c.x + c.widthMM + 3 + (c.labelDx || 0)) : (cx + (c.labelDx || 0));
-      const ly = c.sym ? (cy + (c.labelDy || 0)) : (cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0));
-      const lab = App.el('text', {
-        x: lx, y: ly, 'text-anchor': c.sym ? 'start' : 'middle',
-        'dominant-baseline': c.sym ? 'central' : null,
-        'font-size': fit, fill: '#334155',
-        'pointer-events': 'none', transform: vrot(lx, ly)
-      }, grp);
-      lab.textContent = txt;
+      // 품명 — 기본 크기 × 배율, 선택 시 드래그로 위치 이동. panel.showNames=false 면 숨김
+      if (state.panel.showNames !== false) {
+        const txt = c.label || c.partName || c.partNo || '';
+        const fit = LABEL_BASE * F.cname;
+        const lx = c.sym ? (c.x + c.widthMM + 3 + (c.labelDx || 0)) : (cx + (c.labelDx || 0));
+        const ly = c.sym ? (cy + (c.labelDy || 0)) : (cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0));
+        const lab = App.el('text', {
+          x: lx, y: ly, 'text-anchor': c.sym ? 'start' : 'middle',
+          'dominant-baseline': c.sym ? 'central' : null,
+          'font-size': fit, fill: '#334155',
+          'pointer-events': 'none', transform: vrotIf(vLabel, lx, ly)
+        }, grp);
+        lab.textContent = txt;
+      }
       if (c.locked) lockBadge(grp, c.x + 1, c.y + 6);
       // 단자 점 (원형/사각형, 로컬 좌표 — 그룹 회전 적용됨) + 단자 번호
       App.terminals.local(c).forEach(function (t) {
@@ -771,10 +775,12 @@
       const lx = c.sym ? (c.x + c.widthMM + 3 + (c.labelDx || 0)) : (cx + (c.labelDx || 0));
       const ly = c.sym ? (cy + (c.labelDy || 0)) : (cy + Math.min(14, c.heightMM * 0.26) + (c.labelDy || 0));
       const p = rotPt(lx, ly, cx, cy, c.rotation || 0);
-      const txt = c.label || c.partName || c.partNo || '';
-      const fit = LABEL_BASE * F.cname;
-      const hw = Math.max(8, txt.length * fit * 0.6), hh = fit * 1.6;
-      App.el('rect', { x: p.x - hw / 2, y: p.y - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-labelfor': c.id, style: 'cursor:move' }, g);
+      if (state.panel.showNames !== false) { // 품명 숨김 시 드래그 핸들도 생략
+        const txt = c.label || c.partName || c.partNo || '';
+        const fit = LABEL_BASE * F.cname;
+        const hw = Math.max(8, txt.length * fit * 0.6), hh = fit * 1.6;
+        App.el('rect', { x: p.x - hw / 2, y: p.y - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-labelfor': c.id, style: 'cursor:move' }, g);
+      }
       // 호기번호(tag) 핸들
       if (c.tag) {
         const tf = Math.min(8, c.heightMM * 0.14) * F.ctag;
