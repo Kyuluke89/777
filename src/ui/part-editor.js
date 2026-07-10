@@ -8,7 +8,12 @@
   let modal, peSvg, st = null, peG = null;
 
   function $(id) { return document.getElementById(id); }
-  function snap(v) { return Math.round(v / 2.5) * 2.5; } // 단자 스냅 2.5mm
+  // 단자 스냅 격자 — 기본 2.5mm, 편집기에서 조절 가능 (0 = 스냅 없음)
+  function snap(v) {
+    const g = (st && st.grid != null) ? st.grid : 2.5;
+    if (!g || g <= 0) return Math.round(v * 10) / 10;
+    return Math.round(v / g) * g;
+  }
 
   // 단자 이름 자동 증가: A1→A2, 12→13, X→X1
   function incName(s) {
@@ -38,10 +43,11 @@
     while (peSvg.firstChild) peSvg.removeChild(peSvg.firstChild);
     const pad = 14;
     peSvg.setAttribute('viewBox', (-pad) + ' ' + (-pad) + ' ' + (st.w + pad * 2) + ' ' + (st.h + pad * 2));
-    // 격자
+    // 격자 — 스냅 격자 크기에 맞춰 표시
+    const gm = (st.grid != null && st.grid > 0) ? st.grid : 5;
     const defs = el('defs', {}, peSvg);
-    const pat = el('pattern', { id: 'pe-grid', width: 5, height: 5, patternUnits: 'userSpaceOnUse' }, defs);
-    el('path', { d: 'M 5 0 H 0 V 5', fill: 'none', stroke: '#eef2f7', 'stroke-width': 0.3 }, pat);
+    const pat = el('pattern', { id: 'pe-grid', width: gm, height: gm, patternUnits: 'userSpaceOnUse' }, defs);
+    el('path', { d: 'M ' + gm + ' 0 H 0 V ' + gm, fill: 'none', stroke: '#eef2f7', 'stroke-width': 0.3 }, pat);
     el('rect', { x: -pad, y: -pad, width: st.w + pad * 2, height: st.h + pad * 2, fill: 'url(#pe-grid)' }, peSvg);
     const color = App.typeColor(st.type);
     el('rect', { x: 0, y: 0, width: st.w, height: st.h, rx: 2, fill: color, 'fill-opacity': 0.12, stroke: color, 'stroke-width': 1 }, peSvg);
@@ -438,6 +444,8 @@
       st = { mode: 'new', partNo: '', name: '', type: 'TB', w: 60, h: 80, terms: [], nextName: 'A1', sel: -1 };
     }
     st.termShape = 'circle'; st.termW = 3.6; st.termH = 3.6; st.termLabelPos = 'top';
+    st.grid = 2.5; // 단자 스냅 격자(mm)
+    if ($('pe-grid-in')) $('pe-grid-in').value = '2.5';
     // 그리기(텍스트·사각 라인) — 배치 부품 편집이면 기존 도형 로드
     st.shapes = (opts.component && opts.component.shapes) ? App.clone(opts.component.shapes) : [];
     st.selShape = -1;
@@ -643,6 +651,12 @@
         if (pr[1] === 'img' && !st.img) { alert('먼저 📷 이미지를 선택하세요.'); return; }
         st.mode2 = pr[1]; updateModeUI(); renderPreview();
       };
+    });
+    // 단자 스냅 격자 크기 조절
+    if ($('pe-grid-in')) $('pe-grid-in').addEventListener('change', function () {
+      if (!st) return;
+      st.grid = Math.max(0, parseFloat(this.value) || 0);
+      renderPreview(); // 격자 표시 갱신
     });
     // 그리기 기본값(선 스타일/굵기/색/글자 크기) — 선택된 도형이 있으면 즉시 반영
     function bindShapeCtl(id, key, apply) {

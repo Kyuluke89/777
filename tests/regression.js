@@ -1964,6 +1964,40 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(nmdir.tagV, '호기 방향 개별 세로');
   assert(nmdir.persisted, '방향 분리 값 저장');
 
+  // 편집기 단자 스냅 격자 조절
+  const peGrid = await page.evaluate(() => {
+    App.partEditor.open({});
+    const gi = document.getElementById('pe-grid-in');
+    if (!gi) return { fail: 'no-input' };
+    const def25 = gi.value === '2.5';
+    // 격자 10mm 로 변경 → 단자 추가 좌표가 10 배수로 스냅
+    gi.value = '10'; gi.dispatchEvent(new Event('change'));
+    document.getElementById('pe-mode-add').click();
+    const svg = document.getElementById('pe-canvas');
+    const ctm = svg.getScreenCTM();
+    const pt = svg.createSVGPoint(); pt.x = 13; pt.y = 17; // → (10, 20) 기대
+    const cl = pt.matrixTransform(ctm);
+    svg.dispatchEvent(new PointerEvent('pointerdown', { clientX: cl.x, clientY: cl.y, button: 0, bubbles: true }));
+    svg.dispatchEvent(new PointerEvent('pointerup', { clientX: cl.x, clientY: cl.y, bubbles: true }));
+    // onUp 은 window 가 아닌 svg 리스너일 수 있어 둘 다 발송
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: cl.x, clientY: cl.y, bubbles: true }));
+    const terms = App.partEditor.isOpen() ? (document.querySelectorAll('#pe-canvas [data-ti]').length) : 0;
+    let snapped = false;
+    if (terms) {
+      const tEl = document.querySelector('#pe-canvas [data-ti] circle, #pe-canvas [data-ti] rect');
+      const cx = parseFloat(tEl.getAttribute('cx') || tEl.getAttribute('x'));
+      snapped = Math.abs(cx - 10) < 0.01 || Math.abs(cx - 10 + (parseFloat(tEl.getAttribute('width')) || 0) / 2) < 2;
+    }
+    // 격자 표시도 10mm 패턴으로
+    const pat = document.querySelector('#pe-canvas pattern#pe-grid');
+    const patOk = pat && pat.getAttribute('width') === '10';
+    document.getElementById('pe-cancel').click();
+    return { def25, terms, snapped, patOk };
+  });
+  assert(peGrid.def25, '편집기 격자 기본 2.5mm');
+  assert(peGrid.terms === 1 && peGrid.snapped, '격자 10mm 변경 → 단자 10 배수 스냅');
+  assert(peGrid.patOk, '격자 표시가 설정 크기 반영');
+
   // 편집기 우측 패널 통합 스크롤 (단자 목록 개별 스크롤 제거)
   const peScroll = await page.evaluate(() => {
     const t = document.getElementById('pe-terms');
