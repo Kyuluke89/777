@@ -188,14 +188,14 @@
     }
     return { mode: 'rows', n: 3, cw: cw, ch: ch, len: cw, th: ch };
   };
-  // 스티커 표시 줄 — 부품 연동 시 1줄=라이브러리 타이틀(품번), 2줄=품명 자동, 3줄=사용자 작성
+  // 스티커 표시 줄 — 부품 연동 시 1줄=유형, 2줄=라이브러리 타이틀(품번) 자동, 3줄=사용자 작성
   App.stickerLines = function (state, st) {
     const lines = (st.lines || []).slice();
     if (st.linkId) {
       const c = (state.components || []).find(function (x) { return x.id === st.linkId; });
       if (c) {
-        lines[0] = c.partNo || '';
-        lines[1] = c.partName || c.label || '';
+        lines[0] = c.type || '';
+        lines[1] = c.partNo || '';
       }
     }
     return lines;
