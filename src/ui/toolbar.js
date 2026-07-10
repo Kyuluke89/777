@@ -146,6 +146,18 @@
       App.render.all();
     });
 
+    // 전원(AC/DC) 뱃지 표시 온/오프 — localStorage 유지
+    const wac = $('wire-acdc-show');
+    try { App.ui.showAcdc = localStorage.getItem('panel-show-acdc') !== '0'; } catch (e) { App.ui.showAcdc = true; }
+    if (wac) {
+      wac.checked = App.ui.showAcdc !== false;
+      wac.addEventListener('change', function () {
+        App.ui.showAcdc = this.checked;
+        try { localStorage.setItem('panel-show-acdc', this.checked ? '1' : '0'); } catch (e) {}
+        App.render.all();
+      });
+    }
+
     // 배선 모서리 라운드(둥글기) — 전역 설정: 새로고침/시트 전환에도 유지(localStorage)
     const wr = $('wire-round');
     try {

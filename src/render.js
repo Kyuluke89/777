@@ -635,8 +635,8 @@
         if (App.ui && App.ui.flow) {
           line.style.strokeDasharray = (w.acdc === 'DC' ? '12 6' : '8 5');
         }
-        // 정지 상태에서도 라인 중간에 AC/DC 뱃지 표시
-        const mp = App.wires.midPoint(pts);
+        // 정지 상태에서도 라인 중간에 AC/DC 뱃지 표시 (전원 표시 꺼짐이면 생략)
+        const mp = (App.ui && App.ui.showAcdc === false) ? null : App.wires.midPoint(pts);
         if (mp) {
           const fMM = App.viewport.pxToMM(8);
           const bg = (w.acdc === 'DC') ? '#1d4ed8' : '#b45309';

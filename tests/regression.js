@@ -2691,6 +2691,38 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(visTest.both && visTest.hid && visTest.back, '프리셋 레이어: 해당 프리셋 배선만 표시/숨김');
   assert(visTest.persisted, '프리셋 숨김 상태 localStorage 유지');
 
+  // === 전원(AC/DC) 뱃지 표시 온/오프 ===
+  const acdcVis = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'av1', partNo: 'AV', type: 'MC', x: 1500, y: 1250, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'av2', partNo: 'AV', type: 'MC', x: 1700, y: 1250, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'avw1', fromComp: 'av1', fromTerm: 0, toComp: 'av2', toTerm: 0, label: 'A9', color: '#111', width: 1.2, corners: null, midY: 1200, acdc: 'AC' });
+    });
+    App.render.all();
+    function badge() {
+      const grp = document.querySelector('#layer-wires [data-id="avw1"]');
+      return grp && Array.from(grp.querySelectorAll('text')).some(t => t.textContent === 'AC');
+    }
+    const shown = badge();
+    const cb = document.getElementById('wire-acdc-show');
+    cb.checked = false; cb.dispatchEvent(new Event('change'));
+    const hidden = !badge();
+    let saved = null;
+    try { saved = localStorage.getItem('panel-show-acdc'); } catch (e) {}
+    cb.checked = true; cb.dispatchEvent(new Event('change'));
+    const back = badge();
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'avw1');
+      s.components = s.components.filter(c => c.partNo !== 'AV');
+    });
+    App.render.all();
+    return { shown, hidden, saved, back };
+  });
+  assert(acdcVis.shown && acdcVis.hidden && acdcVis.back, '전원(AC/DC) 뱃지 표시 온/오프');
+  assert(acdcVis.saved === '0', '전원 표시 설정 localStorage 유지');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함
