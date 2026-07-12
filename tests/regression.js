@@ -2757,6 +2757,32 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wpre.shows, '배선 선택 시 프리셋 이름 표시');
   assert(wpre.applied, '인스펙터에서 프리셋 변경 → 이름+속성 적용');
 
+  // === 라인번호 넘버링 튜브 렌더 ===
+  const tube = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'tb1', partNo: 'TU', type: 'MC', x: 1500, y: 1550, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'tb2', partNo: 'TU', type: 'MC', x: 1700, y: 1550, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'tbw1', fromComp: 'tb1', fromTerm: 0, toComp: 'tb2', toTerm: 0, label: 'R220', color: '#111', width: 1.2, corners: null, midY: 1500 });
+    });
+    App.render.all();
+    const grp = document.querySelector('#layer-wires [data-id="tbw1"]');
+    // 흰 캡슐(둥근 사각) 배경 + 검정 글씨 + 회전 그룹
+    const tubes = Array.from(grp.querySelectorAll('rect')).filter(r => (r.getAttribute('fill') || '') === '#ffffff' && parseFloat(r.getAttribute('rx') || 0) > 0);
+    const label = Array.from(grp.querySelectorAll('text')).find(t => t.textContent === 'R220');
+    const dark = label && (label.getAttribute('fill') === '#111827');
+    const rotated = label && (label.closest('g[transform*="rotate"]') !== null);
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'tbw1');
+      s.components = s.components.filter(c => c.partNo !== 'TU');
+    });
+    App.render.all();
+    return { tubes: tubes.length, dark, rotated };
+  });
+  assert(tube.tubes >= 2, '라인번호 흰 튜브(캡슐) 렌더 (양 끝)');
+  assert(tube.dark && tube.rotated, '튜브 검정 글씨 + 선 방향 정렬');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

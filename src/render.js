@@ -660,12 +660,23 @@
         [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
           const key = pair[0], e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
           const x = e.x + off.dx, y = e.y + off.dy;
+          // 실제 넘버링 튜브처럼: 선 위에 끼워진 흰 캡슐(둥근 사각) + 검정 글씨
+          const tw = Math.max(fontMM * 1.6, String(w.label).length * fontMM * 0.62 + fontMM * 0.9); // 튜브 길이
+          const th = fontMM * 1.45;                                                                  // 튜브 굵기
+          const tg = App.el('g', {
+            transform: 'rotate(' + e.ang + ' ' + x + ' ' + y + ')', 'pointer-events': 'none'
+          }, grp);
+          App.el('rect', {
+            x: x - tw / 2, y: y - th / 2, width: tw, height: th, rx: th * 0.42,
+            fill: '#ffffff', stroke: '#94a3b8', 'stroke-width': fontMM * 0.08
+          }, tg);
+          // 튜브 양 끝 살짝 어두운 단면(끼워진 느낌)
+          App.el('rect', { x: x - tw / 2, y: y - th / 2, width: fontMM * 0.18, height: th, rx: fontMM * 0.09, fill: '#cbd5e1' }, tg);
+          App.el('rect', { x: x + tw / 2 - fontMM * 0.18, y: y - th / 2, width: fontMM * 0.18, height: th, rx: fontMM * 0.09, fill: '#cbd5e1' }, tg);
           const t = App.el('text', {
             x: x, y: y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
-            'font-size': fontMM, fill: '#b91c1c', 'font-weight': 'bold', 'pointer-events': 'none',
-            stroke: '#ffffff', 'stroke-width': fontMM * 0.22, 'paint-order': 'stroke',
-            transform: 'rotate(' + e.ang + ' ' + x + ' ' + y + ')'
-          }, grp);
+            'font-size': fontMM, fill: '#111827', 'font-weight': 'bold', 'font-family': 'Consolas, monospace'
+          }, tg);
           t.textContent = w.label;
         });
       }
