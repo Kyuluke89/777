@@ -31,7 +31,7 @@
       ctag: f.ctag || comp,    // 호기번호
       cname: f.cname || comp,  // 부품 이름
       term: f.term || 1, wire: f.wire || 1, dim: f.dim || 1,
-      wirePx: f.wirePx || 11   // 라인번호 기본 크기(화면 px, 전역 단일값)
+      wireMM: f.wireMM || 4    // 라인번호 크기(mm, 도면 고정 — 줌과 함께 스케일)
     };
   }
 
@@ -656,7 +656,7 @@
       const ends = App.wires.endLabels(state, w, pts);
       if (ends && w.label) {
         const FW = fonts(state);
-        const fontMM = App.viewport.pxToMM(FW.wirePx) * FW.wire;
+        const fontMM = FW.wireMM * FW.wire; // 도면(mm) 고정 — 선에 붙어 줌과 함께
         [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
           const key = pair[0], e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
           const x = e.x + off.dx, y = e.y + off.dy;
@@ -678,6 +678,44 @@
             'font-size': fontMM, fill: '#111827', 'font-weight': 'bold', 'font-family': 'Consolas, monospace'
           }, tg);
           t.textContent = w.label;
+
+          // 행선지 튜브 — 번호 튜브 바로 뒤에 상대 부품 호기번호-단자 표시 (토글 가능)
+          if (App.ui && App.ui.showDest !== false) {
+            const other = state.components.find(function (c2) { return c2.id === (key === 'a' ? w.toComp : w.fromComp); });
+            const oIdx = key === 'a' ? w.toTerm : w.fromTerm;
+            let dest = '';
+            if (other) {
+              const tl = App.terminals.world(other);
+              const tn = (tl[oIdx] && tl[oIdx].name != null && tl[oIdx].name !== '') ? tl[oIdx].name : oIdx;
+              dest = (other.tag || other.label || other.partNo || '') + '-' + tn;
+            }
+            if (dest) {
+              const tw2 = Math.max(fontMM * 1.6, String(dest).length * fontMM * 0.58 + fontMM * 0.9);
+              const gap = fontMM * 0.25;
+              const rad = e.ang * Math.PI / 180;
+              const dxo = Math.cos(rad) * (tw / 2 + tw2 / 2 + gap);
+              const dyo = Math.sin(rad) * (tw / 2 + tw2 / 2 + gap);
+              // 단자에서 더 먼 쪽(번호 튜브 "뒤")을 선택
+              const termPt = key === 'a' ? pts[0] : pts[pts.length - 1];
+              const cA = { x: x + dxo, y: y + dyo }, cB = { x: x - dxo, y: y - dyo };
+              const dA = (cA.x - termPt.x) * (cA.x - termPt.x) + (cA.y - termPt.y) * (cA.y - termPt.y);
+              const dB = (cB.x - termPt.x) * (cB.x - termPt.x) + (cB.y - termPt.y) * (cB.y - termPt.y);
+              const c = dA >= dB ? cA : cB;
+              const dg = App.el('g', {
+                transform: 'rotate(' + e.ang + ' ' + c.x + ' ' + c.y + ')', 'pointer-events': 'none',
+                'data-dest': '1'
+              }, grp);
+              App.el('rect', {
+                x: c.x - tw2 / 2, y: c.y - th / 2, width: tw2, height: th, rx: th * 0.42,
+                fill: '#ffffff', stroke: '#94a3b8', 'stroke-width': fontMM * 0.08
+              }, dg);
+              const dt = App.el('text', {
+                x: c.x, y: c.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+                'font-size': fontMM * 0.9, fill: '#1d4ed8', 'font-weight': 'bold', 'font-family': 'Consolas, monospace'
+              }, dg);
+              dt.textContent = dest;
+            }
+          }
         });
       }
       // 세그먼트 이동 핸들은 최상위(tophit) 레이어에서 그린다(겹친 선에 안 가리게)
@@ -895,7 +933,7 @@
       if (!w.label) return;
       const wpts = App.wires.displayRoute(state, w, woff);
       const ends = App.wires.endLabels(state, w, wpts); if (!ends) return;
-      const fontMM = App.viewport.pxToMM(F.wirePx) * F.wire;
+      const fontMM = F.wireMM * F.wire; // 도면(mm) 고정
       [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
         const e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
         const hw = Math.max(6, String(w.label).length * fontMM * 0.7), hh = fontMM * 1.5;

@@ -158,6 +158,18 @@
       });
     }
 
+    // 행선지(상대 호기-단자) 튜브 표시 온/오프 — localStorage 유지
+    const wds = $('wire-dest-show');
+    try { App.ui.showDest = localStorage.getItem('panel-show-dest') !== '0'; } catch (e) { App.ui.showDest = true; }
+    if (wds) {
+      wds.checked = App.ui.showDest !== false;
+      wds.addEventListener('change', function () {
+        App.ui.showDest = this.checked;
+        try { localStorage.setItem('panel-show-dest', this.checked ? '1' : '0'); } catch (e) {}
+        App.render.all();
+      });
+    }
+
     // 배선 모서리 라운드(둥글기) — 전역 설정: 새로고침/시트 전환에도 유지(localStorage)
     const wr = $('wire-round');
     try {
@@ -191,11 +203,11 @@
       });
     }
 
-    // 라인번호 크기(전역 단일값, 화면 고정) — 모든 라인에 동일 적용
+    // 라인번호 크기(mm, 도면 고정) — 모든 라인에 동일 적용, 줌과 함께 스케일
     const wlpx = $('wire-label-px');
     if (wlpx) wlpx.addEventListener('input', function () {
-      const v = Math.max(4, Math.min(60, parseFloat(this.value) || 11));
-      App.store.commit(function (s) { s.fonts = s.fonts || {}; s.fonts.wirePx = v; });
+      const v = Math.max(1, Math.min(30, parseFloat(this.value) || 4));
+      App.store.commit(function (s) { s.fonts = s.fonts || {}; s.fonts.wireMM = v; });
       App.render.all();
     });
 
@@ -494,7 +506,7 @@
     ['ctype', 'ctag', 'cname', 'term', 'wire', 'dim'].forEach(function (k) {
       if ($('font-' + k)) $('font-' + k).value = f[k] || f.comp || 1;
     });
-    if ($('wire-label-px')) $('wire-label-px').value = f.wirePx || 11;
+    if ($('wire-label-px')) $('wire-label-px').value = f.wireMM || 4;
     const tb = s.titleBlock || {};
     if ($('tb-docno')) $('tb-docno').value = tb.docNo || '';
     if ($('tb-author')) $('tb-author').value = tb.author || '';

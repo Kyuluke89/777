@@ -702,7 +702,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   const selN = await page.evaluate(() => App.ui.selected.size);
   assert(selN >= 2, '영역선택 다중 (' + selN + ')');
 
-  // 라인번호(배선 라벨) 화면 크기 고정 — 휠 줌해도 스크린상 크기 유지
+  // 라인번호(넘버링 튜브) 도면(mm) 고정 — 줌해도 mm값 그대로(선에 붙어 함께 스케일)
   await page.evaluate(() => { App.ui.selected.clear(); App.render.all(); });
   const zoomFix = await page.evaluate(() => {
     function wlabel() { const t = document.querySelector('#layer-wires text'); return t ? parseFloat(t.getAttribute('font-size')) : 0; }
@@ -711,28 +711,26 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     const r = svg.getBoundingClientRect();
     svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, cancelable: true }));
     const f2 = wlabel(), s2 = App.viewport.scale();
-    return { zoomedIn: s2 > s1 * 1.05, screen1: f1 * s1, screen2: f2 * s2, mmChanged: Math.abs(f2 - f1) > 0.001 };
+    return { zoomedIn: s2 > s1 * 1.05, mm1: f1, mm2: f2 };
   });
   assert(zoomFix.zoomedIn, '휠 줌인 동작');
-  assert(zoomFix.mmChanged, '줌 시 라벨 mm값 재계산(재렌더)');
-  assert(Math.abs(zoomFix.screen1 - zoomFix.screen2) < 0.5, '라인번호 화면 크기 고정(줌 무관 ' + zoomFix.screen1.toFixed(1) + '≈' + zoomFix.screen2.toFixed(1) + ')');
+  assert(Math.abs(zoomFix.mm1 - zoomFix.mm2) < 0.001, '라인번호 도면(mm) 고정 — 줌해도 크기 안 바뀜 (' + zoomFix.mm1 + '≈' + zoomFix.mm2 + ')');
 
-  // 라인번호 크기: 한 곳(전역)에서 지정 → 모든 라인 동일, 화면 고정
-  await page.fill('#wire-label-px', '22');
+  // 라인번호 크기: 한 곳(전역, mm)에서 지정 → 모든 라인 동일
+  await page.fill('#wire-label-px', '8');
   await page.evaluate(() => document.getElementById('wire-label-px').dispatchEvent(new Event('input')));
   const lblSize = await page.evaluate(() => {
-    const saved = App.store.get().fonts.wirePx;
-    function screenPx() { const t = document.querySelector('#layer-wires text'); const s = App.viewport.scale(); return t ? parseFloat(t.getAttribute('font-size')) * s : 0; }
-    const px1 = screenPx();
+    const saved = App.store.get().fonts.wireMM;
+    function mmSize() { const t = document.querySelector('#layer-wires text'); return t ? parseFloat(t.getAttribute('font-size')) : 0; }
+    const m1 = mmSize();
     const svg = document.getElementById('canvas'); const r = svg.getBoundingClientRect();
     svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, cancelable: true }));
-    const px2 = screenPx();
-    return { saved, px1, px2 };
+    const m2 = mmSize();
+    return { saved, m1, m2 };
   });
-  assert(lblSize.saved === 22, '라인번호 크기 전역 저장 (' + lblSize.saved + ')');
-  assert(Math.abs(lblSize.px1 - 22) < 1.5, '지정 크기 적용 (~22px, ' + lblSize.px1.toFixed(1) + ')');
-  assert(Math.abs(lblSize.px1 - lblSize.px2) < 0.5, '지정 후에도 줌 고정');
-  await page.fill('#wire-label-px', '11');
+  assert(lblSize.saved === 8, '라인번호 크기(mm) 전역 저장 (' + lblSize.saved + ')');
+  assert(Math.abs(lblSize.m1 - 8) < 0.01 && Math.abs(lblSize.m2 - 8) < 0.01, '지정 mm 크기 적용 + 줌 무관 유지');
+  await page.fill('#wire-label-px', '4');
   await page.evaluate(() => document.getElementById('wire-label-px').dispatchEvent(new Event('input')));
 
   // 정렬/균등 간격 도구
@@ -2782,6 +2780,39 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(tube.tubes >= 2, '라인번호 흰 튜브(캡슐) 렌더 (양 끝)');
   assert(tube.dark && tube.rotated, '튜브 검정 글씨 + 선 방향 정렬');
+
+  // === 행선지 튜브 (상대 호기-단자) + 토글 ===
+  const destTube = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'dt1', partNo: 'DT', type: 'MC', tag: 'Q1', x: 1500, y: 1700, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: 'L1', rx: 15, ry: 2 }] },
+        { id: 'dt2', partNo: 'DT', type: 'MC', tag: 'Q2', x: 1700, y: 1700, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: 'T3', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'dtw1', fromComp: 'dt1', fromTerm: 0, toComp: 'dt2', toTerm: 0, label: 'D1', color: '#111', width: 1.2, corners: null, midY: 1650 });
+    });
+    App.render.all();
+    function destTexts() {
+      const grp = document.querySelector('#layer-wires [data-id="dtw1"]');
+      return Array.from(grp.querySelectorAll('[data-dest] text')).map(t => t.textContent);
+    }
+    const ds = destTexts();
+    // a쪽(시작=dt1) 행선지 = 상대 Q2-T3, b쪽 = Q1-L1
+    const hasBoth = ds.indexOf('Q2-T3') >= 0 && ds.indexOf('Q1-L1') >= 0;
+    // 토글 끄기
+    const cb = document.getElementById('wire-dest-show');
+    cb.checked = false; cb.dispatchEvent(new Event('change'));
+    const off = destTexts().length === 0;
+    cb.checked = true; cb.dispatchEvent(new Event('change'));
+    const back = destTexts().length === 2;
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'dtw1');
+      s.components = s.components.filter(c => c.partNo !== 'DT');
+    });
+    App.render.all();
+    return { ds, hasBoth, off, back };
+  });
+  assert(destTube.hasBoth, '행선지 튜브: 상대 호기-단자 (Q2-T3 / Q1-L1)');
+  assert(destTube.off && destTube.back, '행선지 표시 토글');
 
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
