@@ -3541,6 +3541,66 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(zord.front, '맨 앞으로: 선택한 선이 배열 끝(위에 그려짐)');
   assert(zord.back && zord.undoable, '맨 뒤로 + undo 라벨 기록');
 
+  // === 동일 종류 다중 선택 일괄 속성 편집 (치수/텍스트/덕트) ===
+  const bulk = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.dimensions.push(
+        { id: 'bd1', x1: 100, y1: 600, x2: 200, y2: 600, off: -20 },
+        { id: 'bd2', x1: 200, y1: 600, x2: 300, y2: 600, off: -20 },
+        { id: 'bd3', x1: 300, y1: 600, x2: 400, y2: 600, off: -20 }
+      );
+      s.texts.push(
+        { id: 'bt1', x: 100, y: 700, text: 'A', size: 8, color: '#0f172a' },
+        { id: 'bt2', x: 150, y: 700, text: 'B', size: 8, color: '#0f172a' }
+      );
+      s.ducts.push(
+        { id: 'bdc1', orient: 'h', x: 100, y: 750, lengthMM: 100, widthMM: 60 },
+        { id: 'bdc2', orient: 'h', x: 100, y: 850, lengthMM: 100, widthMM: 60 }
+      );
+    });
+    const root = document.getElementById('inspector');
+    function setMf(name, val) {
+      const inp = root.querySelector('[data-mf="' + name + '"]');
+      if (!inp) return false;
+      inp.value = val;
+      inp.dispatchEvent(new Event('change'));
+      return true;
+    }
+    // 치수 3개 일괄: 보조선 간격 + 문자 위치
+    App.ui.selected = new Set(['bd1', 'bd2', 'bd3']);
+    App.inspector.update();
+    const dimUi = setMf('extGap', '4') && setMf('textPos', 'up');
+    let st = App.store.get();
+    const dimsOk = ['bd1', 'bd2', 'bd3'].every(i => {
+      const d = st.dimensions.find(x => x.id === i);
+      return d.extGap === 4 && d.textPos === 'up';
+    });
+    // 텍스트 2개 일괄: 크기
+    App.ui.selected = new Set(['bt1', 'bt2']);
+    App.inspector.update();
+    const txtUi = setMf('tsize', '12');
+    st = App.store.get();
+    const textsOk = ['bt1', 'bt2'].every(i => st.texts.find(x => x.id === i).size === 12);
+    // 덕트 2개 일괄: 폭
+    App.ui.selected = new Set(['bdc1', 'bdc2']);
+    App.inspector.update();
+    const ductUi = setMf('dwidth', '80');
+    st = App.store.get();
+    const ductsOk = ['bdc1', 'bdc2'].every(i => st.ducts.find(x => x.id === i).widthMM === 80);
+    // 정리
+    App.ui.selected.clear();
+    App.store.commit(s => {
+      s.dimensions = s.dimensions.filter(d => d.id.indexOf('bd') !== 0);
+      s.texts = s.texts.filter(t => t.id.indexOf('bt') !== 0);
+      s.ducts = s.ducts.filter(d => d.id.indexOf('bdc') !== 0);
+    });
+    App.inspector.update();
+    return { dimUi, dimsOk, txtUi, textsOk, ductUi, ductsOk };
+  });
+  assert(bulk.dimUi && bulk.dimsOk, '치수 다중 선택: 보조선 간격/문자 위치 일괄 수정');
+  assert(bulk.txtUi && bulk.textsOk, '텍스트 다중 선택: 크기 일괄 수정');
+  assert(bulk.ductUi && bulk.ductsOk, '덕트 다중 선택: 폭 일괄 수정');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

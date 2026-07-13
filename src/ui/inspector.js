@@ -49,6 +49,9 @@
       let mh = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">' + sel.size + '개 선택 (일괄 편집)</div>';
       const onlyWires = kindList.length === 1 && kindList[0] === 'wires';
       const onlyComps = kindList.length === 1 && kindList[0] === 'components';
+      const onlyDims = kindList.length === 1 && kindList[0] === 'dimensions';
+      const onlyTexts = kindList.length === 1 && kindList[0] === 'texts';
+      const onlyDucts = kindList.length === 1 && kindList[0] === 'ducts';
       if (onlyWires) {
         let sw2 = '<div class="flex flex-wrap gap-1 px-1 mb-1">';
         App.wires.COLORS.forEach(function (c) {
@@ -81,6 +84,17 @@
         mh += row('타입 일괄', '<select data-mf="type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option>' + App.types.optionsHtml('').replace('<option value="__new__">＋ 새 타입…</option>', '') + '</select>');
         mh += row('글자 방향', '<select data-mf="textVert" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="h">가로</option><option value="v">세로</option></select>');
         mh += '<label class="flex items-center gap-1 mt-1 text-xs text-slate-600"><input id="insp-lock-multi" type="checkbox" /> 전체 잠금</label>';
+      } else if (onlyDims) {
+        mh += row('보조선 간격', '<input data-mf="extGap" type="number" step="0.5" min="0" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+        mh += row('문자 위치', '<select data-mf="textPos" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="mid">가운데(끊김)</option><option value="up">선 위</option><option value="dn">선 아래</option></select>');
+        mh += row('문자 간격', '<input data-mf="textOff" type="number" step="0.5" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+        mh += row('오프셋(mm)', '<input data-mf="dimoff" type="number" step="1" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+      } else if (onlyTexts) {
+        mh += row('크기(mm) 일괄', '<input data-mf="tsize" type="number" step="0.5" min="1" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+        mh += row('색상 일괄', '<input data-mf="tcolor" type="color" value="#0f172a" class="w-12 h-7 border border-slate-300 rounded" />');
+      } else if (onlyDucts) {
+        mh += row('덕트폭(mm)', '<input data-mf="dwidth" type="number" step="5" min="10" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+        mh += row('길이(mm)', '<input data-mf="dlen" type="number" step="10" min="10" placeholder="유지" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
       } else {
         mh += '<div class="text-[10px] text-slate-400 px-1">서로 다른 종류가 섞여 있습니다.</div>';
       }
@@ -133,6 +147,14 @@
             else if (f3 === 'width') { const n = parseFloat(v); if (n) it.width = n; }
             else if (f3 === 'acdc') it.acdc = v;
             else if (f3 === 'hideTube') { if (k === 'wires') it.hideTube = (v === 'hide'); }
+            else if (f3 === 'extGap') { if (k === 'dimensions') { const n = parseFloat(v); if (!isNaN(n)) it.extGap = Math.max(0, n); } }
+            else if (f3 === 'textPos') { if (k === 'dimensions') it.textPos = v; }
+            else if (f3 === 'textOff') { if (k === 'dimensions') { const n = parseFloat(v); if (!isNaN(n)) it.textOff = n; } }
+            else if (f3 === 'dimoff') { if (k === 'dimensions') { const n = parseFloat(v); if (!isNaN(n)) it.off = n; } }
+            else if (f3 === 'tsize') { if (k === 'texts') { const n = parseFloat(v); if (n >= 1) it.size = n; } }
+            else if (f3 === 'tcolor') { if (k === 'texts') it.color = v; }
+            else if (f3 === 'dwidth') { if (k === 'ducts') { const n = parseFloat(v); if (n >= 10) it.widthMM = n; } }
+            else if (f3 === 'dlen') { if (k === 'ducts') { const n = parseFloat(v); if (n >= 10) it.lengthMM = n; } }
             else if (f3 === 'labelInset') { if (k === 'wires') { const n2 = parseFloat(v); if (!isNaN(n2)) it.labelInset = n2 <= 0 ? null : Math.max(2, n2); } }
             else if (f3 === 'preset') {
               if (k !== 'wires') return;
