@@ -3213,6 +3213,44 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(prsz.two, '패널 리사이즈 핸들 2개(좌/우)');
   assert(prsz.grew && prsz.saved, '패널 드래그 리사이즈 + 너비 localStorage 저장');
 
+  // === 버전 히스토리 API + 배선 경로 캐시 ===
+  const vh = await page.evaluate(() => {
+    const api = typeof App.persistence.snapshotNow === 'function' &&
+      typeof App.persistence.listSnapshots === 'function' &&
+      typeof App.commands.get('snapshot-open') === 'object';
+    // 경로 캐시: 같은 렌더 패스 안에서는 동일 참조, 패스 밖에서는 새로 계산
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'rc1', partNo: 'RC', type: 'MC', x: 100, y: 100, widthMM: 20, heightMM: 20, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 10, ry: 2 }] },
+        { id: 'rc2', partNo: 'RC', type: 'MC', x: 300, y: 100, widthMM: 20, heightMM: 20, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 10, ry: 2 }] }
+      );
+      s.wires.push({ id: 'rcw', fromComp: 'rc1', fromTerm: 0, toComp: 'rc2', toTerm: 0, label: 'C1', color: '#111', width: 1.2, corners: null, midY: null });
+    });
+    const st = App.store.get();
+    const w = st.wires.find(x => x.id === 'rcw');
+    const plain = App.wires.route(st, w);
+    App.wires.beginRouteCache();
+    const c1 = App.wires.route(st, w);
+    const c2 = App.wires.route(st, w);
+    const sameRef = c1 === c2; // 캐시 적중
+    const sameData = JSON.stringify(c1) === JSON.stringify(plain); // 값 동일
+    App.wires.endRouteCache();
+    const c3 = App.wires.route(st, w);
+    const fresh = c3 !== c1; // 캐시 종료 후 새 계산
+    // 부품 이동 후 렌더 → 경로가 새 위치를 반영 (캐시가 stale 을 남기지 않음)
+    App.store.commit(s => { s.components.find(c => c.id === 'rc2').x = 400; });
+    const moved = App.wires.route(App.store.get(), w);
+    const follows = moved[moved.length - 1].x !== plain[plain.length - 1].x;
+    App.store.commit(s => {
+      s.wires = s.wires.filter(x => x.id !== 'rcw');
+      s.components = s.components.filter(c => c.partNo !== 'RC');
+    });
+    return { api, sameRef, sameData, fresh, follows };
+  });
+  assert(vh.api, '버전 히스토리 API + 복원 명령 등록');
+  assert(vh.sameRef && vh.sameData, '배선 경로 캐시: 렌더 패스 내 재사용 + 값 동일');
+  assert(vh.fresh && vh.follows, '캐시 종료 후 재계산 + 이동 반영(stale 없음)');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

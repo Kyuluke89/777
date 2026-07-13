@@ -189,6 +189,34 @@
     return dbGet(RECENT_KEY).then(function (list) { return Array.isArray(list) ? list : []; });
   };
 
+  // --- 버전 히스토리 (자동 스냅샷) ---
+  // 자동저장과 별개로 일정 간격마다 시점 스냅샷을 보관 → 실수해도 과거로 복원 가능
+  const SNAP_INTERVAL = 5 * 60 * 1000; // 5분
+  const SNAP_MAX = 20;
+  let lastSnapTs = 0;
+
+  P.snapshotNow = function (state) {
+    if (!P.autosaveAvailable()) return Promise.resolve(false);
+    state = state || App.store.get();
+    return dbGet(SNAPSHOTS_KEY).then(function (list) {
+      list = Array.isArray(list) ? list : [];
+      list.unshift({ ts: Date.now(), data: App.clone(state) });
+      if (list.length > SNAP_MAX) list.length = SNAP_MAX;
+      return dbPut(SNAPSHOTS_KEY, list);
+    });
+  };
+
+  function maybeSnapshot(state) {
+    const now = Date.now();
+    if (now - lastSnapTs < SNAP_INTERVAL) return;
+    lastSnapTs = now;
+    P.snapshotNow(state);
+  }
+
+  P.listSnapshots = function () {
+    return dbGet(SNAPSHOTS_KEY).then(function (list) { return Array.isArray(list) ? list : []; });
+  };
+
   P.autosaveAvailable = function () {
     // file:// 에서는 IndexedDB 가 불안정 → http(s) 에서만 사용
     return location.protocol === 'http:' || location.protocol === 'https:';
@@ -202,6 +230,7 @@
       openDB().then(function (db) {
         const tx = db.transaction(STORE, 'readwrite');
         tx.objectStore(STORE).put(App.clone(state), AUTOSAVE_KEY);
+        maybeSnapshot(state); // 버전 히스토리도 주기적으로 적재
       }).catch(function () { /* 무시 */ });
     }, 800);
   };

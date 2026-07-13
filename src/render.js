@@ -825,15 +825,20 @@
 
   Render.all = function (state) {
     state = state || App.store.get();
-    renderPanel(state);
-    renderDucts(state);
-    renderRails(state);
-    renderComponents(state);
-    renderWires(state);
-    renderDims(state);
-    renderTexts(state);
-    renderOverlay(state);
-    renderTopHandles(state);
+    if (App.wires && App.wires.beginRouteCache) App.wires.beginRouteCache(); // 배선 경로 1회 계산
+    try {
+      renderPanel(state);
+      renderDucts(state);
+      renderRails(state);
+      renderComponents(state);
+      renderWires(state);
+      renderDims(state);
+      renderTexts(state);
+      renderOverlay(state);
+      renderTopHandles(state);
+    } finally {
+      if (App.wires && App.wires.endRouteCache) App.wires.endRouteCache();
+    }
     if (App.minimap) App.minimap.update(state); // 뷰포트 표시 동기화
   };
 

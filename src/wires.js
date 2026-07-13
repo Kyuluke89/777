@@ -162,13 +162,25 @@
     return out;
   }
 
+  // 렌더 1회 동안만 유효한 경로 캐시 — 한 번의 render.all 안에서 같은 배선의
+  // route() 가 여러 번(세그먼트/겹선/라벨/튜브 계산) 불려 덕트망 탐색이 반복되는 것을 제거.
+  // 렌더 중에는 상태가 바뀌지 않으므로 안전하다.
+  let routeCache = null;
+  W.beginRouteCache = function () { routeCache = Object.create(null); };
+  W.endRouteCache = function () { routeCache = null; };
+
   // 와이어의 월드 경로 점 배열 (corners 에 stub 포함됨)
   W.route = function (state, wire) {
+    if (routeCache && wire.id && routeCache[wire.id] !== undefined) return routeCache[wire.id];
     const a = term(state, wire, 'from'), b = term(state, wire, 'to');
-    if (!a || !b) return null;
-    const corners = W.corners(state, wire);
-    const anchors = [{ x: a.x, y: a.y }].concat(corners, [{ x: b.x, y: b.y }]);
-    return dedup(ortho(anchors));
+    let pts = null;
+    if (a && b) {
+      const corners = W.corners(state, wire);
+      const anchors = [{ x: a.x, y: a.y }].concat(corners, [{ x: b.x, y: b.y }]);
+      pts = dedup(ortho(anchors));
+    }
+    if (routeCache && wire.id) routeCache[wire.id] = pts;
+    return pts;
   };
 
   // 편집 가능한 세그먼트 — 렌더되는 전체 경로의 모든 직선 구간(단자 옆 포함).

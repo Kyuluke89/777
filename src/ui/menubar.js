@@ -51,6 +51,7 @@
         { fn: function () { App.persistence.saveToFile(App.store.get(), { as: true }); }, cmdId: 'act-saveas', label: '다른 이름으로 저장…', key: 'Ctrl+Shift+S' },
         { id: 'act-load', label: '불러오기' },
         { fn: function () { openRecentModal(); }, cmdId: 'recent-open', label: '최근 프로젝트…' },
+        { fn: function () { openSnapshotModal(); }, cmdId: 'snapshot-open', label: '이전 버전 복원…' },
         { sep: true },
         { id: 'act-edz', label: 'EDZ 부품 가져오기' },
         { sep: true },
@@ -388,6 +389,25 @@
       if (e.key === 'Escape' && openRoot) closeAll();
     });
     tbApply(); // 저장된 도구막대 표시 상태 복원
+  }
+
+  function openSnapshotModal() {
+    if (!App.persistence.autosaveAvailable()) {
+      alert('버전 히스토리는 http(s) 환경(GitHub Pages 등)에서 사용할 수 있습니다.');
+      return;
+    }
+    App.persistence.listSnapshots().then(function (list) {
+      var rows = list.map(function (s) {
+        var d = s.data || {};
+        var name = ((d.panel && d.panel.title) || d.name || '스냅샷') +
+          ' — 부품 ' + ((d.components || []).length) + ' · 배선 ' + ((d.wires || []).length);
+        return { name: name, ts: s.ts, data: s.data };
+      });
+      openListModal('이전 버전 복원 (자동 스냅샷)', rows, '저장된 스냅샷이 없습니다', function (r) {
+        if (!confirm('이 시점으로 복원할까요?\n(현재 작업은 저장하지 않으면 사라집니다)')) return;
+        applyProject(r.data);
+      });
+    });
   }
 
   App.menubar = {
