@@ -73,17 +73,36 @@
     for (var k in map) if (map[k] === actionId) delete map[k];
     if (key) map[key] = actionId;
     save();
+    syncHints();
   }
 
   function unbind(actionId) {
     if (!map) load();
     for (var k in map) if (map[k] === actionId) delete map[k];
     save();
+    syncHints();
   }
 
   function reset() {
     map = defaults();
     save();
+    syncHints();
+  }
+
+  // 버튼 툴팁의 단축키 표기를 현재 바인딩에 맞게 갱신 — 키를 바꿔도 툴팁이 거짓말하지 않게
+  function syncHints() {
+    ACTIONS.forEach(function (a) {
+      var el = document.getElementById(a.id);
+      if (!el) return;
+      var base = el.getAttribute('data-basetitle');
+      if (base == null) {
+        // 원본 title 에서 끝의 " (V)" 같은 한 글자 키 표기는 떼고 보관
+        base = (el.getAttribute('title') || '').replace(/\s*\([A-Z]\)\s*$/, '');
+        el.setAttribute('data-basetitle', base);
+      }
+      var key = keyOf(a.id);
+      el.setAttribute('title', base + (key ? ' (' + key.toUpperCase() + ')' : ''));
+    });
   }
 
   // ---- 설정 모달 ----
@@ -215,6 +234,7 @@
 
   function init() {
     load();
+    syncHints();
   }
 
   App.keymap = {
@@ -227,6 +247,7 @@
     bind: bind,
     unbind: unbind,
     reset: reset,
+    syncHints: syncHints,
     ACTIONS: ACTIONS,
   };
 })();

@@ -69,12 +69,12 @@
         { id: 'act-undo', label: '실행 취소', key: 'Ctrl+Z' },
         { id: 'act-redo', label: '다시 실행', key: 'Ctrl+Shift+Z' },
         { sep: true },
-        { fn: function () { copySel(); }, label: '복사', key: 'Ctrl+C' },
-        { fn: function () { pasteSel(); }, label: '붙여넣기', key: 'Ctrl+V' },
+        { fn: function () { copySel(); }, cmdId: 'edit-copy', label: '복사', key: 'Ctrl+C' },
+        { fn: function () { pasteSel(); }, cmdId: 'edit-paste', label: '붙여넣기', key: 'Ctrl+V' },
         { id: 'act-dup', label: '복제', key: 'Ctrl+D' },
         { id: 'act-delete', label: '삭제', key: 'Del' },
         { sep: true },
-        { fn: function () { selectAll(); }, label: '전체 선택', key: 'Ctrl+A' },
+        { fn: function () { selectAll(); }, cmdId: 'select-all', label: '전체 선택', key: 'Ctrl+A' },
         { id: 'act-rotate', label: '회전' },
         { id: 'act-lock', label: '잠금 / 해제' },
         { id: 'act-matchprop', label: '속성 복사' },
@@ -153,7 +153,8 @@
       items: [
         { id: 'wire-renum', label: '라인 번호 재부여' },
         { sep: true },
-        { fn: function () { if (App.keymap) App.keymap.open(); }, label: '단축키 설정…' },
+        { fn: function () { if (App.keymap) App.keymap.open(); }, cmdId: 'keymap-open', label: '단축키 설정…' },
+        { fn: function () { if (App.cmdPalette) App.cmdPalette.open(); }, cmdId: 'cmd-palette', label: '명령 팔레트…', key: 'Ctrl+K' },
         { id: 'act-help', label: '도움말 / 단축키', key: 'F1' },
       ],
     },
@@ -233,9 +234,37 @@
     openRoot = rootBtn;
   }
 
+  // 모든 메뉴 항목을 명령 레지스트리에 등록 — 명령 팔레트/단축키가 공유
+  function registerCommands() {
+    if (!App.commands) return;
+    MENUS.forEach(function (menu) {
+      menu.items.forEach(function (item) {
+        if (item.sep) return;
+        var label = typeof item.label === 'function' ? item.label() : item.label;
+        var id = item.cmdId || item.id || item.check || (item.tbar ? 'tbar-' + item.tbar : null);
+        if (!id) return;
+        App.commands.register({
+          id: id,
+          name: String(label).replace(/…$/, ''),
+          group: menu.title,
+          hint: item.key || '',
+          run: item.fn ? item.fn
+            : item.tbar ? (function (k) { return function () { tbToggle(k); }; })(item.tbar)
+            : (function (target) {
+                return function () {
+                  var el = document.getElementById(target);
+                  if (el) el.click();
+                };
+              })(item.check || item.id),
+        });
+      });
+    });
+  }
+
   function init() {
     var bar = document.getElementById('menubar');
     if (!bar) return;
+    registerCommands();
     MENUS.forEach(function (menu) {
       var btn = document.createElement('button');
       btn.type = 'button';

@@ -3057,6 +3057,39 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(tbar.checked && tbar.hidden && tbar.saved, '뷰 메뉴에서 도구막대 끄기 + localStorage 저장');
   assert(tbar.unchecked && tbar.back, '도구막대 다시 켜기 (체크 반영)');
 
+  // === 명령 레지스트리 + 명령 팔레트 (Ctrl+K) ===
+  const cmdp = await page.evaluate(() => {
+    const hasCmds = ['act-save', 'select-all', 'cmd-palette', 'wire-renum'].every(id => !!App.commands.get(id));
+    const found = App.commands.search('저장').some(c => c.id === 'act-save');
+    // Ctrl+K 로 팔레트 열기
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
+    const opened = App.cmdPalette.isOpen();
+    // 검색 → Enter 로 실행 (그리기 > 배선 도구)
+    const inp = document.getElementById('cmdp-input');
+    inp.value = '단자 연결';
+    inp.dispatchEvent(new Event('input'));
+    const listed = document.querySelectorAll('#cmdp-list .cmdp-item').length >= 1;
+    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    const ran = App.ui.tool === 'wire' && !App.cmdPalette.isOpen();
+    App.toolbar.setTool('select');
+    return { hasCmds, found, opened, listed, ran };
+  });
+  assert(cmdp.hasCmds && cmdp.found, '명령 레지스트리: 메뉴 항목 자동 등록 + 검색');
+  assert(cmdp.opened && cmdp.listed, 'Ctrl+K 명령 팔레트 열기 + 검색 목록');
+  assert(cmdp.ran, '팔레트 Enter → 명령 실행(배선 도구) + 닫힘');
+
+  // === 단축키 힌트 자동 동기화 (버튼 툴팁) ===
+  const hint = await page.evaluate(() => {
+    const btn = document.getElementById('tool-select');
+    const before = (btn.getAttribute('title') || '').indexOf('(V)') >= 0;
+    App.keymap.bind('q', 'tool-select');
+    const after = (btn.getAttribute('title') || '').indexOf('(Q)') >= 0 && (btn.getAttribute('title') || '').indexOf('(V)') < 0;
+    App.keymap.reset();
+    const restored = (btn.getAttribute('title') || '').indexOf('(V)') >= 0;
+    return { before, after, restored };
+  });
+  assert(hint.before && hint.after && hint.restored, '단축키 힌트 툴팁 자동 동기화 (V→Q→V)');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

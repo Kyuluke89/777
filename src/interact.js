@@ -1285,6 +1285,7 @@
   let kmTimer = null;
 
   function kmFire(actionId) {
+    if (App.commands && App.commands.run(actionId)) return;
     const btn = document.getElementById(actionId);
     if (btn) btn.click();
   }
