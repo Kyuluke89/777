@@ -461,7 +461,7 @@
       return;
     }
 
-    // 치수 도구: 점1 → 점2 → 오프셋 위치 (캐드식 3클릭, 스냅)
+    // 치수 도구: 점1 → 점2 → 오프셋 위치, 이후 연속 클릭 = 연속 치수(캐드 DIMCONTINUE, Esc 종료)
     if (tool === 'dim') {
       const state = App.store.get();
       const d = App.ui.dim || (App.ui.dim = { stage: 0 });
@@ -469,13 +469,30 @@
         d.p1 = App.geom.snapPoint(state, sp.x, sp.y, App.viewport.pxToMM(8)); d.stage = 1;
       } else if (d.stage === 1) {
         d.p2 = App.geom.snapPoint(state, sp.x, sp.y, App.viewport.pxToMM(8)); d.stage = 2;
-      } else {
+      } else if (d.stage === 2) {
         const base = { x1: d.p1.x, y1: d.p1.y, x2: d.p2.x, y2: d.p2.y };
         const off = snapV(App.dims.offsetFromPoint(base, sp.x, sp.y));
         const dim = App.dims.create(base.x1, base.y1, base.x2, base.y2, off);
+        if (App.ui.dimExtGap) dim.extGap = App.ui.dimExtGap;
+        if (App.ui.dimTextPos && App.ui.dimTextPos !== 'mid') dim.textPos = App.ui.dimTextPos;
         App.store.commit(function (s) { s.dimensions.push(dim); }, { label: '치수 추가' });
-        App.ui.dim = { stage: 0 };
-        App.render.dimPreview(null); App.render.snapMarker(null);
+        // 연속 치수 대기: 다음 클릭 = 마지막 점에서 이어지는 치수
+        d.stage = 3; d.prev = { x: base.x2, y: base.y2 }; d.last = dim;
+        App.render.dimPreview(null);
+        selectOnly(dim.id);
+        if (App.toolbar) App.toolbar.flash('연속 치수: 다음 점 클릭 (Esc 종료)');
+      } else {
+        // 연속 치수: 이전 끝점 → 새 점, 치수선은 같은 라인에 이어붙임
+        const pt = App.geom.snapPoint(state, sp.x, sp.y, App.viewport.pxToMM(8));
+        const base = { x1: d.prev.x, y1: d.prev.y, x2: pt.x, y2: pt.y };
+        if (Math.hypot(base.x2 - base.x1, base.y2 - base.y1) < 1) return;
+        const pg = App.dims.geom(d.last);
+        const off = App.dims.offsetFromPoint(base, pg.a2.x, pg.a2.y);
+        const dim = App.dims.create(base.x1, base.y1, base.x2, base.y2, off);
+        if (d.last.extGap != null) dim.extGap = d.last.extGap;
+        if (d.last.textPos) dim.textPos = d.last.textPos;
+        App.store.commit(function (s) { s.dimensions.push(dim); }, { label: '연속 치수' });
+        d.prev = pt; d.last = dim;
         selectOnly(dim.id);
       }
       return;
@@ -740,6 +757,15 @@
         const base = { x1: d.p1.x, y1: d.p1.y, x2: d.p2.x, y2: d.p2.y };
         App.render.snapMarker(null);
         App.render.dimPreview(Object.assign({ off: snapV(App.dims.offsetFromPoint(base, cp.x, cp.y)) }, base));
+      } else if (d.stage === 3) {
+        // 연속 치수 미리보기 — 이전 끝점 → 커서, 같은 치수선 라인에 정렬
+        const snap = App.geom.snapPoint(state, cp.x, cp.y, App.viewport.pxToMM(8));
+        App.render.snapMarker(snap);
+        const base = { x1: d.prev.x, y1: d.prev.y, x2: snap.x, y2: snap.y };
+        if (Math.hypot(base.x2 - base.x1, base.y2 - base.y1) >= 1) {
+          const pg = App.dims.geom(d.last);
+          App.render.dimPreview(Object.assign({ off: App.dims.offsetFromPoint(base, pg.a2.x, pg.a2.y) }, base));
+        } else App.render.dimPreview(null);
       } else {
         const snap = App.geom.snapPoint(state, cp.x, cp.y, App.viewport.pxToMM(8));
         App.render.snapMarker(snap);
@@ -1457,6 +1483,25 @@
     if (e.key === ' ') App.ui.spaceDown = false;
   }
 
+  // 그리기 순서(z-order): 선택 항목을 같은 종류 배열의 맨 앞/맨 뒤로 — 렌더는 배열 순서대로 그림
+  function zOrder(front) {
+    if (!App.ui.selected.size) return;
+    const ids = Array.from(App.ui.selected);
+    App.store.commit(function (s) {
+      ['wires', 'components', 'ducts', 'rails', 'texts', 'clines', 'dimensions'].forEach(function (k) {
+        if (!s[k]) return;
+        const pick = s[k].filter(function (it) { return ids.indexOf(it.id) >= 0; });
+        if (!pick.length) return;
+        const rest = s[k].filter(function (it) { return ids.indexOf(it.id) < 0; });
+        s[k] = front ? rest.concat(pick) : pick.concat(rest);
+      });
+    }, { label: front ? '맨 앞으로' : '맨 뒤로' });
+    App.render.all();
+    if (App.toolbar) App.toolbar.flash(front ? '맨 앞으로 (위에 그려짐)' : '맨 뒤로 (아래에 그려짐)');
+  }
+  Interact.bringToFront = function () { zOrder(true); };
+  Interact.sendToBack = function () { zOrder(false); };
+
   // 선택 항목 잠금/해제 토글 (덕트·레일·부품)
   function toggleLock() {
     if (!App.ui.selected.size) return;
@@ -1613,6 +1658,9 @@
         } });
       }
       if (kind !== 'wires') items.push({ icon: '⇹', label: '사이 센터 (기준 2개 클릭)', fn: startCenterBetween });
+      items.push('sep');
+      items.push({ icon: '⬆', label: '맨 앞으로 (위에 그리기)', fn: function () { zOrder(true); } });
+      items.push({ icon: '⬇', label: '맨 뒤로 (아래에 그리기)', fn: function () { zOrder(false); } });
       items.push('sep');
       items.push({ icon: '🗑', label: '삭제', key: 'Del', danger: true, fn: deleteSelected });
     } else {

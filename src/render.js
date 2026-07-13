@@ -797,25 +797,43 @@
       const ux = (m.a2.x - m.a1.x) / m.L, uy = (m.a2.y - m.a1.y) / m.L; // 선 방향 단위
       // 클릭 영역
       App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: 'transparent', 'stroke-width': App.viewport.pxToMM(8) }, grp);
-      // 연장선 (측정점 → 치수선, 약간 연장)
+      // 연장선 (측정점 → 치수선, 약간 연장) — 보조선 간격(extGap)만큼 측정점에서 띄움
       const ex = m.nx * fontMM * 0.4, ey = m.ny * fontMM * 0.4;
-      App.el('line', { x1: m.p1.x, y1: m.p1.y, x2: m.a1.x + ex, y2: m.a1.y + ey, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
-      App.el('line', { x1: m.p2.x, y1: m.p2.y, x2: m.a2.x + ex, y2: m.a2.y + ey, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
-      // 치수선 — 가운데 글자 자리만큼 끊어서(걸리게) 두 토막
+      const sOff = (dim.off || 0) >= 0 ? 1 : -1;
+      const eg = (dim.extGap != null ? dim.extGap : 0) * sOff;
+      const egx = m.nx * eg, egy = m.ny * eg;
+      App.el('line', { x1: m.p1.x + egx, y1: m.p1.y + egy, x2: m.a1.x + ex, y2: m.a1.y + ey, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+      App.el('line', { x1: m.p2.x + egx, y1: m.p2.y + egy, x2: m.a2.x + ex, y2: m.a2.y + ey, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
       const label = String(App.dims.length(dim));
-      const half = (label.length * fontMM * 0.32) + fontMM * 0.35; // 글자 폭 절반
-      const gS = { x: m.mid.x - ux * half, y: m.mid.y - uy * half };
-      const gE = { x: m.mid.x + ux * half, y: m.mid.y + uy * half };
-      App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: gS.x, y2: gS.y, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
-      App.el('line', { x1: gE.x, y1: gE.y, x2: m.a2.x, y2: m.a2.y, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+      const tpos = dim.textPos || 'mid';
+      let tcx = m.mid.x, tcy = m.mid.y;
+      if (tpos === 'mid') {
+        // 치수선 — 가운데 글자 자리만큼 끊어서(걸리게) 두 토막
+        const half = (label.length * fontMM * 0.32) + fontMM * 0.35; // 글자 폭 절반
+        const gS = { x: m.mid.x - ux * half, y: m.mid.y - uy * half };
+        const gE = { x: m.mid.x + ux * half, y: m.mid.y + uy * half };
+        App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: gS.x, y2: gS.y, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+        App.el('line', { x1: gE.x, y1: gE.y, x2: m.a2.x, y2: m.a2.y, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+      } else {
+        // 문자 선 위/아래 — 치수선은 끊지 않고 한 줄, 글자를 법선 방향으로 띄움
+        App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: col, 'stroke-width': lw, 'pointer-events': 'none' }, grp);
+        // '위' = 화면에서 위쪽(수직 치수는 왼쪽) 이 되도록 법선 부호 선택
+        let s2 = 1;
+        if (Math.abs(m.ny) > 0.01) s2 = (m.ny < 0) ? 1 : -1;
+        else s2 = (m.nx < 0) ? 1 : -1;
+        if (tpos === 'dn') s2 = -s2;
+        const td = fontMM * 0.95 + (dim.textOff || 0);
+        tcx = m.mid.x + m.nx * s2 * td;
+        tcy = m.mid.y + m.ny * s2 * td;
+      }
       // 화살표 (안쪽)
       arrow(grp, m.a1.x, m.a1.y, ux, uy, fontMM * 0.55, col);
       arrow(grp, m.a2.x, m.a2.y, -ux, -uy, fontMM * 0.55, col);
-      // 치수 텍스트 — 선 가운데, 선과 정렬(수평/수직 모두 바로 읽히게)
+      // 치수 텍스트 — 선과 정렬(수평/수직 모두 바로 읽히게)
       const tx = App.el('text', {
-        x: m.mid.x, y: m.mid.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+        x: tcx, y: tcy, 'text-anchor': 'middle', 'dominant-baseline': 'central',
         'font-size': fontMM, fill: col, 'font-weight': 'bold', 'pointer-events': 'none',
-        transform: 'rotate(' + m.textAng + ' ' + m.mid.x + ' ' + m.mid.y + ')'
+        transform: 'rotate(' + m.textAng + ' ' + tcx + ' ' + tcy + ')'
       }, grp);
       tx.textContent = label;
       if (sel) {

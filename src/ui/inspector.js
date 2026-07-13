@@ -20,7 +20,7 @@
     App.store.commit(function (s) {
       const f = App.store.findById(id);
       if (!f) return;
-      if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg' || field === 'acdc' || field === 'text') {
+      if (field === 'label' || field === 'color' || field === 'tag' || field === 'sq' || field === 'awg' || field === 'acdc' || field === 'text' || field === 'textPos') {
         f.item[field] = value;
         // SQ 선택 시 AWG + 두께 자동 채움
         if (field === 'sq') {
@@ -162,7 +162,13 @@
       html = '<div class="text-xs font-semibold text-slate-600 mb-1 px-1">치수</div>';
       html += row('길이(mm)', '<span class="text-xs text-slate-700 font-semibold">' + App.dims.length(it) + '</span>');
       html += row('오프셋(mm)', numInput('off', Math.round(it.off || 0)));
-      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">가운데 핸들을 드래그해 치수선을 이동할 수 있습니다.</div>';
+      html += row('보조선 간격', numInput('extGap', it.extGap != null ? it.extGap : 0));
+      html += row('문자 위치', '<select data-field="textPos" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded">' +
+        '<option value="mid"' + ((it.textPos || 'mid') === 'mid' ? ' selected' : '') + '>가운데(끊김)</option>' +
+        '<option value="up"' + (it.textPos === 'up' ? ' selected' : '') + '>선 위</option>' +
+        '<option value="dn"' + (it.textPos === 'dn' ? ' selected' : '') + '>선 아래</option></select>');
+      html += row('문자 간격', numInput('textOff', it.textOff != null ? it.textOff : 0));
+      html += '<div class="text-[10px] text-slate-400 px-1 mt-1">가운데 핸들을 드래그해 치수선을 이동할 수 있습니다. 치수 도구는 위치 클릭 후 계속 찍으면 연속 치수가 됩니다 (Esc 종료).</div>';
       root.innerHTML = html;
       root.querySelectorAll('[data-field]').forEach(function (inp) {
         inp.addEventListener('change', function () { commitField(id, inp.getAttribute('data-field'), inp.value); });

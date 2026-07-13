@@ -158,6 +158,43 @@
       });
     }
 
+    // 치수 스타일 — 보조선 간격 + 문자 위치 (새 치수 기본값, 선택한 치수엔 즉시 적용)
+    const dg = $('dim-extgap');
+    const dtp = $('dim-textpos');
+    try {
+      const sg = localStorage.getItem('panel-dim-extgap');
+      if (sg != null && sg !== '') App.ui.dimExtGap = Math.max(0, parseFloat(sg) || 0);
+      const stp = localStorage.getItem('panel-dim-textpos');
+      if (stp) App.ui.dimTextPos = stp;
+    } catch (e) { /* 무시 */ }
+    function applyToSelectedDims(fn) {
+      const ids = Array.from(App.ui.selected || []);
+      if (!ids.length) return;
+      let n = 0;
+      App.store.commit(function (s) {
+        (s.dimensions || []).forEach(function (d) {
+          if (ids.indexOf(d.id) >= 0) { fn(d); n++; }
+        });
+      });
+      if (n) { App.render.all(); flash('치수 ' + n + '개에 적용'); }
+    }
+    if (dg) {
+      if (App.ui.dimExtGap != null) dg.value = App.ui.dimExtGap;
+      dg.addEventListener('input', function () {
+        App.ui.dimExtGap = Math.max(0, parseFloat(this.value) || 0);
+        try { localStorage.setItem('panel-dim-extgap', String(App.ui.dimExtGap)); } catch (e) {}
+        applyToSelectedDims(function (d) { d.extGap = App.ui.dimExtGap; });
+      });
+    }
+    if (dtp) {
+      if (App.ui.dimTextPos) dtp.value = App.ui.dimTextPos;
+      dtp.addEventListener('change', function () {
+        App.ui.dimTextPos = this.value;
+        try { localStorage.setItem('panel-dim-textpos', App.ui.dimTextPos); } catch (e) {}
+        applyToSelectedDims(function (d) { d.textPos = App.ui.dimTextPos; });
+      });
+    }
+
     // 겹선 분리(겹쳐 지나가는 배선 나란히 벌리기)
     const ws = $('wire-spread');
     if (ws) ws.addEventListener('change', function () {

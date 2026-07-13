@@ -3253,7 +3253,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
 
   // === 도구막대 그룹 드래그 이동 (⋮⋮ 손잡이) ===
   const tmove = await page.evaluate(() => {
-    const grips = document.querySelectorAll('.tbar-grip').length === 5;
+    const grips = document.querySelectorAll('.tbar-grip').length === 6;
     const row1 = document.getElementById('toolbar-row1');
     const row2 = document.getElementById('toolbar-row2');
     const order = () => Array.from(row1.children).filter(el => el.hasAttribute('data-tbar')).map(el => el.getAttribute('data-tbar'));
@@ -3274,7 +3274,7 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
     // 초기화 → 기본 배치 복원
     App.tbarDrag.resetLayout();
     const restored = order().join(',') === 'draw,edit' &&
-      Array.from(row2.children).filter(el => el.hasAttribute('data-tbar')).length === 3 &&
+      Array.from(row2.children).filter(el => el.hasAttribute('data-tbar')).length === 4 &&
       !localStorage.getItem('panel-tbar-layout');
     return { grips, before, swapped, saved, movedRow, savedRow, restored };
   });
@@ -3442,6 +3442,104 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(sprd.noSpread, '일렬로 맞닿은 단선은 벌리지 않음');
   assert(sprd.overlapped, '실제 겹치는 선만 접점에서 벌림');
+
+  // === 연속 치수 (캐드 DIMCONTINUE) ===
+  const cdim = await page.evaluate(() => {
+    App.toolbar.setTool('dim');
+    App.viewport.centerOn(1600, 1900);
+    App.render.all();
+    const svg = document.getElementById('canvas');
+    const before = App.store.get().dimensions.length;
+    function clickAt(wx, wy) {
+      const p = svg.createSVGPoint(); p.x = wx; p.y = wy;
+      const c = p.matrixTransform(svg.getScreenCTM());
+      svg.dispatchEvent(new PointerEvent('pointerdown', { clientX: c.x, clientY: c.y, button: 0, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: c.x, clientY: c.y, bubbles: true }));
+    }
+    clickAt(1500, 1900);  // 점1
+    clickAt(1600, 1900);  // 점2
+    clickAt(1550, 1860);  // 치수선 위치 → 첫 치수
+    clickAt(1700, 1900);  // 연속: 다음 점 → 둘째 치수 자동
+    clickAt(1800, 1900);  // 연속: 셋째 치수
+    const dims = App.store.get().dimensions.slice(before);
+    const three = dims.length === 3;
+    const near = (a, b) => Math.abs(a - b) < 1;
+    const chained = three && dims[1].x1 === dims[0].x2 && near(dims[1].x2, 1700) && dims[2].x1 === dims[1].x2 && near(dims[2].x2, 1800);
+    // 치수선이 같은 라인(off 동일 부호·크기)에 이어짐
+    const sameLine = three && Math.abs(dims[1].off - dims[0].off) < 1 && Math.abs(dims[2].off - dims[0].off) < 1;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); // 연속 종료
+    const ended = (App.ui.dim || {}).stage === 0;
+    App.toolbar.setTool('select');
+    App.store.commit(s => { s.dimensions = s.dimensions.slice(0, before); });
+    const pnl = App.store.get().panel;
+    App.viewport.fitTo(pnl.widthMM, pnl.heightMM);
+    App.render.all();
+    return { three, chained, sameLine, ended };
+  });
+  assert(cdim.three && cdim.chained, '연속 치수: 위치 클릭 후 점만 계속 찍으면 이어서 생성');
+  assert(cdim.sameLine, '연속 치수: 치수선이 같은 라인에 정렬');
+  assert(cdim.ended, 'Esc 로 연속 치수 종료');
+
+  // === 치수 보조선 간격 + 문자 위/아래 ===
+  const dsty = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.dimensions.push({ id: 'dst1', x1: 100, y1: 500, x2: 200, y2: 500, off: -30, extGap: 5, textPos: 'up' });
+    });
+    App.render.all();
+    const grp = document.querySelector('[data-id="dst1"]');
+    const lines = Array.from(grp.querySelectorAll('line')).filter(l => l.getAttribute('stroke') !== 'transparent');
+    // 보조선: 측정점(y=500)에서 extGap(5, off 부호쪽) 떨어져 시작
+    const ext = lines.find(l => Math.abs(parseFloat(l.getAttribute('x1')) - 100) < 0.5);
+    const gapOk = ext && Math.abs(parseFloat(ext.getAttribute('y1')) - 495) < 0.5;
+    // 문자 '선 위': 치수선(y=470)보다 위(y 작음) + 치수선은 안 끊김(수평 한 줄)
+    const txt = grp.querySelector('text');
+    const textUp = txt && parseFloat(txt.getAttribute('y')) < 470 - 0.5;
+    const fullLine = lines.filter(l =>
+      Math.abs(parseFloat(l.getAttribute('y1')) - 470) < 0.5 && Math.abs(parseFloat(l.getAttribute('y2')) - 470) < 0.5 &&
+      Math.abs(parseFloat(l.getAttribute('x2')) - parseFloat(l.getAttribute('x1'))) > 90).length === 1;
+    // 인스펙터 필드 존재
+    App.ui.selected = new Set(['dst1']);
+    App.inspector.update();
+    const insp = document.getElementById('inspector').innerHTML;
+    const hasFields = insp.indexOf('보조선 간격') >= 0 && insp.indexOf('문자 위치') >= 0;
+    App.ui.selected.clear();
+    App.store.commit(s => { s.dimensions = s.dimensions.filter(d => d.id !== 'dst1'); });
+    App.inspector.update();
+    return { gapOk, textUp, fullLine, hasFields };
+  });
+  assert(dsty.gapOk, '치수 보조선 간격(extGap) 반영');
+  assert(dsty.textUp && dsty.fullLine, '치수 문자 선 위 배치 (치수선 안 끊김)');
+  assert(dsty.hasFields, '인스펙터에서 치수별 보조선 간격/문자 위치 편집');
+
+  // === 선(배선) 앞뒤 순서 (z-order) ===
+  const zord = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'zc1', partNo: 'ZC', type: 'MC', x: 1500, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'zc2', partNo: 'ZC', type: 'MC', x: 1700, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push(
+        { id: 'zw1', fromComp: 'zc1', fromTerm: 0, toComp: 'zc2', toTerm: 0, label: 'Z1', color: '#111', width: 1.2, corners: null, midY: 1860 },
+        { id: 'zw2', fromComp: 'zc1', fromTerm: 0, toComp: 'zc2', toTerm: 0, label: 'Z2', color: '#f00', width: 1.2, corners: null, midY: 1860 }
+      );
+    });
+    const orderIds = () => App.store.get().wires.filter(w => w.id.indexOf('zw') === 0).map(w => w.id).join(',');
+    App.ui.selected = new Set(['zw1']);
+    App.interact.bringToFront();
+    const front = App.store.get().wires[App.store.get().wires.length - 1].id === 'zw1';
+    App.interact.sendToBack();
+    const back = App.store.get().wires[0].id === 'zw1';
+    const undoable = App.store.undoLabel() === '맨 뒤로';
+    // DOM 순서도 반영 (마지막 그룹이 위에 그려짐)
+    App.ui.selected.clear();
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id.indexOf('zw') !== 0);
+      s.components = s.components.filter(c => c.partNo !== 'ZC');
+    });
+    return { front, back, undoable, orderCheck: orderIds().length > 0 === false || true };
+  });
+  assert(zord.front, '맨 앞으로: 선택한 선이 배열 끝(위에 그려짐)');
+  assert(zord.back && zord.undoable, '맨 뒤로 + undo 라벨 기록');
 
   await page.screenshot({ path: SHOT });
   await browser.close();

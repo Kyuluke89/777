@@ -10,6 +10,7 @@
     { key: 'place', label: '배치 옵션' },
     { key: 'align', label: '정렬 옵션' },
     { key: 'wire', label: '배선 옵션' },
+    { key: 'dim', label: '치수 옵션' },
   ];
   var TB_LS = 'panel-hidden-toolbars';
 
@@ -87,6 +88,8 @@
         { fn: function () { selectSame('kind'); }, cmdId: 'select-same-kind', label: '같은 종류 모두 선택' },
         { fn: function () { selectSame('match'); }, cmdId: 'select-same-match', label: '같은 품번/프리셋 선택' },
         { id: 'act-rotate', label: '회전' },
+        { fn: function () { App.interact.bringToFront(); }, cmdId: 'z-front', label: '맨 앞으로 (위에 그리기)' },
+        { fn: function () { App.interact.sendToBack(); }, cmdId: 'z-back', label: '맨 뒤로 (아래에 그리기)' },
         { id: 'act-lock', label: '잠금 / 해제' },
         { id: 'act-matchprop', label: '속성 복사' },
       ],
@@ -103,6 +106,7 @@
         { tbar: 'place', label: '도구막대: 배치' },
         { tbar: 'align', label: '도구막대: 정렬' },
         { tbar: 'wire', label: '도구막대: 배선' },
+        { tbar: 'dim', label: '도구막대: 치수' },
         { fn: function () { if (App.tbarDrag) App.tbarDrag.resetLayout(); }, cmdId: 'tbar-layout-reset', label: '도구막대 배치 초기화' },
         { sep: true },
         { id: 'act-3d', label: '3D 입체 보기' },
