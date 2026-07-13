@@ -3251,6 +3251,38 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(vh.sameRef && vh.sameData, '배선 경로 캐시: 렌더 패스 내 재사용 + 값 동일');
   assert(vh.fresh && vh.follows, '캐시 종료 후 재계산 + 이동 반영(stale 없음)');
 
+  // === 도구막대 그룹 드래그 이동 (⋮⋮ 손잡이) ===
+  const tmove = await page.evaluate(() => {
+    const grips = document.querySelectorAll('.tbar-grip').length === 5;
+    const row1 = document.getElementById('toolbar-row1');
+    const row2 = document.getElementById('toolbar-row2');
+    const order = () => Array.from(row1.children).filter(el => el.hasAttribute('data-tbar')).map(el => el.getAttribute('data-tbar'));
+    const before = order().join(',') === 'draw,edit';
+    // API 로 edit 를 draw 앞으로
+    App.tbarDrag.moveGroup('edit', 0, 'draw');
+    const swapped = order().join(',') === 'edit,draw';
+    const saved = (localStorage.getItem('panel-tbar-layout') || '').indexOf('"edit","draw"') >= 0;
+    // 드래그로 place 그룹을 1단으로 이동 (손잡이 pointer 이벤트)
+    const grip = document.querySelector('[data-tbar="place"] .tbar-grip');
+    const r1 = row1.getBoundingClientRect();
+    const g = grip.getBoundingClientRect();
+    grip.dispatchEvent(new PointerEvent('pointerdown', { clientX: g.x + 2, clientY: g.y + 2, bubbles: true }));
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: r1.right - 4, clientY: r1.top + r1.height / 2, bubbles: true }));
+    document.dispatchEvent(new PointerEvent('pointerup', { clientX: r1.right - 4, clientY: r1.top + r1.height / 2, bubbles: true }));
+    const movedRow = order().indexOf('place') >= 0;
+    const savedRow = (JSON.parse(localStorage.getItem('panel-tbar-layout')).row1 || []).indexOf('place') >= 0;
+    // 초기화 → 기본 배치 복원
+    App.tbarDrag.resetLayout();
+    const restored = order().join(',') === 'draw,edit' &&
+      Array.from(row2.children).filter(el => el.hasAttribute('data-tbar')).length === 3 &&
+      !localStorage.getItem('panel-tbar-layout');
+    return { grips, before, swapped, saved, movedRow, savedRow, restored };
+  });
+  assert(tmove.grips && tmove.before, '도구막대 그룹 손잡이(⋮⋮) 5개');
+  assert(tmove.swapped && tmove.saved, '그룹 순서 이동 + localStorage 저장');
+  assert(tmove.movedRow && tmove.savedRow, '드래그로 다른 줄(1단↔2단) 이동');
+  assert(tmove.restored, '도구막대 배치 초기화 → 기본 배치 복원');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

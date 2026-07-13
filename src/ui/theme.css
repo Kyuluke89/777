@@ -318,3 +318,13 @@ aside label{display:flex;align-items:center;justify-content:space-between;gap:8p
   transition: background .15s;
 }
 .panel-resizer:hover, .panel-resizer.dragging { background: #93c5fd; }
+
+/* 도구막대 드래그 손잡이 */
+.tbar-grip {
+  flex: none; cursor: grab; color: #cbd5e1; font-size: 9px;
+  letter-spacing: -2px; padding: 2px 3px 2px 1px; user-select: none;
+  line-height: 1;
+}
+.tbar-grip:hover { color: #64748b; }
+.tbar-dragging { opacity: .55; outline: 1.5px dashed #60a5fa; outline-offset: 2px; border-radius: 6px; }
+.tbar-dragging .tbar-grip { cursor: grabbing; }

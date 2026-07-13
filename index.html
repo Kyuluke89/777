@@ -9,8 +9,8 @@
   <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260707u"></script>
-  <link rel="stylesheet" href="src/ui/theme.css?v=20260707u" />
+  <script src="vendor/fflate.min.js?v=20260707v"></script>
+  <link rel="stylesheet" href="src/ui/theme.css?v=20260707v" />
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -46,7 +46,7 @@
         <span class="text-[13px] font-bold text-slate-700 mr-3">⚡ 제어반 설계</span>
       </div>
       <!-- 1단: 도구 툴바 -->
-      <div class="flex items-center gap-2 px-3 py-2 flex-wrap">
+      <div id="toolbar-row1" class="flex items-center gap-2 px-3 py-2 flex-wrap">
 
         <div class="flex items-center gap-1 mr-1" data-tbar="draw">
           <button id="tool-select" class="toolbtn bg-white text-slate-700" title="선택/이동 (V)">↖ 선택</button>
@@ -71,6 +71,7 @@
         <button id="act-undo" class="toolbtn bg-white text-slate-700" title="실행취소 (Ctrl+Z)">↶</button>
         <button id="act-redo" class="toolbtn bg-white text-slate-700" title="다시실행 (Ctrl+Shift+Z)">↷</button>
         </div>
+        <span class="tbar-end hidden"></span>
 
         <div class="h-5 w-px bg-slate-200 mx-1"></div>
 
@@ -101,7 +102,7 @@
       </div>
 
       <!-- 2단: 배치·배선 옵션 -->
-      <div class="flex items-center gap-3 px-3 py-1.5 flex-wrap bg-slate-50 border-t border-slate-100 text-xs">
+      <div id="toolbar-row2" class="flex items-center gap-3 px-3 py-1.5 flex-wrap bg-slate-50 border-t border-slate-100 text-xs">
         <div class="flex items-center gap-3" data-tbar="place">
         <span class="font-semibold text-slate-400">배치</span>
         <label class="text-slate-500 flex items-center gap-1">덕트폭
@@ -185,6 +186,7 @@
         <button id="wire-flow" class="toolbtn bg-white text-slate-600" title="전류 흐름 애니메이션 재생/정지 (AC=맥동, DC=정속). 배선의 전원구분을 AC/DC로 지정하세요.">▶ 흐름</button>
         <button id="wire-renum" class="toolbtn bg-white text-slate-600" title="모든 라인번호를 위→아래, 왼→오 순서로 재부여 (라인번호 칸의 시작값 사용, 비우면 W1부터)">№ 재부여</button>
         </div>
+        <span class="tbar-end hidden"></span>
       </div>
     </header>
 
@@ -509,42 +511,43 @@
   </div>
 
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260707u"></script>
-  <script src="src/commands.js?v=20260707u"></script>
-  <script src="src/terminals.js?v=20260707u"></script>
-  <script src="src/wires.js?v=20260707u"></script>
-  <script src="src/dims.js?v=20260707u"></script>
-  <script src="src/geom.js?v=20260707u"></script>
-  <script src="src/viewport.js?v=20260707u"></script>
-  <script src="src/render.js?v=20260707u"></script>
-  <script src="src/persistence.js?v=20260707u"></script>
-  <script src="src/sheets.js?v=20260707u"></script>
-  <script src="vendor/three.min.js?v=20260707u"></script>
-  <script src="vendor/OrbitControls.js?v=20260707u"></script>
-  <script src="src/view3d.js?v=20260707u"></script>
-  <script src="src/export.js?v=20260707u"></script>
-  <script src="src/xlsx.js?v=20260707u"></script>
-  <script src="src/library/seed.js?v=20260707u"></script>
-  <script src="src/library/parts-builtin.js?v=20260707u"></script>
-  <script src="src/library/parts-ls.js?v=20260707u"></script>
-  <script src="src/library/parts-dwg.js?v=20260707u"></script>
-  <script src="src/library/userlib.js?v=20260707u"></script>
-  <script src="src/library/types.js?v=20260707u"></script>
-  <script src="src/library/edz.js?v=20260707u"></script>
-  <script src="src/library/palette.js?v=20260707u"></script>
-  <script src="src/interact.js?v=20260707u"></script>
-  <script src="src/ui/toolbar.js?v=20260707u"></script>
-  <script src="src/ui/inspector.js?v=20260707u"></script>
-  <script src="src/ui/part-editor.js?v=20260707u"></script>
-  <script src="src/ui/wire-presets.js?v=20260707u"></script>
-  <script src="src/ui/wire-list.js?v=20260707u"></script>
-  <script src="src/ui/keymap.js?v=20260707u"></script>
-  <script src="src/ui/menubar.js?v=20260707u"></script>
-  <script src="src/ui/cmdpalette.js?v=20260707u"></script>
-  <script src="src/ui/statusbar.js?v=20260707u"></script>
-  <script src="src/ui/panels.js?v=20260707u"></script>
-  <script src="src/ui/context-menu.js?v=20260707u"></script>
-  <script src="src/ui/minimap.js?v=20260707u"></script>
-  <script src="src/main.js?v=20260707u"></script>
+  <script src="src/store.js?v=20260707v"></script>
+  <script src="src/commands.js?v=20260707v"></script>
+  <script src="src/terminals.js?v=20260707v"></script>
+  <script src="src/wires.js?v=20260707v"></script>
+  <script src="src/dims.js?v=20260707v"></script>
+  <script src="src/geom.js?v=20260707v"></script>
+  <script src="src/viewport.js?v=20260707v"></script>
+  <script src="src/render.js?v=20260707v"></script>
+  <script src="src/persistence.js?v=20260707v"></script>
+  <script src="src/sheets.js?v=20260707v"></script>
+  <script src="vendor/three.min.js?v=20260707v"></script>
+  <script src="vendor/OrbitControls.js?v=20260707v"></script>
+  <script src="src/view3d.js?v=20260707v"></script>
+  <script src="src/export.js?v=20260707v"></script>
+  <script src="src/xlsx.js?v=20260707v"></script>
+  <script src="src/library/seed.js?v=20260707v"></script>
+  <script src="src/library/parts-builtin.js?v=20260707v"></script>
+  <script src="src/library/parts-ls.js?v=20260707v"></script>
+  <script src="src/library/parts-dwg.js?v=20260707v"></script>
+  <script src="src/library/userlib.js?v=20260707v"></script>
+  <script src="src/library/types.js?v=20260707v"></script>
+  <script src="src/library/edz.js?v=20260707v"></script>
+  <script src="src/library/palette.js?v=20260707v"></script>
+  <script src="src/interact.js?v=20260707v"></script>
+  <script src="src/ui/toolbar.js?v=20260707v"></script>
+  <script src="src/ui/inspector.js?v=20260707v"></script>
+  <script src="src/ui/part-editor.js?v=20260707v"></script>
+  <script src="src/ui/wire-presets.js?v=20260707v"></script>
+  <script src="src/ui/wire-list.js?v=20260707v"></script>
+  <script src="src/ui/keymap.js?v=20260707v"></script>
+  <script src="src/ui/menubar.js?v=20260707v"></script>
+  <script src="src/ui/cmdpalette.js?v=20260707v"></script>
+  <script src="src/ui/statusbar.js?v=20260707v"></script>
+  <script src="src/ui/panels.js?v=20260707v"></script>
+  <script src="src/ui/tbar-drag.js?v=20260707v"></script>
+  <script src="src/ui/context-menu.js?v=20260707v"></script>
+  <script src="src/ui/minimap.js?v=20260707v"></script>
+  <script src="src/main.js?v=20260707v"></script>
 </body>
 </html>

@@ -103,6 +103,7 @@
         { tbar: 'place', label: '도구막대: 배치' },
         { tbar: 'align', label: '도구막대: 정렬' },
         { tbar: 'wire', label: '도구막대: 배선' },
+        { fn: function () { if (App.tbarDrag) App.tbarDrag.resetLayout(); }, cmdId: 'tbar-layout-reset', label: '도구막대 배치 초기화' },
         { sep: true },
         { id: 'act-3d', label: '3D 입체 보기' },
         { sep: true },
