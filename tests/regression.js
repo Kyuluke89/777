@@ -3601,6 +3601,30 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(bulk.txtUi && bulk.textsOk, '텍스트 다중 선택: 크기 일괄 수정');
   assert(bulk.ductUi && bulk.ductsOk, '덕트 다중 선택: 폭 일괄 수정');
 
+  // === 치수 문자 도면(mm) 고정 — 줌해도 크기 안 바뀜 (넘버링 튜브와 동일) ===
+  const dzoom = await page.evaluate(() => {
+    App.store.commit(s => { s.dimensions.push({ id: 'dz1', x1: 100, y1: 400, x2: 300, y2: 400, off: -30 }); });
+    App.render.all();
+    function dfs() { const t = document.querySelector('[data-id="dz1"] text'); return t ? parseFloat(t.getAttribute('font-size')) : 0; }
+    const f1 = dfs(), s1 = App.viewport.scale();
+    const svg = document.getElementById('canvas');
+    const r = svg.getBoundingClientRect();
+    svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -200, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, cancelable: true }));
+    App.render.all();
+    const f2 = dfs(), s2 = App.viewport.scale();
+    // 문자 크기(mm) 조절 입력
+    const inp = document.getElementById('dim-textmm');
+    inp.value = '8'; inp.dispatchEvent(new Event('input'));
+    const f3 = dfs();
+    const sized = Math.abs(f3 - 8) < 0.01 && App.store.get().fonts.dimMM === 8;
+    inp.value = '5'; inp.dispatchEvent(new Event('input')); // 원복
+    App.store.commit(s => { s.dimensions = s.dimensions.filter(d => d.id !== 'dz1'); });
+    svg.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true, cancelable: true }));
+    return { zoomed: s2 > s1 * 1.05, fixed: Math.abs(f1 - f2) < 0.001, mm5: Math.abs(f1 - 5) < 0.01, sized };
+  });
+  assert(dzoom.zoomed && dzoom.fixed, '치수 문자 도면(mm) 고정 — 줌해도 크기 안 바뀜');
+  assert(dzoom.mm5 && dzoom.sized, '치수 문자 크기(mm) 조절 (기본 5mm → 8mm)');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

@@ -31,7 +31,8 @@
       ctag: f.ctag || comp,    // 호기번호
       cname: f.cname || comp,  // 부품 이름
       term: f.term || 1, wire: f.wire || 1, dim: f.dim || 1,
-      wireMM: f.wireMM || 4    // 라인번호 크기(mm, 도면 고정 — 줌과 함께 스케일)
+      wireMM: f.wireMM || 4,   // 라인번호 크기(mm, 도면 고정 — 줌과 함께 스케일)
+      dimMM: f.dimMM || 5      // 치수 문자 크기(mm, 도면 고정 — 줌해도 안 바뀜)
     };
   }
 
@@ -787,7 +788,8 @@
         'stroke-dasharray': '12 3 3 3', 'pointer-events': 'none'
       }, grp);
     });
-    const fontMM = App.viewport.pxToMM(13) * fonts(state).dim;   // 화면 기준 일정 크기 × 배율
+    const FD = fonts(state);
+    const fontMM = FD.dimMM * FD.dim;   // 도면(mm) 고정 — 줌과 함께 스케일(넘버링 튜브와 동일 방식)
     const lw = App.viewport.pxToMM(1);
     state.dimensions.forEach(function (dim) {
       const m = App.dims.geom(dim);
@@ -1074,7 +1076,8 @@
     App.el('line', { x1: m.p1.x, y1: m.p1.y, x2: m.a1.x, y2: m.a1.y, stroke: '#7c3aed', 'stroke-width': 0.4, 'stroke-dasharray': '2 1' }, p);
     App.el('line', { x1: m.p2.x, y1: m.p2.y, x2: m.a2.x, y2: m.a2.y, stroke: '#7c3aed', 'stroke-width': 0.4, 'stroke-dasharray': '2 1' }, p);
     App.el('line', { x1: m.a1.x, y1: m.a1.y, x2: m.a2.x, y2: m.a2.y, stroke: '#7c3aed', 'stroke-width': App.viewport.pxToMM(1) }, p);
-    const fontMM = App.viewport.pxToMM(13);
+    const FP = fonts(App.store.get());
+    const fontMM = FP.dimMM * FP.dim; // 실제 치수와 같은 mm 고정 크기
     const t = App.el('text', {
       x: m.mid.x, y: m.mid.y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
       'font-size': fontMM, fill: '#7c3aed', 'font-weight': 'bold',

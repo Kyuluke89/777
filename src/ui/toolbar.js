@@ -186,6 +186,12 @@
         applyToSelectedDims(function (d) { d.extGap = App.ui.dimExtGap; });
       });
     }
+    const dtm = $('dim-textmm');
+    if (dtm) dtm.addEventListener('input', function () {
+      const v = Math.max(1, Math.min(30, parseFloat(this.value) || 5));
+      App.store.commit(function (s) { s.fonts = s.fonts || {}; s.fonts.dimMM = v; });
+      App.render.all();
+    });
     if (dtp) {
       if (App.ui.dimTextPos) dtp.value = App.ui.dimTextPos;
       dtp.addEventListener('change', function () {
@@ -563,6 +569,7 @@
       if ($('font-' + k)) $('font-' + k).value = f[k] || f.comp || 1;
     });
     if ($('wire-label-px')) $('wire-label-px').value = f.wireMM || 4;
+    if ($('dim-textmm')) $('dim-textmm').value = f.dimMM || 5;
     const tb = s.titleBlock || {};
     if ($('tb-docno')) $('tb-docno').value = tb.docNo || '';
     if ($('tb-author')) $('tb-author').value = tb.author || '';

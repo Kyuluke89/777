@@ -9,8 +9,8 @@
   <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260708a"></script>
-  <link rel="stylesheet" href="src/ui/theme.css?v=20260708a" />
+  <script src="vendor/fflate.min.js?v=20260708b"></script>
+  <link rel="stylesheet" href="src/ui/theme.css?v=20260708b" />
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -192,6 +192,9 @@
         <span class="font-semibold text-slate-400">치수</span>
         <label class="text-slate-500 flex items-center gap-1" title="보조선(측정점→치수선)이 측정점에서 떨어지는 간격 — 새 치수와 선택한 치수에 적용">보조선 간격
           <input id="dim-extgap" type="number" step="0.5" min="0" value="0" class="w-14 border border-slate-300 rounded px-1 py-0.5 text-xs text-right" />mm
+        </label>
+        <label class="text-slate-500 flex items-center gap-1" title="치수 문자 크기(mm) — 도면 크기 고정, 줌해도 안 바뀜 (전체 치수 적용)">문자 크기
+          <input id="dim-textmm" type="number" step="0.5" min="1" max="30" value="5" class="w-14 border border-slate-300 rounded px-1 py-0.5 text-xs text-right" />mm
         </label>
         <label class="text-slate-500 flex items-center gap-1" title="치수 문자 위치 — 새 치수와 선택한 치수에 적용">문자
           <select id="dim-textpos" class="border border-slate-300 rounded px-1 py-0.5 text-xs">
@@ -529,43 +532,43 @@
   </div>
 
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260708a"></script>
-  <script src="src/commands.js?v=20260708a"></script>
-  <script src="src/terminals.js?v=20260708a"></script>
-  <script src="src/wires.js?v=20260708a"></script>
-  <script src="src/dims.js?v=20260708a"></script>
-  <script src="src/geom.js?v=20260708a"></script>
-  <script src="src/viewport.js?v=20260708a"></script>
-  <script src="src/render.js?v=20260708a"></script>
-  <script src="src/persistence.js?v=20260708a"></script>
-  <script src="src/sheets.js?v=20260708a"></script>
-  <script src="vendor/three.min.js?v=20260708a"></script>
-  <script src="vendor/OrbitControls.js?v=20260708a"></script>
-  <script src="src/view3d.js?v=20260708a"></script>
-  <script src="src/export.js?v=20260708a"></script>
-  <script src="src/xlsx.js?v=20260708a"></script>
-  <script src="src/library/seed.js?v=20260708a"></script>
-  <script src="src/library/parts-builtin.js?v=20260708a"></script>
-  <script src="src/library/parts-ls.js?v=20260708a"></script>
-  <script src="src/library/parts-dwg.js?v=20260708a"></script>
-  <script src="src/library/userlib.js?v=20260708a"></script>
-  <script src="src/library/types.js?v=20260708a"></script>
-  <script src="src/library/edz.js?v=20260708a"></script>
-  <script src="src/library/palette.js?v=20260708a"></script>
-  <script src="src/interact.js?v=20260708a"></script>
-  <script src="src/ui/toolbar.js?v=20260708a"></script>
-  <script src="src/ui/inspector.js?v=20260708a"></script>
-  <script src="src/ui/part-editor.js?v=20260708a"></script>
-  <script src="src/ui/wire-presets.js?v=20260708a"></script>
-  <script src="src/ui/wire-list.js?v=20260708a"></script>
-  <script src="src/ui/keymap.js?v=20260708a"></script>
-  <script src="src/ui/menubar.js?v=20260708a"></script>
-  <script src="src/ui/cmdpalette.js?v=20260708a"></script>
-  <script src="src/ui/statusbar.js?v=20260708a"></script>
-  <script src="src/ui/panels.js?v=20260708a"></script>
-  <script src="src/ui/tbar-drag.js?v=20260708a"></script>
-  <script src="src/ui/context-menu.js?v=20260708a"></script>
-  <script src="src/ui/minimap.js?v=20260708a"></script>
-  <script src="src/main.js?v=20260708a"></script>
+  <script src="src/store.js?v=20260708b"></script>
+  <script src="src/commands.js?v=20260708b"></script>
+  <script src="src/terminals.js?v=20260708b"></script>
+  <script src="src/wires.js?v=20260708b"></script>
+  <script src="src/dims.js?v=20260708b"></script>
+  <script src="src/geom.js?v=20260708b"></script>
+  <script src="src/viewport.js?v=20260708b"></script>
+  <script src="src/render.js?v=20260708b"></script>
+  <script src="src/persistence.js?v=20260708b"></script>
+  <script src="src/sheets.js?v=20260708b"></script>
+  <script src="vendor/three.min.js?v=20260708b"></script>
+  <script src="vendor/OrbitControls.js?v=20260708b"></script>
+  <script src="src/view3d.js?v=20260708b"></script>
+  <script src="src/export.js?v=20260708b"></script>
+  <script src="src/xlsx.js?v=20260708b"></script>
+  <script src="src/library/seed.js?v=20260708b"></script>
+  <script src="src/library/parts-builtin.js?v=20260708b"></script>
+  <script src="src/library/parts-ls.js?v=20260708b"></script>
+  <script src="src/library/parts-dwg.js?v=20260708b"></script>
+  <script src="src/library/userlib.js?v=20260708b"></script>
+  <script src="src/library/types.js?v=20260708b"></script>
+  <script src="src/library/edz.js?v=20260708b"></script>
+  <script src="src/library/palette.js?v=20260708b"></script>
+  <script src="src/interact.js?v=20260708b"></script>
+  <script src="src/ui/toolbar.js?v=20260708b"></script>
+  <script src="src/ui/inspector.js?v=20260708b"></script>
+  <script src="src/ui/part-editor.js?v=20260708b"></script>
+  <script src="src/ui/wire-presets.js?v=20260708b"></script>
+  <script src="src/ui/wire-list.js?v=20260708b"></script>
+  <script src="src/ui/keymap.js?v=20260708b"></script>
+  <script src="src/ui/menubar.js?v=20260708b"></script>
+  <script src="src/ui/cmdpalette.js?v=20260708b"></script>
+  <script src="src/ui/statusbar.js?v=20260708b"></script>
+  <script src="src/ui/panels.js?v=20260708b"></script>
+  <script src="src/ui/tbar-drag.js?v=20260708b"></script>
+  <script src="src/ui/context-menu.js?v=20260708b"></script>
+  <script src="src/ui/minimap.js?v=20260708b"></script>
+  <script src="src/main.js?v=20260708b"></script>
 </body>
 </html>
