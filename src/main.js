@@ -37,6 +37,7 @@
     if (App.menubar) App.menubar.init();
     if (App.cmdPalette) App.cmdPalette.init();
     if (App.statusbar) App.statusbar.init();
+    if (App.panels) App.panels.init();
     if (App.sheetsMgr) App.sheetsMgr.init();
     if (App.view3d) App.view3d.init();
     if (App.minimap) App.minimap.init();

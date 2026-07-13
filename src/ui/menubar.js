@@ -83,6 +83,8 @@
         { id: 'act-delete', label: '삭제', key: 'Del' },
         { sep: true },
         { fn: function () { selectAll(); }, cmdId: 'select-all', label: '전체 선택', key: 'Ctrl+A' },
+        { fn: function () { selectSame('kind'); }, cmdId: 'select-same-kind', label: '같은 종류 모두 선택' },
+        { fn: function () { selectSame('match'); }, cmdId: 'select-same-match', label: '같은 품번/프리셋 선택' },
         { id: 'act-rotate', label: '회전' },
         { id: 'act-lock', label: '잠금 / 해제' },
         { id: 'act-matchprop', label: '속성 복사' },
@@ -170,12 +172,38 @@
 
   function selectAll() {
     var s = App.store.get();
-    App.ui.selected = new Set(
-      [].concat(s.components, s.ducts, s.rails, s.wires, s.dimensions || [])
-        .map(function (it) { return it.id; })
-    );
+    var ids = [];
+    ['components', 'ducts', 'rails', 'wires', 'dimensions'].forEach(function (k) {
+      if (!App.interact || !App.interact.filterAllows || App.interact.filterAllows(k)) {
+        (s[k] || []).forEach(function (it) { ids.push(it.id); });
+      }
+    });
+    App.ui.selected = new Set(ids);
     App.render.all();
     if (App.inspector) App.inspector.update();
+  }
+
+  // 같은 종류 모두 선택 — 현재 선택의 종류(부품이면 같은 품번, 배선이면 같은 프리셋)를 확장
+  function selectSame(mode) {
+    var sel = Array.from(App.ui.selected);
+    if (!sel.length) { if (App.toolbar) App.toolbar.flash('기준이 될 대상을 먼저 선택하세요'); return; }
+    var f = App.store.findById(sel[0]);
+    if (!f) return;
+    var s = App.store.get();
+    var ids = [];
+    if (f.kind === 'wires' && mode === 'match') {
+      var preset = f.item.preset || '';
+      s.wires.forEach(function (w) { if ((w.preset || '') === preset) ids.push(w.id); });
+    } else if (f.kind === 'components' && mode === 'match') {
+      var pn = f.item.partNo || '';
+      s.components.forEach(function (c) { if ((c.partNo || '') === pn) ids.push(c.id); });
+    } else {
+      (s[f.kind] || []).forEach(function (it) { ids.push(it.id); });
+    }
+    App.ui.selected = new Set(ids);
+    App.render.all();
+    if (App.inspector) App.inspector.update();
+    if (App.toolbar) App.toolbar.flash(ids.length + '개 선택');
   }
   function copySel() { if (App.interact && App.interact.copySelected) App.interact.copySelected(); }
   function pasteSel() { if (App.interact && App.interact.paste) App.interact.paste(); }

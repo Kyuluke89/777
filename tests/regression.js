@@ -3155,6 +3155,64 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(psave.api && psave.parseOk, '저장/최근 프로젝트 API + parseProject');
   assert(psave.listed && psave.pickedOk, '목록 모달 렌더 + 선택 콜백');
 
+  // === 선택 필터 (상태바) + 같은 종류/품번 선택 ===
+  const sfil = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'sf1', partNo: 'SF-A', type: 'MC', x: 100, y: 100, widthMM: 20, heightMM: 20, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 10, ry: 2 }] },
+        { id: 'sf2', partNo: 'SF-A', type: 'MC', x: 200, y: 100, widthMM: 20, heightMM: 20, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 10, ry: 2 }] },
+        { id: 'sf3', partNo: 'SF-B', type: 'MC', x: 300, y: 100, widthMM: 20, heightMM: 20, rotation: 0, label: 'c', terminals: 1, term: [{ name: '1', rx: 10, ry: 2 }] }
+      );
+      s.ducts.push({ id: 'sfd1', orient: 'h', x: 100, y: 200, lengthMM: 100, widthMM: 60 });
+      s.wires.push({ id: 'sfw1', fromComp: 'sf1', fromTerm: 0, toComp: 'sf2', toTerm: 0, label: 'F1', color: '#111', width: 1.2, corners: null, midY: null });
+    });
+    // 필터 버튼: 배선만
+    const wiresBtn = document.querySelector('#sb-filter [data-sf="wires"]');
+    wiresBtn.click();
+    const filterSet = App.ui.selFilter === 'wires';
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true, cancelable: true }));
+    const onlyWires = App.ui.selected.has('sfw1') && !App.ui.selected.has('sf1') && !App.ui.selected.has('sfd1');
+    // 전체로 복원 후 같은 품번 선택
+    document.querySelector('#sb-filter [data-sf="all"]').click();
+    App.ui.selected = new Set(['sf1']);
+    App.commands.run('select-same-match');
+    const samePN = App.ui.selected.has('sf1') && App.ui.selected.has('sf2') && !App.ui.selected.has('sf3');
+    App.commands.run('select-same-kind');
+    const sameKind = App.ui.selected.size === App.store.get().components.length;
+    // 정리
+    App.ui.selected.clear();
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'sfw1');
+      s.components = s.components.filter(c => ['sf1', 'sf2', 'sf3'].indexOf(c.id) < 0);
+      s.ducts = s.ducts.filter(d => d.id !== 'sfd1');
+    });
+    return { filterSet, onlyWires, samePN, sameKind };
+  });
+  assert(sfil.filterSet && sfil.onlyWires, '선택 필터: 배선만 → Ctrl+A 가 배선만 선택');
+  assert(sfil.samePN, '같은 품번 부품 선택');
+  assert(sfil.sameKind, '같은 종류 모두 선택');
+
+  // === 패널 드래그 리사이즈 ===
+  const prsz = await page.evaluate(() => {
+    const handles = document.querySelectorAll('.panel-resizer');
+    const two = handles.length === 2;
+    const left = document.getElementById('left-panel');
+    const h = handles[0];
+    const w0 = left.getBoundingClientRect().width;
+    const r = h.getBoundingClientRect();
+    h.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.x + 2, clientY: r.y + 100, bubbles: true }));
+    h.dispatchEvent(new PointerEvent('pointermove', { clientX: r.x + 62, clientY: r.y + 100, bubbles: true }));
+    h.dispatchEvent(new PointerEvent('pointerup', { clientX: r.x + 62, clientY: r.y + 100, bubbles: true }));
+    const w1 = left.getBoundingClientRect().width;
+    const grew = Math.abs(w1 - (w0 + 60)) < 3;
+    const saved = Math.abs(parseInt(localStorage.getItem('panel-left-w'), 10) - w1) < 3;
+    left.style.width = ''; // 원복
+    localStorage.removeItem('panel-left-w');
+    return { two, grew, saved };
+  });
+  assert(prsz.two, '패널 리사이즈 핸들 2개(좌/우)');
+  assert(prsz.grew && prsz.saved, '패널 드래그 리사이즈 + 너비 localStorage 저장');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

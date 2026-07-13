@@ -302,3 +302,19 @@ aside label{display:flex;align-items:center;justify-content:space-between;gap:8p
 .recent-item:hover { background: #eff6ff; }
 .recent-name { flex: 1; font-weight: 600; }
 .recent-date { flex: none; font-size: 10px; color: #94a3b8; }
+
+/* 상태바 선택 필터 */
+#sb-filter .sf-btn {
+  border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+  font-size: 10px; padding: 1px 7px; cursor: pointer; margin-left: -1px;
+}
+#sb-filter .sf-btn:first-of-type { border-radius: 4px 0 0 4px; margin-left: 4px; }
+#sb-filter .sf-btn:last-of-type { border-radius: 0 4px 4px 0; }
+#sb-filter .sf-btn.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+
+/* 패널 리사이즈 핸들 */
+.panel-resizer {
+  flex: none; width: 5px; cursor: col-resize; background: transparent;
+  transition: background .15s;
+}
+.panel-resizer:hover, .panel-resizer.dragging { background: #93c5fd; }

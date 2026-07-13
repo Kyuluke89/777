@@ -633,6 +633,16 @@
     gesture.rect = rectFrom(gesture.sp, cp);
     App.render.marquee(gesture.rect);
   }
+  // 선택 필터 — 'all' | 'components' | 'wires' | 'ductsrails'
+  // 마퀴/전체선택이 이 종류만 잡는다 (직접 클릭은 항상 가능)
+  function filterAllows(kind) {
+    const f = App.ui.selFilter || 'all';
+    if (f === 'all') return true;
+    if (f === 'ductsrails') return kind === 'ducts' || kind === 'rails';
+    return f === kind;
+  }
+  Interact.filterAllows = filterAllows;
+
   function finishMarquee() {
     App.render.marquee(null);
     const r = gesture.rect;
@@ -640,13 +650,14 @@
     const state = App.store.get();
     const hit = [];
     ['components', 'ducts', 'rails', 'dimensions', 'texts', 'clines'].forEach(function (k) {
+      if (!filterAllows(k)) return;
       (state[k] || []).forEach(function (it) {
         if (rectsIntersect(r, App.geom.bounds(k, it))) hit.push(it.id);
       });
     });
     // 배선은 경계상자가 아니라 "실제 선분"이 영역과 겹칠 때만 선택
     // (ㄷ자 경로의 빈 안쪽을 드래그했을 때 엉뚱한 선까지 잡히지 않게)
-    (state.wires || []).forEach(function (w) {
+    if (filterAllows('wires')) (state.wires || []).forEach(function (w) {
       if (App.ui.hiddenWirePresets && App.ui.hiddenWirePresets.has(w.preset || '')) return; // 숨긴 프리셋 제외
       const pts = App.wires.route(state, w);
       if (!pts) return;
@@ -1360,13 +1371,14 @@
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
       e.preventDefault(); App.store.redo(); App.render.all(); return;
     }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { // 전체 선택
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { // 전체 선택 (선택 필터 적용)
       e.preventDefault();
       const s = App.store.get();
-      App.ui.selected = new Set(
-        [].concat(s.components, s.ducts, s.rails, s.wires, s.dimensions || [])
-          .map(function (it) { return it.id; })
-      );
+      const ids = [];
+      ['components', 'ducts', 'rails', 'wires', 'dimensions'].forEach(function (k) {
+        if (filterAllows(k)) (s[k] || []).forEach(function (it) { ids.push(it.id); });
+      });
+      App.ui.selected = new Set(ids);
       App.render.all();
       if (App.inspector) App.inspector.update();
       return;

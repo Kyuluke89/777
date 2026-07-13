@@ -38,7 +38,21 @@
     gridEl.textContent = '격자 ' + s.panel.gridMM + 'mm';
   }
 
+  function bindFilter() {
+    var box = document.getElementById('sb-filter');
+    if (!box) return;
+    box.querySelectorAll('.sf-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        App.ui.selFilter = btn.getAttribute('data-sf');
+        box.querySelectorAll('.sf-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      });
+    });
+  }
+
   function init() {
+    App.ui.selFilter = App.ui.selFilter || 'all';
+    bindFilter();
     // 렌더/도구 변경 시 자동 갱신 — 두 함수를 감싸 상태바를 뒤에 갱신
     var origRender = App.render.all;
     App.render.all = function () {
