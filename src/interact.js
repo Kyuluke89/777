@@ -1315,15 +1315,13 @@
       return;
     }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
-    if (e.key === 'r' || e.key === 'R') { rotateSelected(); return; }
-    // 도구 단축키 (CAD 관례): V=선택, W=배선, D=치수, T=텍스트
-    if (!e.ctrlKey && !e.metaKey && !e.altKey && App.toolbar && App.toolbar.setTool) {
-      const k = e.key.toLowerCase();
-      if (k === 'v') { App.toolbar.setTool('select'); return; }
-      if (k === 'w') { App.toolbar.setTool('wire'); return; }
-      if (k === 'd') { App.toolbar.setTool('dim'); return; }
-      if (k === 't') { App.toolbar.setTool('text'); return; }
-      if (k === 'c') { App.toolbar.setTool('cline'); return; }
+    // 단축키 매핑 (도구 메뉴 > 단축키 설정 에서 변경 가능)
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && App.keymap) {
+      const act = App.keymap.actionFor((e.key || '').toLowerCase());
+      if (act) {
+        const btn = document.getElementById(act);
+        if (btn) { btn.click(); return; }
+      }
     }
     if (e.key === 'Escape') {
       App.ui.placing = null;

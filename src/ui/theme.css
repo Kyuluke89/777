@@ -221,3 +221,35 @@ aside label{display:flex;align-items:center;justify-content:space-between;gap:8p
   overflow: hidden; cursor: crosshair;
   backdrop-filter: blur(3px);
 }
+
+/* ── 메뉴바 (CAD식 드롭다운) ── */
+#menubar { position: relative; z-index: 40; }
+.menu-root {
+  position: relative;
+  padding: 5px 10px; border: 0; background: transparent;
+  font-size: 12px; color: #334155; cursor: pointer; border-radius: 5px 5px 0 0;
+}
+.menu-root:hover { background: #f1f5f9; }
+.menu-root.open { background: #1e293b; color: #fff; }
+.menu-dd {
+  position: absolute; left: 0; top: 100%;
+  min-width: 200px; padding: 4px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 0 8px 8px 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .14);
+  display: flex; flex-direction: column;
+  z-index: 50; text-align: left;
+}
+.menu-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border: 0; background: transparent;
+  font-size: 12px; color: #334155; cursor: pointer; border-radius: 5px;
+  white-space: nowrap; text-align: left;
+}
+.menu-item:hover { background: #eff6ff; color: #1d4ed8; }
+.menu-check { width: 14px; text-align: center; color: #0d9488; font-weight: 700; flex: none; }
+.menu-label { flex: 1; }
+.menu-key {
+  margin-left: 16px; font-size: 10px; color: #94a3b8;
+  font-family: Consolas, monospace; flex: none;
+}
+.menu-sep { height: 1px; background: #f1f5f9; margin: 4px 6px; }

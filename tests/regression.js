@@ -2903,6 +2903,101 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(libfix.noSample && libfix.symKeep && libfix.userKeep, '샘플 부품 끄기: 기본부품만 제거(심볼·내부품 유지)');
   assert(libfix.back, '샘플 부품 다시 불러오기');
 
+  // === CAD식 메뉴바 ===
+  const mbar = await page.evaluate(() => {
+    const bar = document.getElementById('menubar');
+    const roots = Array.from(bar.querySelectorAll('.menu-root')).map(b => b.getAttribute('data-menu'));
+    const need = ['파일', '편집', '뷰', '삽입', '그리기', '형식', '도구'];
+    const hasAll = need.every(t => roots.indexOf(t) >= 0);
+    // 파일 메뉴 열기 → '저장' 항목 존재
+    const fileBtn = bar.querySelector('[data-menu="파일"]');
+    fileBtn.click();
+    const dd = fileBtn.querySelector('.menu-dd');
+    const opened = !!dd;
+    const items = dd ? Array.from(dd.querySelectorAll('.menu-item')).map(i => i.textContent) : [];
+    const hasSave = items.some(t => t.indexOf('저장') >= 0);
+    const hasDxf = items.some(t => t.indexOf('DXF') >= 0);
+    // 바깥 클릭 → 닫힘
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    const closed = !bar.querySelector('.menu-dd');
+    // 그리기 메뉴에서 배선 도구 실행
+    const drawBtn = bar.querySelector('[data-menu="그리기"]');
+    drawBtn.click();
+    const wireItem = Array.from(drawBtn.querySelectorAll('.menu-item')).find(i => i.textContent.indexOf('배선') >= 0);
+    wireItem.click();
+    const toolSet = App.ui.tool === 'wire';
+    App.toolbar.setTool('select');
+    // 숨김 버튼(파일 액션) 핸들러 유지 확인
+    const bound = ['act-save', 'act-load', 'act-bom', 'act-dxf', 'act-print'].every(id => {
+      const el = document.getElementById(id);
+      return el && typeof el.onclick === 'function';
+    });
+    return { hasAll, opened, hasSave, hasDxf, closed, toolSet, bound };
+  });
+  assert(mbar.hasAll, '메뉴바: 파일/편집/뷰/삽입/그리기/형식/도구 루트');
+  assert(mbar.opened && mbar.hasSave && mbar.hasDxf, '파일 메뉴: 저장·DXF 항목');
+  assert(mbar.closed, '바깥 클릭으로 메뉴 닫힘');
+  assert(mbar.toolSet, '그리기 메뉴 → 배선 도구 실행');
+  assert(mbar.bound, '메뉴로 이동한 액션 버튼 핸들러 유지');
+
+  // === 메뉴 체크 토글 (뷰 > 품명 표시) ===
+  const mchk = await page.evaluate(() => {
+    const bar = document.getElementById('menubar');
+    const viewBtn = bar.querySelector('[data-menu="뷰"]');
+    viewBtn.click();
+    let item = Array.from(viewBtn.querySelectorAll('.menu-item')).find(i => i.textContent.indexOf('품명 표시') >= 0);
+    const checkedMark = item.querySelector('.menu-check').textContent === '✓';
+    item.click(); // 체크박스 토글
+    const off = App.store.get().panel.showNames === false;
+    // 다시 열면 ✓ 사라짐
+    viewBtn.click();
+    item = Array.from(viewBtn.querySelectorAll('.menu-item')).find(i => i.textContent.indexOf('품명 표시') >= 0);
+    const uncheckedMark = item.querySelector('.menu-check').textContent === '';
+    item.click(); // 원복
+    const back = App.store.get().panel.showNames !== false;
+    return { checkedMark, off, uncheckedMark, back };
+  });
+  assert(mchk.checkedMark && mchk.off, '뷰 메뉴 체크 항목: ✓ 표시 + 토글 동작');
+  assert(mchk.uncheckedMark && mchk.back, '체크 상태 메뉴에 반영 + 원복');
+
+  // === 단축키 설정 (keymap) ===
+  const km = await page.evaluate(() => {
+    const defV = App.keymap.actionFor('v') === 'tool-select';
+    const defW = App.keymap.actionFor('w') === 'tool-wire';
+    const defR = App.keymap.actionFor('r') === 'act-rotate';
+    // 재바인딩: x → 센터선 도구
+    App.keymap.bind('x', 'tool-cline');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true }));
+    const rebound = App.ui.tool === 'cline';
+    App.toolbar.setTool('select');
+    const saved = (localStorage.getItem('panel-keymap') || '').indexOf('tool-cline') >= 0;
+    // 해제 후 기본값 복원
+    App.keymap.unbind('tool-cline');
+    const unbound = App.keymap.actionFor('x') === null && App.keymap.actionFor('c') === null;
+    App.keymap.reset();
+    const restored = App.keymap.actionFor('c') === 'tool-cline' && App.keymap.actionFor('v') === 'tool-select';
+    // 설정 모달 열기/닫기
+    App.keymap.open();
+    const modalOpen = !document.getElementById('keymap-modal').classList.contains('hidden');
+    App.keymap.close();
+    const modalClosed = document.getElementById('keymap-modal').classList.contains('hidden');
+    return { defV, defW, defR, rebound, saved, unbound, restored, modalOpen, modalClosed };
+  });
+  assert(km.defV && km.defW && km.defR, '기본 단축키: V선택 W배선 R회전');
+  assert(km.rebound && km.saved, '단축키 재바인딩(x→센터선) + localStorage 저장');
+  assert(km.unbound && km.restored, '단축키 해제 + 기본값 복원');
+  assert(km.modalOpen && km.modalClosed, '단축키 설정 모달 열기/닫기');
+
+  // === 키 입력이 keymap 경유로 동작 (기존 도구 단축키 유지) ===
+  const kmkey = await page.evaluate(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true }));
+    const wire = App.ui.tool === 'wire';
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v', bubbles: true }));
+    const sel = App.ui.tool === 'select';
+    return { wire, sel };
+  });
+  assert(kmkey.wire && kmkey.sel, '키보드 단축키 keymap 경유 동작(W/V)');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 
