@@ -510,6 +510,12 @@
             stroke: sh.color || '#334155', 'stroke-width': sh.sw || 0.6,
             'stroke-dasharray': App.dashOf(sh.style), 'pointer-events': 'none'
           }, grp);
+        } else if (sh.kind === 'line') {
+          App.el('line', {
+            x1: c.x + sh.x1, y1: c.y + sh.y1, x2: c.x + sh.x2, y2: c.y + sh.y2,
+            stroke: sh.color || '#334155', 'stroke-width': sh.sw || 0.6,
+            'stroke-dasharray': App.dashOf(sh.style), 'stroke-linecap': 'round', 'pointer-events': 'none'
+          }, grp);
         } else if (sh.kind === 'text') {
           const sT = App.el('text', {
             x: c.x + sh.x, y: c.y + sh.y, 'font-size': sh.size || 5,
@@ -654,7 +660,7 @@
       }
       // 양 끝 라인번호 — 선에서 30mm 안쪽, 선에 정렬(마킹튜브), 흰 테두리로 가독성
       const ends = App.wires.endLabels(state, w, pts);
-      if (ends && w.label) {
+      if (ends && w.label && !w.hideTube) {
         const FW = fonts(state);
         const fontMM = FW.wireMM * FW.wire; // 도면(mm) 고정 — 선에 붙어 줌과 함께
         [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {

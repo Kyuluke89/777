@@ -9,8 +9,8 @@
   <title>제어반 전장 배치 · 배선 설계</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- ZIP 해제 (EDZ 가져오기용) — 오프라인 동작을 위해 로컬 포함 -->
-  <script src="vendor/fflate.min.js?v=20260707w"></script>
-  <link rel="stylesheet" href="src/ui/theme.css?v=20260707w" />
+  <script src="vendor/fflate.min.js?v=20260707y"></script>
+  <link rel="stylesheet" href="src/ui/theme.css?v=20260707y" />
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; }
     #canvas { width: 100%; height: 100%; display: block; background: #f8fafc; touch-action: none; cursor: default; }
@@ -330,6 +330,7 @@
             <button id="pe-mode-img" class="toolbtn bg-white text-slate-600" title="이미지 드래그: 위치 이동 · 휠: 크기 조절">🖼 이미지 조절</button>
             <button id="pe-mode-text" class="toolbtn bg-white text-slate-600" title="클릭한 위치에 글쓰기(텍스트)">T 글쓰기</button>
             <button id="pe-mode-rect" class="toolbtn bg-white text-slate-600" title="드래그로 사각 경계라인 그리기 (선 스타일은 우측에서)">▭ 사각라인</button>
+            <button id="pe-mode-line" class="toolbtn bg-white text-slate-600" title="드래그로 직선 그리기 — 심볼 그릴 때 사용 (선 스타일은 우측에서)">╱ 선긋기</button>
             <span class="text-[10px] text-slate-400 ml-auto">창 우하단 모서리를 끌면 크기 조절</span>
           </div>
           <div style="flex:1 1 auto;min-height:0;position:relative;">
@@ -341,6 +342,8 @@
           <div class="p-3 space-y-2 border-b border-slate-100">
             <label class="flex items-center justify-between"><span class="text-xs text-slate-500">품명</span>
               <input id="pe-name-in" type="text" placeholder="예: 단자대 20P" class="w-32 px-2 py-1 text-xs border border-slate-300 rounded"/></label>
+            <label class="flex items-center gap-2" title="체크하면 심볼(계통도/단선도)로 저장 — 심볼 탭에 들어가고 파츠리스트(발주)에서 제외, 이름이 옆에 표시됨">
+              <input id="pe-sym" type="checkbox"/><span class="text-xs text-slate-600 font-semibold">심볼로 저장 (계통도용)</span></label>
             <label class="flex items-center justify-between"><span class="text-xs text-slate-500">타입</span>
               <select id="pe-type" class="w-32 px-1 py-1 text-xs border border-slate-300 rounded">
                 <option value="TB">단자대 TB</option><option value="RELAY">릴레이</option>
@@ -511,43 +514,43 @@
   </div>
 
   <!-- 모듈 로드 (순서 중요) -->
-  <script src="src/store.js?v=20260707w"></script>
-  <script src="src/commands.js?v=20260707w"></script>
-  <script src="src/terminals.js?v=20260707w"></script>
-  <script src="src/wires.js?v=20260707w"></script>
-  <script src="src/dims.js?v=20260707w"></script>
-  <script src="src/geom.js?v=20260707w"></script>
-  <script src="src/viewport.js?v=20260707w"></script>
-  <script src="src/render.js?v=20260707w"></script>
-  <script src="src/persistence.js?v=20260707w"></script>
-  <script src="src/sheets.js?v=20260707w"></script>
-  <script src="vendor/three.min.js?v=20260707w"></script>
-  <script src="vendor/OrbitControls.js?v=20260707w"></script>
-  <script src="src/view3d.js?v=20260707w"></script>
-  <script src="src/export.js?v=20260707w"></script>
-  <script src="src/xlsx.js?v=20260707w"></script>
-  <script src="src/library/seed.js?v=20260707w"></script>
-  <script src="src/library/parts-builtin.js?v=20260707w"></script>
-  <script src="src/library/parts-ls.js?v=20260707w"></script>
-  <script src="src/library/parts-dwg.js?v=20260707w"></script>
-  <script src="src/library/userlib.js?v=20260707w"></script>
-  <script src="src/library/types.js?v=20260707w"></script>
-  <script src="src/library/edz.js?v=20260707w"></script>
-  <script src="src/library/palette.js?v=20260707w"></script>
-  <script src="src/interact.js?v=20260707w"></script>
-  <script src="src/ui/toolbar.js?v=20260707w"></script>
-  <script src="src/ui/inspector.js?v=20260707w"></script>
-  <script src="src/ui/part-editor.js?v=20260707w"></script>
-  <script src="src/ui/wire-presets.js?v=20260707w"></script>
-  <script src="src/ui/wire-list.js?v=20260707w"></script>
-  <script src="src/ui/keymap.js?v=20260707w"></script>
-  <script src="src/ui/menubar.js?v=20260707w"></script>
-  <script src="src/ui/cmdpalette.js?v=20260707w"></script>
-  <script src="src/ui/statusbar.js?v=20260707w"></script>
-  <script src="src/ui/panels.js?v=20260707w"></script>
-  <script src="src/ui/tbar-drag.js?v=20260707w"></script>
-  <script src="src/ui/context-menu.js?v=20260707w"></script>
-  <script src="src/ui/minimap.js?v=20260707w"></script>
-  <script src="src/main.js?v=20260707w"></script>
+  <script src="src/store.js?v=20260707y"></script>
+  <script src="src/commands.js?v=20260707y"></script>
+  <script src="src/terminals.js?v=20260707y"></script>
+  <script src="src/wires.js?v=20260707y"></script>
+  <script src="src/dims.js?v=20260707y"></script>
+  <script src="src/geom.js?v=20260707y"></script>
+  <script src="src/viewport.js?v=20260707y"></script>
+  <script src="src/render.js?v=20260707y"></script>
+  <script src="src/persistence.js?v=20260707y"></script>
+  <script src="src/sheets.js?v=20260707y"></script>
+  <script src="vendor/three.min.js?v=20260707y"></script>
+  <script src="vendor/OrbitControls.js?v=20260707y"></script>
+  <script src="src/view3d.js?v=20260707y"></script>
+  <script src="src/export.js?v=20260707y"></script>
+  <script src="src/xlsx.js?v=20260707y"></script>
+  <script src="src/library/seed.js?v=20260707y"></script>
+  <script src="src/library/parts-builtin.js?v=20260707y"></script>
+  <script src="src/library/parts-ls.js?v=20260707y"></script>
+  <script src="src/library/parts-dwg.js?v=20260707y"></script>
+  <script src="src/library/userlib.js?v=20260707y"></script>
+  <script src="src/library/types.js?v=20260707y"></script>
+  <script src="src/library/edz.js?v=20260707y"></script>
+  <script src="src/library/palette.js?v=20260707y"></script>
+  <script src="src/interact.js?v=20260707y"></script>
+  <script src="src/ui/toolbar.js?v=20260707y"></script>
+  <script src="src/ui/inspector.js?v=20260707y"></script>
+  <script src="src/ui/part-editor.js?v=20260707y"></script>
+  <script src="src/ui/wire-presets.js?v=20260707y"></script>
+  <script src="src/ui/wire-list.js?v=20260707y"></script>
+  <script src="src/ui/keymap.js?v=20260707y"></script>
+  <script src="src/ui/menubar.js?v=20260707y"></script>
+  <script src="src/ui/cmdpalette.js?v=20260707y"></script>
+  <script src="src/ui/statusbar.js?v=20260707y"></script>
+  <script src="src/ui/panels.js?v=20260707y"></script>
+  <script src="src/ui/tbar-drag.js?v=20260707y"></script>
+  <script src="src/ui/context-menu.js?v=20260707y"></script>
+  <script src="src/ui/minimap.js?v=20260707y"></script>
+  <script src="src/main.js?v=20260707y"></script>
 </body>
 </html>

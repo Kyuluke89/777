@@ -75,6 +75,8 @@
         mh += row('프리셋', '<select data-mf="preset" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + mfWp + '</select>');
         mh += row('라인번호', '<input data-mf="label" type="text" placeholder="시작번호 입력" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded" />');
         mh += '<label class="flex items-center gap-1 px-1 text-[10px] text-slate-500"><input id="insp-same-label" type="checkbox" /> 모두 같은 번호로 (해제 = 위→아래 자동 증가)</label>';
+        mh += row('번호 튜브', '<select data-mf="hideTube" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="show">표시</option><option value="hide">숨김</option></select>');
+        mh += row('번호 위치', '<input data-mf="labelInset" type="number" step="1" min="0" placeholder="유지 (0=전역)" title="번호 튜브 거리(mm) 일괄. 0 입력 = 전역 슬라이더 따름" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
       } else if (onlyComps) {
         mh += row('타입 일괄', '<select data-mf="type" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option>' + App.types.optionsHtml('').replace('<option value="__new__">＋ 새 타입…</option>', '') + '</select>');
         mh += row('글자 방향', '<select data-mf="textVert" class="w-28 px-1 py-1 text-xs border border-slate-300 rounded"><option value="__keep__">유지</option><option value="h">가로</option><option value="v">세로</option></select>');
@@ -130,6 +132,8 @@
             if (f3 === 'sq') { if (v) { it.sq = v; if (App.wires.SQ_AWG[v]) it.awg = App.wires.SQ_AWG[v]; if (App.wires.SQ_WIDTH && App.wires.SQ_WIDTH[v]) it.width = App.wires.SQ_WIDTH[v]; } }
             else if (f3 === 'width') { const n = parseFloat(v); if (n) it.width = n; }
             else if (f3 === 'acdc') it.acdc = v;
+            else if (f3 === 'hideTube') { if (k === 'wires') it.hideTube = (v === 'hide'); }
+            else if (f3 === 'labelInset') { if (k === 'wires') { const n2 = parseFloat(v); if (!isNaN(n2)) it.labelInset = n2 <= 0 ? null : Math.max(2, n2); } }
             else if (f3 === 'preset') {
               if (k !== 'wires') return;
               it.preset = v || null;
@@ -242,6 +246,10 @@
       if (ad && adList.indexOf(ad) < 0) adOpts += '<option value="' + App.esc(ad) + '" selected>' + App.esc(ad) + '</option>';
       adOpts += '<option value="__new__">＋추가…</option>';
       html += row('전원구분', '<select data-field="acdc" class="w-24 px-1 py-1 text-xs border border-slate-300 rounded">' + adOpts + '</select>');
+      // 번호 튜브 — 이 선만 표시/숨김 + 개별 위치(단자에서 떨어진 거리)
+      html += row('번호 튜브', '<label class="flex items-center gap-1 text-xs text-slate-600"><input id="insp-wtube" type="checkbox"' + (it.hideTube ? '' : ' checked') + ' /> 표시 (번호+행선지)</label>');
+      const gIns = (App.ui && App.ui.wireLabelInset != null) ? App.ui.wireLabelInset : App.wires.LABEL_INSET;
+      html += row('번호 위치', '<input id="insp-winset" type="number" step="1" min="2" value="' + (it.labelInset != null ? it.labelInset : '') + '" placeholder="전역 ' + gIns + '" title="이 선만 번호 튜브가 단자에서 떨어지는 거리(mm). 비우면 전역 슬라이더 따름" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       function tname(comp, idx) {
@@ -276,6 +284,24 @@
           Inspector.update();
         });
       });
+      // 번호 튜브 표시/개별 위치
+      const wtube = root.querySelector('#insp-wtube');
+      if (wtube) wtube.onchange = function () {
+        App.store.commit(function () {
+          const fnd = App.store.findById(id);
+          if (fnd) fnd.item.hideTube = !wtube.checked;
+        });
+        App.render.all();
+      };
+      const winset = root.querySelector('#insp-winset');
+      if (winset) winset.onchange = function () {
+        const n = parseFloat(winset.value);
+        App.store.commit(function () {
+          const fnd = App.store.findById(id);
+          if (fnd) fnd.item.labelInset = isNaN(n) ? null : Math.max(2, n);
+        });
+        App.render.all();
+      };
       // 프리셋 변경 — 이름 기록 + 속성(색/두께/규격/AWG/전원) 적용
       const wpSel = root.querySelector('#insp-wpreset');
       if (wpSel) wpSel.onchange = function () {

@@ -86,6 +86,14 @@
           'stroke-dasharray': App.dashOf(sh.style), 'data-si': i,
           'pointer-events': 'stroke', style: 'cursor:move'
         }, peSvg);
+      } else if (sh.kind === 'line') {
+        // 잡기 쉬운 투명 히트라인 + 실제 선
+        el('line', { x1: sh.x1, y1: sh.y1, x2: sh.x2, y2: sh.y2, stroke: 'transparent', 'stroke-width': 4, 'data-si': i, style: 'cursor:move' }, peSvg);
+        el('line', {
+          x1: sh.x1, y1: sh.y1, x2: sh.x2, y2: sh.y2,
+          stroke: selSh ? '#2563eb' : (sh.color || '#334155'), 'stroke-width': sh.sw || 0.6,
+          'stroke-dasharray': App.dashOf(sh.style), 'stroke-linecap': 'round', 'pointer-events': 'none'
+        }, peSvg);
       } else {
         const tx = el('text', {
           x: sh.x, y: sh.y, 'font-size': sh.size || 5,
@@ -175,7 +183,7 @@
           '<button data-shdel="' + i + '" class="text-[11px] text-red-500 px-1">✕</button></div>';
       } else {
         html += '<div class="flex items-center gap-1 flex-wrap">' +
-          '<span class="text-[10px] text-slate-400">▭</span>' +
+          '<span class="text-[10px] text-slate-400">' + (sh.kind === 'line' ? '╱' : '▭') + '</span>' +
           '<select data-shstyle="' + i + '" title="선 스타일" class="px-1 py-0.5 text-[10px] border border-slate-300 rounded" style="flex:1">' + dashSelHtml(sh.style || 'solid') + '</select>' +
           '<input data-shsw="' + i + '" type="number" step="0.2" min="0.2" value="' + (sh.sw || 0.6) + '" title="선 굵기(mm)" class="w-11 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right"/>' +
           '<input data-shcolor="' + i + '" type="color" value="' + (sh.color || '#334155') + '" class="w-6 h-5 border border-slate-300 rounded"/>' +
@@ -252,6 +260,17 @@
     m.setAttribute('stroke-dasharray', '2 1.5');
   }
 
+  // 선긋기 미리보기
+  function drawLinePreview(a, b) {
+    let m = peSvg.querySelector('#pe-linprev');
+    if (!b) { if (m) m.remove(); return; }
+    if (!m) m = el('line', { id: 'pe-linprev' }, peSvg);
+    m.setAttribute('x1', a.x); m.setAttribute('y1', a.y);
+    m.setAttribute('x2', b.x); m.setAttribute('y2', b.y);
+    m.setAttribute('stroke', '#2563eb'); m.setAttribute('stroke-width', 0.6);
+    m.setAttribute('stroke-dasharray', '2 1.5');
+  }
+
   function onDown(e) {
     const p = clientToMM(e);
     // 이미지 모서리 리사이즈 핸들
@@ -272,6 +291,8 @@
     if (st.mode2 === 'rect') { peG = { type: 'rectdraw', sp: p }; return; }
     // 글쓰기 모드: 클릭 위치에 텍스트
     if (st.mode2 === 'text') { peG = { type: 'textadd', sp: p }; return; }
+    // 선긋기 모드: 드래그로 직선
+    if (st.mode2 === 'line') { peG = { type: 'linedraw', sp: p }; return; }
     // 도형(텍스트/사각) 선택·이동
     const shEl = e.target.closest && e.target.closest('[data-si]');
     if (shEl) {
@@ -279,7 +300,9 @@
       const sh = st.shapes[si];
       if (sh) {
         st.selShape = si;
-        peG = { type: 'shapemove', sp: p, si: si, ox: sh.x, oy: sh.y };
+        peG = sh.kind === 'line'
+          ? { type: 'shapemove', sp: p, si: si, ox: sh.x1, oy: sh.y1, ox2: sh.x2, oy2: sh.y2 }
+          : { type: 'shapemove', sp: p, si: si, ox: sh.x, oy: sh.y };
         renderPreview(); renderDrawList();
         return;
       }
@@ -353,10 +376,21 @@
     if (peG.type === 'shapemove') {
       const sh = st.shapes[peG.si];
       if (sh) {
-        sh.x = Math.round(peG.ox + (p.x - peG.sp.x));
-        sh.y = Math.round(peG.oy + (p.y - peG.sp.y));
+        const dx = p.x - peG.sp.x, dy = p.y - peG.sp.y;
+        if (sh.kind === 'line') {
+          sh.x1 = Math.round(peG.ox + dx); sh.y1 = Math.round(peG.oy + dy);
+          sh.x2 = Math.round(peG.ox2 + dx); sh.y2 = Math.round(peG.oy2 + dy);
+        } else {
+          sh.x = Math.round(peG.ox + dx);
+          sh.y = Math.round(peG.oy + dy);
+        }
         renderPreview();
       }
+      return;
+    }
+    if (peG.type === 'linedraw') {
+      drawLinePreview(peG.sp, p);
+      peG.last = p;
       return;
     }
     if (peG.type === 'rectdraw') {
@@ -401,6 +435,19 @@
         st.selShape = st.shapes.length - 1;
       }
     }
+    if (peG.type === 'linedraw') {
+      drawLinePreview(null, null);
+      if (peG.last && Math.hypot(peG.last.x - peG.sp.x, peG.last.y - peG.sp.y) >= 2) {
+        st.shapes = st.shapes || [];
+        st.shapes.push({
+          kind: 'line',
+          x1: Math.round(peG.sp.x), y1: Math.round(peG.sp.y),
+          x2: Math.round(peG.last.x), y2: Math.round(peG.last.y),
+          style: st.shpStyle || 'solid', sw: st.shpSW || 0.6, color: st.shpColor || '#334155'
+        });
+        st.selShape = st.shapes.length - 1;
+      }
+    }
     if (peG.type === 'textadd') {
       const txt = prompt('텍스트 내용', '');
       if (txt != null && txt.trim()) {
@@ -426,6 +473,7 @@
   function readInputs() {
     st.name = $('pe-name-in').value.trim();
     st.type = $('pe-type').value;
+    st.isSym = !!($('pe-sym') && $('pe-sym').checked);
     st.w = Math.max(5, parseInt($('pe-w').value, 10) || 60);
     st.h = Math.max(5, parseInt($('pe-h').value, 10) || 80);
     st.nextName = $('pe-next').value || 'A1';
@@ -466,6 +514,9 @@
     if (PE.updateImgUI) PE.updateImgUI();
     if (PE.updateModeUI) PE.updateModeUI();
     st.selSet = new Set();
+    st.isSym = !!(opts.component && opts.component.sym) || (opts.component && opts.component.type === 'SYM');
+    if (st.type === 'SYM') st.type = 'ETC'; // 타입 선택지는 일반 타입 유지 (심볼 여부는 체크박스)
+    if ($('pe-sym')) $('pe-sym').checked = st.isSym;
     $('pe-title').textContent = st.mode === 'component' ? '부품 크기·단자 편집' : '커스텀 부품 만들기';
     $('pe-name-in').value = st.name;
     if (App.types) App.types.add(st.type); // 커스텀 타입이면 선택지에 보장
@@ -497,7 +548,7 @@
   function partNoOf() { return st.partNo || st.name || ('커스텀_' + App.uid('p')); }
 
   function buildPart() {
-    return { partNo: partNoOf(), manufacturer: '커스텀', type: st.type,
+    return { partNo: partNoOf(), manufacturer: st.isSym ? '심볼' : '커스텀', type: st.isSym ? 'SYM' : st.type, sym: st.isSym ? 'custom' : undefined,
       name: st.name || '커스텀 부품', w: st.w, h: st.h, d: 60, terminals: st.terms.length,
       term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0,
       shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : undefined, custom: true };
@@ -512,6 +563,7 @@
       if (c.partNo !== matchPN) return;
       c.widthMM = def.w; c.heightMM = def.h; c.term = App.clone(def.terms);
       c.terminals = def.terms.length; c.type = def.type;
+      c.sym = def.sym || null;
       // 표시 라벨이 기존 품명 그대로면 새 품명 반영(사용자 지정 라벨은 보존)
       if (c.label === c.partName || c.label === c.partNo) c.label = newPN;
       c.partNo = newPN; c.partName = newPN;
@@ -534,7 +586,8 @@
       newPN = newPN + '-' + i;
     }
     const matchPN = oldPN || newPN;
-    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: st.type, name: newPN, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : null };
+    const effType = st.isSym ? 'SYM' : st.type;
+    const def = { w: st.w, h: st.h, terms: App.clone(st.terms), type: effType, sym: st.isSym ? 'custom' : null, name: newPN, img: st.img || null, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0, shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : null };
     let cnt = 0;
     App.store.commit(function (s) {
       // 편집 중인 바로 그 부품(아직 partNo가 없을 수도 있음)도 확실히 반영
@@ -545,7 +598,7 @@
       cnt = syncPlaced(s, matchPN, newPN, def);
     });
     // 라이브러리 업서트 (새 품명 기준)
-    App.userlib.add({ partNo: newPN, manufacturer: '커스텀', type: st.type,
+    App.userlib.add({ partNo: newPN, manufacturer: st.isSym ? '심볼' : '커스텀', type: effType, sym: st.isSym ? 'custom' : undefined,
       name: newPN, w: st.w, h: st.h, d: 60, terminals: st.terms.length, term: App.clone(st.terms), img: st.img || undefined, imgX: st.imgX || 0, imgY: st.imgY || 0, imgS: st.imgS || 1, imgAR: st.imgAR || 0, imgO: st.imgO != null ? st.imgO : 1, imgCX: st.imgCX || 0, imgCY: st.imgCY || 0, imgCW: st.imgCW || 0, imgCH: st.imgCH || 0,
       shapes: (st.shapes && st.shapes.length) ? App.clone(st.shapes) : undefined });
     // 이름이 바뀌었으면 옛 항목 정리 (내부품은 삭제, 기본부품은 숨김)
@@ -644,7 +697,7 @@
     };
     // 편집 모드 버튼(선택/단자추가/이미지조절)
     function updateModeUI() {
-      [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect']].forEach(function (pr) {
+      [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect'], ['pe-mode-line', 'line']].forEach(function (pr) {
         const b = $(pr[0]); if (!b) return;
         const on = st && st.mode2 === pr[1];
         b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on);
@@ -655,7 +708,7 @@
           : (st.mode2 === 'img' ? 'move' : 'default');
     }
     PE.updateModeUI = updateModeUI;
-    [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect']].forEach(function (pr) {
+    [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect'], ['pe-mode-line', 'line']].forEach(function (pr) {
       const b = $(pr[0]);
       if (b) b.onclick = function () {
         if (!st) return;

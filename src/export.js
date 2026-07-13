@@ -329,6 +329,7 @@
       // 부품 도형(글쓰기·사각 라인) — 회전 미반영(0도 기준)
       (c.shapes || []).forEach(function (sh) {
         if (sh.kind === 'rect') rect('PARTS', c.x + sh.x, c.y + sh.y, sh.w, sh.h);
+        else if (sh.kind === 'line') line('PARTS', c.x + sh.x1, c.y + sh.y1, c.x + sh.x2, c.y + sh.y2);
         else if (sh.kind === 'text' && sh.text) text('PARTS', c.x + sh.x, c.y + sh.y, sh.size || 5, sh.text);
       });
       const cy = by + bh / 2;

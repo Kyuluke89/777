@@ -1211,7 +1211,7 @@
 
   // 속성 복사 (MATCHPROP) — 종류별로 복사되는 속성
   const MATCH_PROPS = {
-    wires: ['label', 'color', 'width', 'sq', 'awg', 'acdc'], // 라인번호+프리셋 속성 전부
+    wires: ['label', 'color', 'width', 'sq', 'awg', 'acdc', 'hideTube', 'labelInset'], // 라인번호+프리셋 속성 전부
     components: ['type', 'textVert', 'labelVert', 'typeVert', 'tagVert', 'coverL', 'coverR'],
     ducts: ['widthMM'],
     rails: ['widthMM', 'type'],

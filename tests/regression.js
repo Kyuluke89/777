@@ -3331,6 +3331,118 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(wpick.pickedA, '나란한 배선: 위쪽 선 클릭 → 그 선만 선택');
   assert(wpick.pickedB, '나란한 배선: 아래쪽 선 클릭 → 그 선만 선택');
 
+  // === 커스텀 심볼 만들기 (에디터 심볼 체크 + 선긋기) ===
+  const csym = await page.evaluate(() => {
+    const $ = id => document.getElementById(id);
+    App.partEditor.open({});
+    $('pe-name-in').value = '테스트심볼X';
+    $('pe-sym').checked = true;
+    $('pe-w').value = '30'; $('pe-h').value = '30';
+    $('pe-w').dispatchEvent(new Event('change'));
+    // 선긋기 모드로 (5,5)→(25,25) 직선
+    $('pe-mode-line').click();
+    const svg = $('pe-canvas');
+    const ctm = svg.getScreenCTM();
+    function pt(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(ctm); }
+    const a = pt(5, 5), b = pt(25, 25);
+    svg.dispatchEvent(new PointerEvent('pointerdown', { clientX: a.x, clientY: a.y, bubbles: true }));
+    svg.dispatchEvent(new PointerEvent('pointermove', { clientX: b.x, clientY: b.y, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x, clientY: b.y, bubbles: true }));
+    $('pe-save').click(); // 라이브러리 저장
+    const lp = App.palette.getLibrary().find(p => p.partNo === '테스트심볼X');
+    const isSym = !!lp && lp.type === 'SYM' && lp.sym === 'custom';
+    const hasLine = !!lp && (lp.shapes || []).some(s => s.kind === 'line' && Math.abs(s.x2 - s.x1) >= 15);
+    // 배치 → 캔버스에 선이 그려지고 파츠리스트에서 제외
+    App.store.commit(s => {
+      s.components.push({ id: 'sym1', partNo: '테스트심볼X', partName: '테스트심볼X', type: 'SYM', sym: 'custom', x: 100, y: 300, widthMM: 30, heightMM: 30, rotation: 0, label: '테스트심볼X', terminals: 0, term: [], shapes: lp ? App.clone(lp.shapes) : [] });
+    });
+    App.render.all();
+    const gEl = document.querySelector('[data-id="sym1"]');
+    const lineDrawn = !!(gEl && gEl.querySelector('line'));
+    const excluded = !App.xlsx.partsRows(App.store.get()).some(r => r.name === '테스트심볼X');
+    // 정리
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'sym1'); });
+    App.userlib.remove('테스트심볼X');
+    App.palette.reloadUser();
+    return { isSym, hasLine, lineDrawn, excluded };
+  });
+  assert(csym.isSym, '커스텀 심볼: 심볼 체크 저장 → type SYM + sym custom (심볼 탭)');
+  assert(csym.hasLine, '에디터 선긋기 도구로 직선 도형 추가');
+  assert(csym.lineDrawn, '배치된 커스텀 심볼: 캔버스에 선 렌더');
+  assert(csym.excluded, '커스텀 심볼은 파츠리스트(발주)에서 제외');
+
+  // === 배선별 번호 튜브 표시/숨김 + 개별 번호 위치 ===
+  const wtube = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'tt1', partNo: 'TT', type: 'MC', x: 1500, y: 2100, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'tt2', partNo: 'TT', type: 'MC', x: 1700, y: 2100, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'ttw', fromComp: 'tt1', fromTerm: 0, toComp: 'tt2', toTerm: 0, label: 'T1', color: '#111', width: 1.2, corners: null, midY: 2060 });
+    });
+    App.render.all();
+    const grp = () => document.querySelector('[data-id="ttw"]');
+    const tubesOn = grp().querySelectorAll('rect').length > 0;
+    // 개별 번호 위치(labelInset) → 튜브 위치 이동
+    let st = App.store.get();
+    const e1 = App.wires.endLabels(st, st.wires.find(x => x.id === 'ttw'));
+    App.store.commit(s => { s.wires.find(x => x.id === 'ttw').labelInset = 70; });
+    st = App.store.get();
+    const e2 = App.wires.endLabels(st, st.wires.find(x => x.id === 'ttw'));
+    const insetMoved = Math.hypot(e2.a.x - e1.a.x, e2.a.y - e1.a.y) > 5;
+    // 인스펙터 컨트롤로 튜브 끄기/위치 변경
+    App.ui.selected = new Set(['ttw']);
+    App.inspector.update();
+    const hasCtl = !!document.getElementById('insp-wtube') && !!document.getElementById('insp-winset');
+    const wi = document.getElementById('insp-winset');
+    wi.value = '45'; wi.dispatchEvent(new Event('change'));
+    const setVal = App.store.get().wires.find(x => x.id === 'ttw').labelInset === 45;
+    const wt = document.getElementById('insp-wtube');
+    wt.checked = false; wt.dispatchEvent(new Event('change'));
+    App.render.all();
+    const tubesOff = App.store.get().wires.find(x => x.id === 'ttw').hideTube === true &&
+      grp().querySelectorAll('rect').length === 0;
+    App.ui.selected.clear();
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'ttw');
+      s.components = s.components.filter(c => c.partNo !== 'TT');
+    });
+    return { tubesOn, insetMoved, hasCtl, setVal, tubesOff };
+  });
+  assert(wtube.tubesOn && wtube.tubesOff, '배선별 번호 튜브 표시/숨김 (번호+행선지 함께)');
+  assert(wtube.insetMoved && wtube.hasCtl && wtube.setVal, '배선별 개별 번호 위치(labelInset) 조절');
+
+  // === 겹선 분리: 실제로 겹치는 선만 벌림 (일렬로 맞닿은 단선은 그대로) ===
+  const sprd = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'sp1', partNo: 'SP', type: 'MC', x: 1500, y: 2000, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'sp2', partNo: 'SP', type: 'MC', x: 1500, y: 1800, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'sp3', partNo: 'SP', type: 'MC', x: 1700, y: 2000, widthMM: 30, heightMM: 40, rotation: 0, label: 'c', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'sp4', partNo: 'SP', type: 'MC', x: 1700, y: 1800, widthMM: 30, heightMM: 40, rotation: 0, label: 'd', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      // w1 수직 구간 [1802..2002], w2 [1700..1802] — 끝만 맞닿음(일렬) → 벌리면 안 됨
+      s.wires.push(
+        { id: 'spw1', fromComp: 'sp1', fromTerm: 0, toComp: 'sp3', toTerm: 0, label: 'S1', color: '#111', width: 1.2, corners: null, midY: 1802 },
+        { id: 'spw2', fromComp: 'sp2', fromTerm: 0, toComp: 'sp4', toTerm: 0, label: 'S2', color: '#111', width: 1.2, corners: null, midY: 1700 }
+      );
+    });
+    let off = App.wires.spreadOffsets(App.store.get());
+    const touching = Object.keys(off).filter(k => k.indexOf('spw') === 0);
+    const noSpread = touching.length === 0;
+    // w1 의 midY 를 1750 으로 → [1750..2002] 가 w2 [1700..1802] 와 실제로 겹침 → 벌림
+    App.store.commit(s => { s.wires.find(w => w.id === 'spw1').midY = 1750; });
+    off = App.wires.spreadOffsets(App.store.get());
+    const overlapped = Object.keys(off).some(k => k.indexOf('spw1') === 0) && Object.keys(off).some(k => k.indexOf('spw2') === 0);
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id.indexOf('spw') !== 0);
+      s.components = s.components.filter(c => c.partNo !== 'SP');
+    });
+    return { noSpread, overlapped };
+  });
+  assert(sprd.noSpread, '일렬로 맞닿은 단선은 벌리지 않음');
+  assert(sprd.overlapped, '실제 겹치는 선만 접점에서 벌림');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

@@ -421,7 +421,8 @@
       while (i < arr.length) {
         let j = i, hi = arr[i].hi;
         const cluster = [arr[i]];
-        while (j + 1 < arr.length && arr[j + 1].lo <= hi + 0.5) { // 겹치거나 맞닿음
+        // 실제로 나란히 겹치는 구간만(0.5mm 초과) — 끝점이 맞닿기만 한 일렬 선은 벌리지 않음
+        while (j + 1 < arr.length && arr[j + 1].lo < hi - 0.5) {
           j++; cluster.push(arr[j]); hi = Math.max(hi, arr[j].hi);
         }
         const wids = {}; cluster.forEach(function (s) { wids[s.wid] = 1; });
@@ -495,7 +496,8 @@
     pts = pts || W.route(state, wire);
     if (!pts || pts.length < 2) return null;
     const L = polyLen(pts);
-    const inset = (App.ui && App.ui.wireLabelInset != null) ? App.ui.wireLabelInset : W.LABEL_INSET;
+    const globalInset = (App.ui && App.ui.wireLabelInset != null) ? App.ui.wireLabelInset : W.LABEL_INSET;
+    const inset = (wire && wire.labelInset != null) ? wire.labelInset : globalInset; // 배선별 오버라이드
     const d = Math.min(inset, L * 0.45);           // 너무 짧으면 안쪽으로 조정
     const A = pointAlong(pts, d);
     const B = pointAlong(pts.slice().reverse(), d);
