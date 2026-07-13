@@ -66,11 +66,12 @@
     return function () { listeners.delete(fn); };
   };
 
-  // mutator(draft) 안에서 state 를 변경. history=true 면 undo 기록.
+  // undo/redo 스택 항목: { s: 상태, label: 작업 이름(선택) }
+  // mutator(draft) 안에서 state 를 변경. history=true 면 undo 기록. opts.label = 작업 이름.
   Store.commit = function (mutator, opts) {
     opts = opts || {};
     if (opts.history !== false) {
-      undoStack.push(clone(state));
+      undoStack.push({ s: clone(state), label: opts.label || '' });
       if (undoStack.length > MAX_HISTORY) undoStack.shift();
       redoStack.length = 0;
     }
@@ -83,7 +84,7 @@
   Store.replace = function (newState, opts) {
     opts = opts || {};
     if (opts.history !== false) {
-      undoStack.push(clone(state));
+      undoStack.push({ s: clone(state), label: opts.label || '' });
       redoStack.length = 0;
     }
     state = newState;
@@ -93,26 +94,31 @@
   // --- 제스처(드래그) 지원: 시작 시 스냅샷, 도중엔 직접 변경 + touch, 끝에 pushUndo ---
   Store.snapshot = function () { return clone(state); };
   Store.touch = function () { notify(); };
-  Store.pushUndo = function (snap) {
-    undoStack.push(snap);
+  Store.pushUndo = function (snap, label) {
+    undoStack.push({ s: snap, label: label || '' });
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
     redoStack.length = 0;
   };
 
   Store.canUndo = function () { return undoStack.length > 0; };
   Store.canRedo = function () { return redoStack.length > 0; };
+  // 다음에 실행취소/다시실행될 작업 이름 (없으면 '')
+  Store.undoLabel = function () { return undoStack.length ? (undoStack[undoStack.length - 1].label || '') : ''; };
+  Store.redoLabel = function () { return redoStack.length ? (redoStack[redoStack.length - 1].label || '') : ''; };
 
   Store.undo = function () {
     if (!undoStack.length) return;
-    redoStack.push(clone(state));
-    state = undoStack.pop();
+    const entry = undoStack.pop();
+    redoStack.push({ s: clone(state), label: entry.label || '' });
+    state = entry.s;
     notify();
   };
 
   Store.redo = function () {
     if (!redoStack.length) return;
-    undoStack.push(clone(state));
-    state = redoStack.pop();
+    const entry = redoStack.pop();
+    undoStack.push({ s: clone(state), label: entry.label || '' });
+    state = entry.s;
     notify();
   };
 

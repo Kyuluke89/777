@@ -85,7 +85,7 @@
       shapes: part.shapes ? App.clone(part.shapes) : null,
       img: part.img || null, imgX: part.imgX || 0, imgY: part.imgY || 0, imgS: part.imgS || 1, imgAR: part.imgAR || 0, imgO: part.imgO != null ? part.imgO : 1, imgCX: part.imgCX || 0, imgCY: part.imgCY || 0, imgCW: part.imgCW || 0, imgCH: part.imgCH || 0
     };
-    App.store.commit(function (s) { s.components.push(comp); });
+    App.store.commit(function (s) { s.components.push(comp); }, { label: '부품 배치' });
     selectOnly(comp.id);
   }
 
@@ -297,7 +297,7 @@
   }
 
   function finishMove() {
-    if (gesture.moved) App.store.pushUndo(gesture.snap);
+    if (gesture.moved) App.store.pushUndo(gesture.snap, gesture.type === 'move' ? '이동' : gesture.type === 'seg' ? '배선 경로 수정' : '이동');
     if (App.render.guides) App.render.guides(null);
     if (App.inspector) App.inspector.update();
   }
@@ -446,7 +446,7 @@
             if (wd.preset) w.preset = wd.preset; // 프리셋 이름 기록(레이어식 표시/숨김용)
           }
           s.wires.push(w);
-        });
+        }, { label: '배선 연결' });
         // 지정 번호면 자동 증가 후 입력칸 갱신
         if (App.ui.nextWireLabel) {
           App.ui.nextWireLabel = incLabel(App.ui.nextWireLabel);
@@ -471,7 +471,7 @@
         const base = { x1: d.p1.x, y1: d.p1.y, x2: d.p2.x, y2: d.p2.y };
         const off = snapV(App.dims.offsetFromPoint(base, sp.x, sp.y));
         const dim = App.dims.create(base.x1, base.y1, base.x2, base.y2, off);
-        App.store.commit(function (s) { s.dimensions.push(dim); });
+        App.store.commit(function (s) { s.dimensions.push(dim); }, { label: '치수 추가' });
         App.ui.dim = { stage: 0 };
         App.render.dimPreview(null); App.render.snapMarker(null);
         selectOnly(dim.id);
@@ -509,7 +509,7 @@
       App.store.commit(function (s) {
         s.texts = s.texts || [];
         s.texts.push({ id: tid, x: sp.x, y: sp.y, text: '텍스트', size: 8, color: '#0f172a' });
-      });
+      }, { label: '텍스트 추가' });
       selectOnly(tid);
       return;
     }
@@ -522,7 +522,7 @@
         const id = App.uid('dct');
         App.store.commit(function (s) {
           s.ducts.push({ id: id, orient: orient, x: snapV(sp.x), y: snapV(sp.y), lengthMM: fixedLen, widthMM: App.ui.ductWidth || 60 });
-        });
+        }, { label: '덕트 배치' });
         selectOnly(id);
         return;
       }
@@ -748,23 +748,23 @@
     else if (gesture.type === 'wireseg') {
       const wf = App.store.findById(gesture.wireId);
       if (wf) wf.item.corners = App.wires.cleanCorners(wf.item.corners); // 0길이/일직선 정리
-      if (gesture.moved) App.store.pushUndo(gesture.snap);
+      if (gesture.moved) App.store.pushUndo(gesture.snap, gesture.type === 'move' ? '이동' : gesture.type === 'seg' ? '배선 경로 수정' : '이동');
       App.store.touch();
     }
-    else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'dimoff') { if (gesture.moved) App.store.pushUndo(gesture.snap, '치수 이동'); }
     else if (gesture.type === 'labeldrag') {
       if (gesture.moved) {
-        App.store.pushUndo(gesture.snap);
+        App.store.pushUndo(gesture.snap, '라벨 이동');
         // 품명/타입/호기 글씨 배치를 라이브러리에도 기억 → 다음 배치에 동일 적용
         if (gesture.kind === 'comp' || gesture.kind === 'tag' || gesture.kind === 'type') saveLabelLayout(gesture.id);
       }
     }
-    else if (gesture.type === 'sticker') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'sticker') { if (gesture.moved) App.store.pushUndo(gesture.snap, '스티커 이동'); }
     else if (gesture.type === 'wend') finishWireEnd();
     else if (gesture.type === 'dresize') {
-      if (gesture.moved) { App.store.pushUndo(gesture.snap); if (App.inspector) App.inspector.update(); }
+      if (gesture.moved) { App.store.pushUndo(gesture.snap, '덕트/레일 크기 조절'); if (App.inspector) App.inspector.update(); }
     }
-    else if (gesture.type === 'titledrag') { if (gesture.moved) App.store.pushUndo(gesture.snap); }
+    else if (gesture.type === 'titledrag') { if (gesture.moved) App.store.pushUndo(gesture.snap, '제목 이동'); }
     else if (gesture.type === 'marquee') finishMarquee();
     gesture = null;
   }
@@ -870,7 +870,7 @@
     // 같은 단자면 변경 없음
     if (gesture.end === 'a' && w.fromComp === t.compId && w.fromTerm === t.index) { App.render.all(); return; }
     if (gesture.end === 'b' && w.toComp === t.compId && w.toTerm === t.index) { App.render.all(); return; }
-    App.store.pushUndo(gesture.snap);
+    App.store.pushUndo(gesture.snap, '배선 재연결');
     if (gesture.end === 'a') { w.fromComp = t.compId; w.fromTerm = t.index; }
     else { w.toComp = t.compId; w.toTerm = t.index; }
     w.corners = null; w.midY = null; // 새 경로로 재라우팅
@@ -1037,7 +1037,7 @@
       s.wires = s.wires.filter(function (w) {
         return ids.indexOf(w.fromComp) < 0 && ids.indexOf(w.toComp) < 0;
       });
-    });
+    }, { label: '삭제' });
     App.ui.selected.clear();
     App.render.all();
     if (App.inspector) App.inspector.update();
@@ -1050,7 +1050,7 @@
       s.components.forEach(function (c) {
         if (ids.indexOf(c.id) >= 0) c.rotation = ((c.rotation || 0) + 90) % 360;
       });
-    });
+    }, { label: '회전' });
     App.render.all();
   }
 
@@ -1107,7 +1107,7 @@
           newIds.push(nc.id);
         });
       });
-    });
+    }, { label: '복제' });
     return newIds;
   }
 
@@ -1337,6 +1337,11 @@
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.key === ' ') { App.ui.spaceDown = true; return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      App.persistence.saveToFile(App.store.get(), { as: e.shiftKey });
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelected(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); paste(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); return; }

@@ -47,8 +47,10 @@
       items: [
         { id: 'act-new', label: '새 프로젝트' },
         { sep: true },
-        { id: 'act-save', label: '저장 (JSON)', key: 'Ctrl+S' },
+        { id: 'act-save', label: '저장', key: 'Ctrl+S' },
+        { fn: function () { App.persistence.saveToFile(App.store.get(), { as: true }); }, cmdId: 'act-saveas', label: '다른 이름으로 저장…', key: 'Ctrl+Shift+S' },
         { id: 'act-load', label: '불러오기' },
+        { fn: function () { openRecentModal(); }, cmdId: 'recent-open', label: '최근 프로젝트…' },
         { sep: true },
         { id: 'act-edz', label: 'EDZ 부품 가져오기' },
         { sep: true },
@@ -66,8 +68,14 @@
     {
       title: '편집',
       items: [
-        { id: 'act-undo', label: '실행 취소', key: 'Ctrl+Z' },
-        { id: 'act-redo', label: '다시 실행', key: 'Ctrl+Shift+Z' },
+        { id: 'act-undo', key: 'Ctrl+Z', label: function () {
+          var l = App.store && App.store.undoLabel ? App.store.undoLabel() : '';
+          return '실행 취소' + (l ? ': ' + l : '');
+        } },
+        { id: 'act-redo', key: 'Ctrl+Shift+Z', label: function () {
+          var l = App.store && App.store.redoLabel ? App.store.redoLabel() : '';
+          return '다시 실행' + (l ? ': ' + l : '');
+        } },
         { sep: true },
         { fn: function () { copySel(); }, cmdId: 'edit-copy', label: '복사', key: 'Ctrl+C' },
         { fn: function () { pasteSel(); }, cmdId: 'edit-paste', label: '붙여넣기', key: 'Ctrl+V' },
@@ -172,6 +180,69 @@
   function copySel() { if (App.interact && App.interact.copySelected) App.interact.copySelected(); }
   function pasteSel() { if (App.interact && App.interact.paste) App.interact.paste(); }
 
+  // 프로젝트 데이터 적용 (불러오기/최근/버전 복원 공용)
+  function applyProject(data) {
+    App.store.replace(App.clone(data));
+    App.ui.selected.clear();
+    var p = data.panel;
+    App.viewport.fitTo(p.widthMM, p.heightMM);
+    App.render.all();
+    if (App.inspector) App.inspector.update();
+    if (App.toolbar) App.toolbar.syncFromState();
+  }
+
+  function fmtDate(ts) {
+    var d = new Date(ts);
+    function p2(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
+      ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+  }
+
+  // 목록 선택 모달 (최근 프로젝트/버전 복원 공용)
+  function openListModal(title, rows, emptyMsg, onPick) {
+    var old = document.getElementById('list-modal');
+    if (old) old.remove();
+    var modal = document.createElement('div');
+    modal.id = 'list-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/30';
+    var items = rows.length
+      ? rows.map(function (r, i) {
+          return '<button type="button" class="recent-item" data-i="' + i + '">' +
+            '<span class="recent-name">' + App.esc(r.name) + '</span>' +
+            '<span class="recent-date">' + fmtDate(r.ts) + '</span></button>';
+        }).join('')
+      : '<div class="text-xs text-slate-400 text-center py-6">' + App.esc(emptyMsg) + '</div>';
+    modal.innerHTML =
+      '<div class="bg-white rounded-lg shadow-xl w-[380px] max-h-[70vh] flex flex-col">' +
+      '<div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-200">' +
+      '<div class="text-sm font-bold text-slate-700">' + App.esc(title) + '</div>' +
+      '<button id="lm-close" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1">×</button>' +
+      '</div><div class="flex-1 overflow-y-auto p-2">' + items + '</div></div>';
+    document.body.appendChild(modal);
+    function close() { modal.remove(); }
+    modal.addEventListener('pointerdown', function (e) { if (e.target === modal) close(); });
+    modal.querySelector('#lm-close').addEventListener('click', close);
+    modal.querySelectorAll('.recent-item').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        close();
+        onPick(rows[+btn.getAttribute('data-i')]);
+      });
+    });
+  }
+
+  function openRecentModal() {
+    if (!App.persistence.autosaveAvailable()) {
+      alert('최근 프로젝트 목록은 http(s) 환경(GitHub Pages 등)에서 사용할 수 있습니다.\nfile:// 로 열었을 때는 저장/불러오기를 사용하세요.');
+      return;
+    }
+    App.persistence.listRecent().then(function (list) {
+      openListModal('최근 프로젝트', list, '최근 항목이 없습니다', function (r) {
+        if (!confirm('"' + r.name + '" 프로젝트를 불러올까요?\n(현재 작업은 저장하지 않으면 사라집니다)')) return;
+        applyProject(r.data);
+      });
+    });
+  }
+
   var openRoot = null; // 현재 열린 루트 버튼
 
   function keyHint(item) {
@@ -205,7 +276,8 @@
         check = '<span class="menu-check"></span>';
       }
       var hint = keyHint(item);
-      el.innerHTML = check + '<span class="menu-label">' + item.label + '</span>' +
+      var labelText = typeof item.label === 'function' ? item.label() : item.label;
+      el.innerHTML = check + '<span class="menu-label">' + labelText + '</span>' +
         (hint ? '<span class="menu-key">' + hint + '</span>' : '');
       el.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -297,5 +369,8 @@
     TBARS: TBARS,
     toolbarVisible: tbVisible,
     toolbarToggle: tbToggle,
+    applyProject: applyProject,
+    openListModal: openListModal,
+    openRecentModal: openRecentModal,
   };
 })();

@@ -281,3 +281,24 @@ aside label{display:flex;align-items:center;justify-content:space-between;gap:8p
 .cmdp-name { flex: 1; }
 .cmdp-key { flex: none; font-family: Consolas, monospace; font-size: 10px; color: #94a3b8; }
 .cmdp-empty { padding: 14px; text-align: center; font-size: 12px; color: #94a3b8; }
+
+/* ── 하단 상태바 ── */
+#statusbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 3px 12px; font-size: 11px; color: #64748b;
+  background: #fff; border-top: 1px solid #e2e8f0;
+  flex: none; user-select: none; white-space: nowrap; overflow: hidden;
+}
+#statusbar .sb-item { flex: none; }
+#statusbar .sb-strong { color: #334155; font-weight: 600; }
+#statusbar .sb-spacer { flex: 1; }
+
+/* ── 최근 프로젝트 모달 ── */
+.recent-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border: 0; background: transparent; text-align: left;
+  border-radius: 6px; cursor: pointer; font-size: 12px; color: #334155;
+}
+.recent-item:hover { background: #eff6ff; }
+.recent-name { flex: 1; font-weight: 600; }
+.recent-date { flex: none; font-size: 10px; color: #94a3b8; }

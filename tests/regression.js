@@ -3090,6 +3090,71 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(hint.before && hint.after && hint.restored, '단축키 힌트 툴팁 자동 동기화 (V→Q→V)');
 
+  // === Undo 라벨 (실행취소: 작업이름) ===
+  const ulbl = await page.evaluate(() => {
+    App.store.commit(s => { s.texts.push({ id: 'ul1', x: 1, y: 1, text: 'u', size: 8, color: '#000' }); }, { label: '라벨테스트' });
+    const u1 = App.store.undoLabel() === '라벨테스트';
+    // 편집 메뉴에 라벨 표시
+    const bar = document.getElementById('menubar');
+    const editBtn = bar.querySelector('[data-menu="편집"]');
+    editBtn.click();
+    const undoItem = Array.from(editBtn.querySelectorAll('.menu-item')).find(i => i.textContent.indexOf('실행 취소') >= 0);
+    const inMenu = undoItem.textContent.indexOf('라벨테스트') >= 0;
+    App.menubar.closeAll();
+    App.store.undo();
+    const r1 = App.store.redoLabel() === '라벨테스트';
+    App.store.redo();
+    const back = App.store.get().texts.some(t => t.id === 'ul1');
+    App.store.commit(s => { s.texts = s.texts.filter(t => t.id !== 'ul1'); }); // 정리
+    return { u1, inMenu, r1, back };
+  });
+  assert(ulbl.u1 && ulbl.inMenu, 'undo 라벨 기록 + 편집 메뉴에 "실행 취소: 이름" 표시');
+  assert(ulbl.r1 && ulbl.back, 'undo→redo 라벨 이동 + 상태 복원');
+
+  // === 하단 상태바 ===
+  const sbar = await page.evaluate(() => {
+    const hasBar = !!document.getElementById('statusbar');
+    App.toolbar.setTool('wire');
+    const toolShown = document.getElementById('sb-tool').textContent.indexOf('배선') >= 0;
+    App.toolbar.setTool('select');
+    App.store.commit(s => {
+      s.components.push({ id: 'sb1', partNo: 'SB', type: 'MC', x: 100, y: 100, widthMM: 20, heightMM: 20, rotation: 0, label: 's', terminals: 0, term: [] });
+    });
+    App.ui.selected = new Set(['sb1']);
+    App.render.all();
+    const selShown = document.getElementById('sb-sel').textContent.indexOf('부품 1') >= 0;
+    const gridShown = document.getElementById('sb-grid').textContent.indexOf('격자') >= 0;
+    const posInBar = document.getElementById('statusbar').contains(document.getElementById('cursor-pos'));
+    App.ui.selected.clear();
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'sb1'); });
+    return { hasBar, toolShown, selShown, gridShown, posInBar };
+  });
+  assert(sbar.hasBar && sbar.toolShown, '상태바: 현재 도구 표시');
+  assert(sbar.selShown && sbar.gridShown && sbar.posInBar, '상태바: 선택 요약·격자·좌표 표시');
+
+  // === 파일 저장 API + 최근 프로젝트 목록 모달 ===
+  const psave = await page.evaluate(() => {
+    const api = typeof App.persistence.saveToFile === 'function' &&
+      typeof App.persistence.pushRecent === 'function' &&
+      typeof App.persistence.listRecent === 'function' &&
+      typeof App.persistence.parseProject === 'function';
+    // parseProject 왕복
+    const json = JSON.stringify({ panel: { widthMM: 100, heightMM: 100, gridMM: 10 }, components: [] });
+    const parsed = App.persistence.parseProject(json);
+    const parseOk = parsed.panel.widthMM === 100 && Array.isArray(parsed.wires);
+    // 목록 모달: 항목 렌더 + 클릭 콜백
+    let picked = null;
+    App.menubar.openListModal('테스트 목록', [{ name: '프로젝트A', ts: 1700000000000, data: { x: 1 } }], '없음', r => { picked = r; });
+    const modal = document.getElementById('list-modal');
+    const item = modal.querySelector('.recent-item');
+    const listed = item && item.textContent.indexOf('프로젝트A') >= 0;
+    item.click();
+    const pickedOk = picked && picked.data.x === 1 && !document.getElementById('list-modal');
+    return { api, parseOk, listed, pickedOk };
+  });
+  assert(psave.api && psave.parseOk, '저장/최근 프로젝트 API + parseProject');
+  assert(psave.listed && psave.pickedOk, '목록 모달 렌더 + 선택 콜백');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 
