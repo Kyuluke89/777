@@ -54,6 +54,13 @@
     return map[key] || null;
   }
 
+  // key 로 시작하는 더 긴 바인딩(두 글자)이 있는지 — 입력 대기 판단용
+  function hasPrefix(key) {
+    if (!map) load();
+    for (var k in map) if (k.length > key.length && k.indexOf(key) === 0) return true;
+    return false;
+  }
+
   function keyOf(actionId) {
     if (!map) load();
     for (var k in map) if (map[k] === actionId) return k;
@@ -82,10 +89,12 @@
   // ---- 설정 모달 ----
   var modal = null;
   var capturing = null; // 캡처 중인 actionId
+  var capBuf = '';      // 캡처 중 입력된 키 (최대 2글자)
+  var capTimer = null;
 
   function keyLabel(k) {
     if (!k) return '';
-    return k.length === 1 ? k.toUpperCase() : k;
+    return k.toUpperCase();
   }
 
   function buildModal() {
@@ -98,7 +107,7 @@
       '<div class="text-sm font-bold text-slate-700">⌨️ 단축키 설정</div>' +
       '<button id="km-close" class="text-slate-400 hover:text-slate-700 text-lg leading-none px-1">×</button>' +
       '</div>' +
-      '<div class="px-4 py-1.5 text-[11px] text-slate-400 border-b border-slate-100">변경 버튼을 누른 뒤 원하는 키를 누르세요. (한 글자 키만 지원)</div>' +
+      '<div class="px-4 py-1.5 text-[11px] text-slate-400 border-b border-slate-100">변경 버튼을 누른 뒤 원하는 키를 누르세요. 두 글자 연속 입력(예: D→U)도 됩니다 — 잠시 기다리거나 Enter로 확정.</div>' +
       '<div id="km-list" class="flex-1 overflow-y-auto px-4 py-2"></div>' +
       '<div class="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-slate-200">' +
       '<button id="km-reset" class="text-xs px-3 py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-slate-50">기본값 복원</button>' +
@@ -112,22 +121,38 @@
     modal.querySelector('#km-close').addEventListener('click', close);
     modal.querySelector('#km-done').addEventListener('click', close);
     modal.querySelector('#km-reset').addEventListener('click', function () {
-      reset(); capturing = null; renderList();
+      reset(); stopCapTimer(); capturing = null; capBuf = ''; renderList();
     });
 
     window.addEventListener('keydown', onCaptureKey, true);
+  }
+
+  function stopCapTimer() {
+    if (capTimer) { clearTimeout(capTimer); capTimer = null; }
+  }
+
+  function commitCapture() {
+    stopCapTimer();
+    if (capturing && capBuf) bind(capBuf, capturing);
+    capturing = null;
+    capBuf = '';
+    renderList();
   }
 
   function onCaptureKey(e) {
     if (!capturing || !modal || modal.classList.contains('hidden')) return;
     e.preventDefault();
     e.stopPropagation();
-    if (e.key === 'Escape') { capturing = null; renderList(); return; }
+    if (e.key === 'Escape') { stopCapTimer(); capturing = null; capBuf = ''; renderList(); return; }
+    if (e.key === 'Enter') { commitCapture(); return; }
     var k = (e.key || '').toLowerCase();
-    if (k.length !== 1) return; // 한 글자 키만
-    bind(k, capturing);
-    capturing = null;
+    if (k.length !== 1) return; // 문자/숫자 키만
+    capBuf += k;
+    if (capBuf.length >= 2) { commitCapture(); return; } // 두 글자면 즉시 확정
+    // 한 글자 입력 후 잠시 기다림 — 이어서 누르면 두 글자, 안 누르면 한 글자로 확정
     renderList();
+    stopCapTimer();
+    capTimer = setTimeout(commitCapture, 900);
   }
 
   function renderList() {
@@ -146,7 +171,7 @@
         '<div class="flex-1 text-xs text-slate-700">' + a.name + '</div>' +
         '<div class="w-16 text-center text-xs font-mono ' +
         (cap ? 'text-amber-600 animate-pulse' : key ? 'text-slate-800' : 'text-slate-300') + '">' +
-        (cap ? '키 입력…' : key ? keyLabel(key) : '없음') + '</div>' +
+        (cap ? (capBuf ? keyLabel(capBuf) + '…' : '키 입력…') : key ? keyLabel(key) : '없음') + '</div>' +
         '<button data-km-set="' + a.id + '" class="text-[11px] px-2 py-0.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-50">변경</button>' +
         '<button data-km-clear="' + a.id + '" class="text-[11px] px-2 py-0.5 rounded border border-slate-200 text-slate-400 hover:bg-slate-50">지움</button>' +
         '</div>';
@@ -154,14 +179,16 @@
     list.innerHTML = html;
     list.querySelectorAll('[data-km-set]').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        stopCapTimer();
         capturing = btn.getAttribute('data-km-set');
+        capBuf = '';
         renderList();
       });
     });
     list.querySelectorAll('[data-km-clear]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         unbind(btn.getAttribute('data-km-clear'));
-        if (capturing === btn.getAttribute('data-km-clear')) capturing = null;
+        if (capturing === btn.getAttribute('data-km-clear')) { stopCapTimer(); capturing = null; capBuf = ''; }
         renderList();
       });
     });
@@ -169,7 +196,9 @@
 
   function open() {
     if (!modal) buildModal();
+    stopCapTimer();
     capturing = null;
+    capBuf = '';
     renderList();
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -177,7 +206,9 @@
 
   function close() {
     if (!modal) return;
+    stopCapTimer();
     capturing = null;
+    capBuf = '';
     modal.classList.add('hidden');
     modal.classList.remove('flex');
   }
@@ -191,6 +222,7 @@
     open: open,
     close: close,
     actionFor: actionFor,
+    hasPrefix: hasPrefix,
     keyOf: keyOf,
     bind: bind,
     unbind: unbind,

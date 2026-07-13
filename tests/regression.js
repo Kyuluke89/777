@@ -2998,6 +2998,65 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   });
   assert(kmkey.wire && kmkey.sel, '키보드 단축키 keymap 경유 동작(W/V)');
 
+  // === 두 글자 단축키 (연속 입력) ===
+  const km2 = await page.evaluate(async () => {
+    App.keymap.bind('du', 'tool-duct-h'); // D→U = 가로 덕트 ('d' 단독 = 치수 유지)
+    const prefix = App.keymap.hasPrefix('d') === true;
+    // d 누른 직후에는 대기 상태(치수로 즉시 안 바뀜) → u 이어 누르면 덕트
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }));
+    const waiting = App.ui.tool !== 'dim' && App.ui.tool !== 'duct-h';
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true }));
+    const duct = App.ui.tool === 'duct-h';
+    App.toolbar.setTool('select');
+    // d 단독 → 잠시 후 치수 도구로 확정
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }));
+    await new Promise(r => setTimeout(r, 750));
+    const dimAfter = App.ui.tool === 'dim';
+    App.toolbar.setTool('select');
+    // 무효 조합(d→x)이면 마지막 키 단독으로 재시도 → 아무 도구도 안 바뀜(x 미할당)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true }));
+    await new Promise(r => setTimeout(r, 100));
+    const invalid = App.ui.tool === 'select';
+    const saved = (localStorage.getItem('panel-keymap') || '').indexOf('"du"') >= 0;
+    App.keymap.reset();
+    // 리셋 후 d 즉시 치수 (대기 없이)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }));
+    const instant = App.ui.tool === 'dim';
+    App.toolbar.setTool('select');
+    return { prefix, waiting, duct, dimAfter, invalid, saved, instant };
+  });
+  assert(km2.prefix && km2.waiting && km2.duct, '두 글자 단축키: D→U 연속 입력 = 가로 덕트');
+  assert(km2.dimAfter, '두 글자 대기 후 한 글자(D 단독=치수) 확정');
+  assert(km2.invalid && km2.saved, '무효 조합 무해 + 두 글자 바인딩 localStorage 저장');
+  assert(km2.instant, '두 글자 바인딩 없으면 한 글자 즉시 실행');
+
+  // === 도구막대 그룹 표시/숨김 (뷰 > 도구막대) ===
+  const tbar = await page.evaluate(() => {
+    const groups = Array.from(document.querySelectorAll('[data-tbar]')).map(el => el.getAttribute('data-tbar'));
+    const hasAll = ['draw', 'edit', 'place', 'align', 'wire'].every(k => groups.indexOf(k) >= 0);
+    // 메뉴에서 정렬 도구막대 끄기
+    const bar = document.getElementById('menubar');
+    const viewBtn = bar.querySelector('[data-menu="뷰"]');
+    viewBtn.click();
+    let item = Array.from(viewBtn.querySelectorAll('.menu-item')).find(i => i.textContent.indexOf('도구막대: 정렬') >= 0);
+    const checked = item.querySelector('.menu-check').textContent === '✓';
+    item.click();
+    const alEl = document.querySelector('[data-tbar="align"]');
+    const hidden = alEl.style.display === 'none' && !App.menubar.toolbarVisible('align');
+    const saved = (localStorage.getItem('panel-hidden-toolbars') || '').indexOf('align') >= 0;
+    // 다시 열면 ✓ 없음 → 클릭으로 복원
+    viewBtn.click();
+    item = Array.from(viewBtn.querySelectorAll('.menu-item')).find(i => i.textContent.indexOf('도구막대: 정렬') >= 0);
+    const unchecked = item.querySelector('.menu-check').textContent === '';
+    item.click();
+    const back = alEl.style.display !== 'none' && App.menubar.toolbarVisible('align');
+    return { hasAll, checked, hidden, saved, unchecked, back };
+  });
+  assert(tbar.hasAll, '도구막대 그룹 5종(data-tbar) 존재');
+  assert(tbar.checked && tbar.hidden && tbar.saved, '뷰 메뉴에서 도구막대 끄기 + localStorage 저장');
+  assert(tbar.unchecked && tbar.back, '도구막대 다시 켜기 (체크 반영)');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

@@ -1280,8 +1280,59 @@
     if (App.inspector) App.inspector.update();
   }
 
+  // ── 단축키 시퀀스 처리 (한 글자 즉시 / 두 글자 연속 입력) ──
+  let kmPending = '';   // 두 글자 바인딩 대기 중인 첫 글자
+  let kmTimer = null;
+
+  function kmFire(actionId) {
+    const btn = document.getElementById(actionId);
+    if (btn) btn.click();
+  }
+
+  function kmClearPending() {
+    kmPending = '';
+    if (kmTimer) { clearTimeout(kmTimer); kmTimer = null; }
+  }
+
+  // true 반환 = 키를 소비함
+  function handleKeymapKey(k) {
+    const combined = kmPending + k;
+    const act = App.keymap.actionFor(combined);
+    const longer = App.keymap.hasPrefix && App.keymap.hasPrefix(combined);
+    if (kmTimer) { clearTimeout(kmTimer); kmTimer = null; }
+    if (longer) {
+      // 더 긴 바인딩이 있으면 잠시 대기 — 안 이어지면 현재 매칭 실행
+      kmPending = combined;
+      kmTimer = setTimeout(function () {
+        const a = App.keymap.actionFor(kmPending);
+        kmClearPending();
+        if (a) kmFire(a);
+      }, 600);
+      return true;
+    }
+    kmPending = '';
+    if (act) { kmFire(act); return true; }
+    // 대기 중이던 조합이 무효면 마지막 키 단독으로 재시도
+    if (combined.length > 1) {
+      const solo = App.keymap.actionFor(k);
+      if (solo) { kmFire(solo); return true; }
+      if (App.keymap.hasPrefix && App.keymap.hasPrefix(k)) {
+        kmPending = k;
+        kmTimer = setTimeout(function () {
+          const a = App.keymap.actionFor(kmPending);
+          kmClearPending();
+          if (a) kmFire(a);
+        }, 600);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function onKeyDown(e) {
     if (App.partEditor && App.partEditor.isOpen && App.partEditor.isOpen()) return; // 에디터 모달이 처리
+    const kmModal = document.getElementById('keymap-modal');
+    if (kmModal && !kmModal.classList.contains('hidden')) return; // 단축키 설정 모달이 처리
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.key === ' ') { App.ui.spaceDown = true; return; }
@@ -1315,15 +1366,13 @@
       return;
     }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); return; }
-    // 단축키 매핑 (도구 메뉴 > 단축키 설정 에서 변경 가능)
+    // 단축키 매핑 (도구 메뉴 > 단축키 설정 에서 변경, 두 글자 연속 입력 지원)
     if (!e.ctrlKey && !e.metaKey && !e.altKey && App.keymap) {
-      const act = App.keymap.actionFor((e.key || '').toLowerCase());
-      if (act) {
-        const btn = document.getElementById(act);
-        if (btn) { btn.click(); return; }
-      }
+      const k = (e.key || '').toLowerCase();
+      if (k.length === 1 && handleKeymapKey(k)) return;
     }
     if (e.key === 'Escape') {
+      kmClearPending();
       App.ui.placing = null;
       App.ui.wireStart = null;
       App.ui.matchProp = null;

@@ -3,9 +3,41 @@
   'use strict';
   window.App = window.App || {};
 
+  // ── 도구막대 표시/숨김 (CAD처럼 그룹별 온오프, localStorage 유지) ──
+  var TBARS = [
+    { key: 'draw', label: '그리기 도구' },
+    { key: 'edit', label: '편집 도구' },
+    { key: 'place', label: '배치 옵션' },
+    { key: 'align', label: '정렬 옵션' },
+    { key: 'wire', label: '배선 옵션' },
+  ];
+  var TB_LS = 'panel-hidden-toolbars';
+
+  function tbHidden() {
+    try { return new Set(JSON.parse(localStorage.getItem(TB_LS) || '[]')); }
+    catch (err) { return new Set(); }
+  }
+
+  function tbApply() {
+    var hid = tbHidden();
+    document.querySelectorAll('[data-tbar]').forEach(function (el) {
+      el.style.display = hid.has(el.getAttribute('data-tbar')) ? 'none' : '';
+    });
+  }
+
+  function tbVisible(key) { return !tbHidden().has(key); }
+
+  function tbToggle(key) {
+    var hid = tbHidden();
+    if (hid.has(key)) hid.delete(key); else hid.add(key);
+    try { localStorage.setItem(TB_LS, JSON.stringify(Array.from(hid))); } catch (err) {}
+    tbApply();
+  }
+
   // item 형식:
   //  { id: 'act-save', label: '저장' }            → getElementById(id).click()
   //  { check: 'show-names', label: '품명 표시' }   → 체크박스 토글 + ✓ 표시
+  //  { tbar: 'draw', label: '그리기 도구' }        → 도구막대 그룹 표시/숨김
   //  { fn: function(){}, label: '단축키 설정' }    → 직접 실행
   //  { sep: true }                                 → 구분선
   //  key: 정적 단축키 힌트 (keymap 있으면 keymap이 우선)
@@ -54,6 +86,12 @@
         { id: 'zoom-fit', label: '화면 맞춤' },
         { id: 'zoom-in', label: '확대', key: '+' },
         { id: 'zoom-out', label: '축소', key: '-' },
+        { sep: true },
+        { tbar: 'draw', label: '도구막대: 그리기' },
+        { tbar: 'edit', label: '도구막대: 편집' },
+        { tbar: 'place', label: '도구막대: 배치' },
+        { tbar: 'align', label: '도구막대: 정렬' },
+        { tbar: 'wire', label: '도구막대: 배선' },
         { sep: true },
         { id: 'act-3d', label: '3D 입체 보기' },
         { sep: true },
@@ -138,7 +176,7 @@
   function keyHint(item) {
     if (item.id && App.keymap) {
       var k = App.keymap.keyOf(item.id);
-      if (k) return k.length === 1 ? k.toUpperCase() : k;
+      if (k) return k.toUpperCase();
     }
     return item.key || '';
   }
@@ -160,6 +198,8 @@
       if (item.check) {
         var cb = document.getElementById(item.check);
         check = '<span class="menu-check">' + (cb && cb.checked ? '✓' : '') + '</span>';
+      } else if (item.tbar) {
+        check = '<span class="menu-check">' + (tbVisible(item.tbar) ? '✓' : '') + '</span>';
       } else {
         check = '<span class="menu-check"></span>';
       }
@@ -170,6 +210,7 @@
         e.stopPropagation();
         closeAll();
         if (item.fn) { item.fn(); return; }
+        if (item.tbar) { tbToggle(item.tbar); return; }
         var target = document.getElementById(item.check || item.id);
         if (target) target.click();
       });
@@ -217,7 +258,15 @@
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && openRoot) closeAll();
     });
+    tbApply(); // 저장된 도구막대 표시 상태 복원
   }
 
-  App.menubar = { init: init, closeAll: closeAll, MENUS: MENUS };
+  App.menubar = {
+    init: init,
+    closeAll: closeAll,
+    MENUS: MENUS,
+    TBARS: TBARS,
+    toolbarVisible: tbVisible,
+    toolbarToggle: tbToggle,
+  };
 })();
