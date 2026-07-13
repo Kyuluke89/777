@@ -11,6 +11,12 @@
   function snapV(v) {
     return App.geom.snap(v, App.store.get().panel.gridMM);
   }
+  // 배선 전용 격자 — 배선 옵션 "격자" 입력값(0=자유 0.1mm), 비우면 패널 격자 사용
+  function snapW(v) {
+    const g = (App.ui.wireGrid != null) ? App.ui.wireGrid : App.store.get().panel.gridMM;
+    if (!g || g <= 0) return Math.round(v * 10) / 10;
+    return Math.round(v / g) * g;
+  }
 
   // 라벨 자동 증가: 1→2, W1→W2, L01→L02(자리수 유지), 숫자없으면 +1
   function incLabel(s) {
@@ -147,10 +153,10 @@
     const c = wire.corners, o = gesture.orig;
     const cP = gesture.cP, cQ = gesture.cQ;
     if (gesture.orient === 'H') {
-      const ny = snapV(o[cP].y + (cp.y - gesture.sp.y));
+      const ny = snapW(o[cP].y + (cp.y - gesture.sp.y));
       c[cP].y = ny; c[cQ].y = ny;
     } else {
-      const nx = snapV(o[cP].x + (cp.x - gesture.sp.x));
+      const nx = snapW(o[cP].x + (cp.x - gesture.sp.x));
       c[cP].x = nx; c[cQ].x = nx;
     }
     gesture.moved = true;

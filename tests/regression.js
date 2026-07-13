@@ -2814,6 +2814,71 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(destTube.hasBoth, '행선지 튜브: 상대 호기-단자 (Q2-T3 / Q1-L1)');
   assert(destTube.off && destTube.back, '행선지 표시 토글');
 
+  // === 배선 격자 조절 ===
+  const wgrid = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'wg1', partNo: 'WG', type: 'MC', x: 1500, y: 1850, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wg2', partNo: 'WG', type: 'MC', x: 1700, y: 1850, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'wgw1', fromComp: 'wg1', fromTerm: 0, toComp: 'wg2', toTerm: 0, label: 'GG1', color: '#111', width: 1.2, corners: null, midY: 1800 });
+    });
+    App.toolbar.setTool('select');
+    App.ui.selected = new Set(['wgw1']);
+    App.viewport.centerOn(1615, 1800);
+    App.render.all();
+    const gi = document.getElementById('wire-grid');
+    function dragSeg(targetY) {
+      // 수평 세그먼트(y=현재 midY) 핸들을 targetY 로 드래그
+      const seg = document.querySelector('[data-seg][data-wire="wgw1"][data-orient="H"]');
+      if (!seg) return false;
+      const svg = document.getElementById('canvas');
+      const ctm = svg.getScreenCTM();
+      const st = App.store.get();
+      const R = App.wires.route(st, st.wires.find(w => w.id === 'wgw1'));
+      let curY = null;
+      for (let i = 0; i < R.length - 1; i++) if (R[i].y === R[i + 1].y && Math.abs(R[i].x - R[i + 1].x) > 3) curY = R[i].y;
+      const p = svg.createSVGPoint(); p.x = 1615; p.y = curY;
+      const a = p.matrixTransform(ctm);
+      p.y = targetY;
+      const b = p.matrixTransform(ctm);
+      const dn = new PointerEvent('pointerdown', { clientX: a.x, clientY: a.y, button: 0, bubbles: true });
+      Object.defineProperty(dn, 'target', { value: seg });
+      svg.dispatchEvent(dn);
+      svg.dispatchEvent(new PointerEvent('pointermove', { clientX: b.x, clientY: b.y, bubbles: true }));
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x, clientY: b.y, bubbles: true }));
+      return true;
+    }
+    function midY() {
+      const st = App.store.get();
+      const R = App.wires.route(st, st.wires.find(w => w.id === 'wgw1'));
+      for (let i = 0; i < R.length - 1; i++) if (R[i].y === R[i + 1].y && Math.abs(R[i].x - R[i + 1].x) > 3) return R[i].y;
+      return null;
+    }
+    // 격자 25mm → 1783 으로 드래그하면 1775 로 스냅
+    gi.value = '25'; gi.dispatchEvent(new Event('input'));
+    const ok1 = dragSeg(1783);
+    const snapped25 = midY() % 25 === 0;
+    // 격자 0(자유) → 1783.0 그대로(0.1 단위)
+    gi.value = '0'; gi.dispatchEvent(new Event('input'));
+    dragSeg(1783.4);
+    const free = Math.abs(midY() - 1783.4) < 0.26;
+    gi.value = ''; gi.dispatchEvent(new Event('input')); // 원복(전장 격자 따름)
+    const cleared = App.ui.wireGrid == null;
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'wgw1');
+      s.components = s.components.filter(c => c.partNo !== 'WG');
+    });
+    App.ui.selected.clear();
+    const p = App.store.get().panel;
+    App.viewport.fitTo(p.widthMM, p.heightMM);
+    App.render.all();
+    return { ok1, snapped25, free, cleared };
+  });
+  assert(wgrid.ok1 && wgrid.snapped25, '배선 격자 25mm 스냅');
+  assert(wgrid.free, '배선 격자 0 = 자유 이동(0.1mm)');
+  assert(wgrid.cleared, '비우면 전장 격자 따름');
+
   // === 라이브러리 표시 안정화 + 샘플(기본) 부품 토글 ===
   const libfix = await page.evaluate(() => {
     // 1) 예전에 숨긴 품번과 같은 이름으로 내부품(복제 등) 추가해도 목록에 보여야 함

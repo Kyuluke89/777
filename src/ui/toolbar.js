@@ -139,6 +139,25 @@
       App.ui.nextWireLabel = this.value.trim();
     });
 
+    // 배선 격자(세그먼트 이동 스냅) — 비우면 전장 격자, 0=자유. localStorage 유지
+    const wg = $('wire-grid');
+    try {
+      const savedWG = localStorage.getItem('panel-wire-grid');
+      if (savedWG != null && savedWG !== '') App.ui.wireGrid = Math.max(0, parseFloat(savedWG) || 0);
+    } catch (e) { /* 무시 */ }
+    if (wg) {
+      if (App.ui.wireGrid != null) wg.value = App.ui.wireGrid;
+      wg.addEventListener('input', function () {
+        if (this.value === '') {
+          App.ui.wireGrid = null;
+          try { localStorage.removeItem('panel-wire-grid'); } catch (e) {}
+        } else {
+          App.ui.wireGrid = Math.max(0, parseFloat(this.value) || 0);
+          try { localStorage.setItem('panel-wire-grid', String(App.ui.wireGrid)); } catch (e) {}
+        }
+      });
+    }
+
     // 겹선 분리(겹쳐 지나가는 배선 나란히 벌리기)
     const ws = $('wire-spread');
     if (ws) ws.addEventListener('change', function () {
