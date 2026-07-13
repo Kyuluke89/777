@@ -3682,6 +3682,29 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(tagpos.tagCenter, '호기번호가 부품 가운데 크게 표시');
   assert(tagpos.typeTop, '유형은 상단에 작게 표시');
 
+  // === 타입(유형) 표시 온오프 ===
+  const typetog = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'tg1', partNo: 'TG', type: 'MCCB', x: 100, y: 100, widthMM: 40, heightMM: 60, rotation: 0, label: 'x', tag: 'Q6', terminals: 0, term: [] });
+    });
+    App.ui.selected = new Set(['tg1']);
+    App.render.all();
+    const hasType = () => Array.from(document.querySelectorAll('[data-id="tg1"] text')).some(t => t.textContent === 'MCCB');
+    const handleOn = () => !!document.querySelector('[data-typefor="tg1"]');
+    const on = hasType() && handleOn();
+    const cb = document.getElementById('show-types');
+    cb.checked = false; cb.dispatchEvent(new Event('change'));
+    const off = !hasType() && !handleOn() && App.store.get().panel.showTypes === false;
+    const tagKept = Array.from(document.querySelectorAll('[data-id="tg1"] text')).some(t => t.textContent === 'Q6');
+    cb.checked = true; cb.dispatchEvent(new Event('change'));
+    const back = hasType();
+    App.ui.selected.clear();
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'tg1'); });
+    return { on, off, tagKept, back };
+  });
+  assert(typetog.on && typetog.off && typetog.back, '타입(유형) 표시 온오프 (핸들 포함)');
+  assert(typetog.tagKept, '타입 꺼도 호기번호는 유지');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

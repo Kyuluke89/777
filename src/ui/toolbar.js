@@ -84,6 +84,12 @@
       App.store.commit(function (s) { s.panel.showNames = on; });
       App.render.all();
     });
+    // 타입(유형) 표시 온/오프
+    if ($('show-types')) $('show-types').addEventListener('change', function () {
+      const on = this.checked;
+      App.store.commit(function (s) { s.panel.showTypes = on; });
+      App.render.all();
+    });
     // 스티커 표시 온/오프
     if ($('show-stickers')) $('show-stickers').addEventListener('change', function () {
       const on = this.checked;
@@ -575,6 +581,7 @@
     if ($('panel-field')) $('panel-field').checked = !!p.fieldZone;
     if ($('panel-frame')) $('panel-frame').checked = !!p.frame;
     if ($('show-names')) $('show-names').checked = p.showNames !== false;
+    if ($('show-types')) $('show-types').checked = p.showTypes !== false;
     if ($('show-stickers')) $('show-stickers').checked = p.showStickers !== false;
     const f = s.fonts || {};
     ['ctype', 'ctag', 'cname', 'term', 'wire', 'dim'].forEach(function (k) {

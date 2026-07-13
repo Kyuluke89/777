@@ -541,8 +541,8 @@
         }, grp);
         tg.textContent = c.tag;
       }
-      // 타입 배지(카테고리) — 상단에 작게. 위치 이동 가능(계통도 심볼은 생략)
-      if (!c.sym) {
+      // 타입 배지(카테고리) — 상단에 작게. 위치 이동 가능(계통도 심볼은 생략, showTypes=false 면 숨김)
+      if (!c.sym && state.panel.showTypes !== false) {
         const bx = cx + (c.typeDx || 0), by = c.y + Math.min(8, c.heightMM * 0.12) + (c.typeDy || 0);
         const badge = App.el('text', {
           x: bx, y: by, 'text-anchor': 'middle',
@@ -905,12 +905,14 @@
         const thw = Math.max(7, String(c.tag).length * tf * 0.6), thh = tf * 1.6;
         App.el('rect', { x: tp.x - thw / 2, y: tp.y - thh / 2, width: thw, height: thh, fill: 'transparent', 'pointer-events': 'all', 'data-tagfor': c.id, style: 'cursor:move' }, g);
       }
-      // 타입 배지 핸들 — 상단
-      const bf = Math.min(8, c.heightMM * 0.14) * F.ctype;
-      const blx = cx + (c.typeDx || 0), bly = c.y + Math.min(8, c.heightMM * 0.12) + (c.typeDy || 0);
-      const bp = rotPt(blx, bly, cx, cy, c.rotation || 0);
-      const bhw = Math.max(8, String(c.type || '').length * bf * 0.6), bhh = bf * 1.6;
-      App.el('rect', { x: bp.x - bhw / 2, y: bp.y - bhh / 2, width: bhw, height: bhh, fill: 'transparent', 'pointer-events': 'all', 'data-typefor': c.id, style: 'cursor:move' }, g);
+      // 타입 배지 핸들 — 상단 (표시 중일 때만)
+      if (state.panel.showTypes !== false) {
+        const bf = Math.min(8, c.heightMM * 0.14) * F.ctype;
+        const blx = cx + (c.typeDx || 0), bly = c.y + Math.min(8, c.heightMM * 0.12) + (c.typeDy || 0);
+        const bp = rotPt(blx, bly, cx, cy, c.rotation || 0);
+        const bhw = Math.max(8, String(c.type || '').length * bf * 0.6), bhh = bf * 1.6;
+        App.el('rect', { x: bp.x - bhw / 2, y: bp.y - bhh / 2, width: bhw, height: bhh, fill: 'transparent', 'pointer-events': 'all', 'data-typefor': c.id, style: 'cursor:move' }, g);
+      }
     });
     // 덕트/레일 끝 리사이즈 핸들 — 선택 시 양 끝을 드래그해 길이 조절
     ['ducts', 'rails'].forEach(function (rk) {

@@ -112,6 +112,7 @@
         { id: 'act-3d', label: '3D 입체 보기' },
         { sep: true },
         { check: 'show-names', label: '품명 표시' },
+        { check: 'show-types', label: '타입(유형) 표시' },
         { check: 'show-stickers', label: '스티커 표시' },
         { check: 'wire-acdc-show', label: '전원(AC/DC) 표시' },
         { check: 'wire-num-show', label: '라인번호(넘버링) 표시' },
