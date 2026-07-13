@@ -3625,6 +3625,63 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(dzoom.zoomed && dzoom.fixed, '치수 문자 도면(mm) 고정 — 줌해도 크기 안 바뀜');
   assert(dzoom.mm5 && dzoom.sized, '치수 문자 크기(mm) 조절 (기본 5mm → 8mm)');
 
+  // === 넘버링 전체 온오프 + 행선지 독립 토글 ===
+  const numtog = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'nt1', partNo: 'NT', type: 'MC', x: 1500, y: 2100, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', tag: 'Q7', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'nt2', partNo: 'NT', type: 'MC', x: 1700, y: 2100, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', tag: 'Q8', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push({ id: 'ntw', fromComp: 'nt1', fromTerm: 0, toComp: 'nt2', toTerm: 0, label: 'N1', color: '#111', width: 1.2, corners: null, midY: 2060 });
+    });
+    App.render.all();
+    const grp = () => document.querySelector('[data-id="ntw"]');
+    const numOn = Array.from(grp().querySelectorAll('text')).some(t => t.textContent === 'N1');
+    const destOn = grp().querySelectorAll('[data-dest]').length > 0;
+    // 번호 끄기 → 번호 사라지고 행선지는 유지
+    const cb = document.getElementById('wire-num-show');
+    cb.checked = false; cb.dispatchEvent(new Event('change'));
+    const numOff = !Array.from(grp().querySelectorAll('text')).some(t => t.textContent === 'N1');
+    const destStill = grp().querySelectorAll('[data-dest]').length > 0;
+    const saved = localStorage.getItem('panel-show-wirenum') === '0';
+    // 행선지도 끄기
+    const db = document.getElementById('wire-dest-show');
+    db.checked = false; db.dispatchEvent(new Event('change'));
+    const destOff = grp().querySelectorAll('[data-dest]').length === 0;
+    // 복원
+    cb.checked = true; cb.dispatchEvent(new Event('change'));
+    db.checked = true; db.dispatchEvent(new Event('change'));
+    const back = Array.from(grp().querySelectorAll('text')).some(t => t.textContent === 'N1');
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id !== 'ntw');
+      s.components = s.components.filter(c => c.partNo !== 'NT');
+    });
+    return { numOn, destOn, numOff, destStill, saved, destOff, back };
+  });
+  assert(numtog.numOn && numtog.numOff && numtog.back, '넘버링(번호 튜브) 전체 온오프');
+  assert(numtog.destOn && numtog.destStill && numtog.destOff, '행선지(호기번호) 튜브 독립 온오프');
+  assert(numtog.saved, '번호 표시 설정 localStorage 유지');
+
+  // === 부품 가운데 = 호기번호, 유형은 상단 작게 ===
+  const tagpos = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'tp1', partNo: 'TP', type: 'MCCB', x: 100, y: 100, widthMM: 40, heightMM: 60, rotation: 0, label: 'x', tag: 'Q5', terminals: 0, term: [] });
+    });
+    App.render.all();
+    const grp = document.querySelector('[data-id="tp1"]');
+    const texts = Array.from(grp.querySelectorAll('text'));
+    const tagT = texts.find(t => t.textContent === 'Q5');
+    const typeT = texts.find(t => t.textContent === 'MCCB');
+    // 호기번호: 세로 중앙(y≈128) + 큰 글씨(min(12, 60*0.22)=12)
+    const tagCenter = tagT && Math.abs(parseFloat(tagT.getAttribute('y')) - 128) < 2 && parseFloat(tagT.getAttribute('font-size')) >= 11;
+    // 유형: 상단(y≈108) + 작은 글씨(min(8, 60*0.14)=8)
+    const typeTop = typeT && Math.abs(parseFloat(typeT.getAttribute('y')) - 108) < 2 && parseFloat(typeT.getAttribute('font-size')) <= 8.5;
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'tp1'); });
+    return { tagCenter, typeTop };
+  });
+  assert(tagpos.tagCenter, '호기번호가 부품 가운데 크게 표시');
+  assert(tagpos.typeTop, '유형은 상단에 작게 표시');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

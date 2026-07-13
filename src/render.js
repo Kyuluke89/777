@@ -531,22 +531,22 @@
       function vertOf(spec) { return spec != null ? !!spec : !!c.textVert; }
       const vLabel = vertOf(c.labelVert), vType = vertOf(c.typeVert), vTag = vertOf(c.tagVert);
       function vrotIf(on, x, y) { return on ? ('rotate(-90 ' + x + ' ' + y + ')') : null; }
-      // 호기번호(tag) — 입력 시 상단에 작게
+      // 호기번호(tag) — 가운데 크게 (장치 식별이 우선이라 유형과 자리 교체)
       if (c.tag) {
-        const tx = cx + (c.tagDx || 0), ty = c.y + Math.min(8, c.heightMM * 0.12) + (c.tagDy || 0);
+        const tx = cx + (c.tagDx || 0), ty = cy - 2 + (c.tagDy || 0);
         const tg = App.el('text', {
           x: tx, y: ty, 'text-anchor': 'middle',
-          'font-size': Math.min(8, c.heightMM * 0.14) * F.ctag, fill: '#111827',
+          'font-size': Math.min(12, c.heightMM * 0.22) * F.ctag, fill: '#111827',
           'font-weight': 'bold', 'pointer-events': 'none', transform: vrotIf(vTag, tx, ty)
         }, grp);
         tg.textContent = c.tag;
       }
-      // 타입 배지(카테고리) — 위치 이동 가능(계통도 심볼은 생략)
+      // 타입 배지(카테고리) — 상단에 작게. 위치 이동 가능(계통도 심볼은 생략)
       if (!c.sym) {
-        const bx = cx + (c.typeDx || 0), by = cy - 2 + (c.typeDy || 0);
+        const bx = cx + (c.typeDx || 0), by = c.y + Math.min(8, c.heightMM * 0.12) + (c.typeDy || 0);
         const badge = App.el('text', {
           x: bx, y: by, 'text-anchor': 'middle',
-          'font-size': Math.min(12, c.heightMM * 0.22) * F.ctype, fill: color,
+          'font-size': Math.min(8, c.heightMM * 0.14) * F.ctype, fill: color,
           'font-weight': 'bold', 'pointer-events': 'none', transform: vrotIf(vType, bx, by)
         }, grp);
         badge.textContent = c.type || '';
@@ -667,24 +667,27 @@
         [['a', ends.a, w.lblA], ['b', ends.b, w.lblB]].forEach(function (pair) {
           const key = pair[0], e = pair[1], off = pair[2] || { dx: 0, dy: 0 };
           const x = e.x + off.dx, y = e.y + off.dy;
+          const showNum = !App.ui || App.ui.showWireNum !== false; // 전체 번호 표시 토글
           // 실제 넘버링 튜브처럼: 선 위에 끼워진 흰 캡슐(둥근 사각) + 검정 글씨
           const tw = Math.max(fontMM * 1.6, String(w.label).length * fontMM * 0.62 + fontMM * 0.9); // 튜브 길이
           const th = fontMM * 1.45;                                                                  // 튜브 굵기
-          const tg = App.el('g', {
-            transform: 'rotate(' + e.ang + ' ' + x + ' ' + y + ')', 'pointer-events': 'none'
-          }, grp);
-          App.el('rect', {
-            x: x - tw / 2, y: y - th / 2, width: tw, height: th, rx: th * 0.42,
-            fill: '#ffffff', stroke: '#94a3b8', 'stroke-width': fontMM * 0.08
-          }, tg);
-          // 튜브 양 끝 살짝 어두운 단면(끼워진 느낌)
-          App.el('rect', { x: x - tw / 2, y: y - th / 2, width: fontMM * 0.18, height: th, rx: fontMM * 0.09, fill: '#cbd5e1' }, tg);
-          App.el('rect', { x: x + tw / 2 - fontMM * 0.18, y: y - th / 2, width: fontMM * 0.18, height: th, rx: fontMM * 0.09, fill: '#cbd5e1' }, tg);
-          const t = App.el('text', {
-            x: x, y: y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
-            'font-size': fontMM, fill: '#111827', 'font-weight': 'bold', 'font-family': 'Consolas, monospace'
-          }, tg);
-          t.textContent = w.label;
+          if (showNum) {
+            const tg = App.el('g', {
+              transform: 'rotate(' + e.ang + ' ' + x + ' ' + y + ')', 'pointer-events': 'none'
+            }, grp);
+            App.el('rect', {
+              x: x - tw / 2, y: y - th / 2, width: tw, height: th, rx: th * 0.42,
+              fill: '#ffffff', stroke: '#94a3b8', 'stroke-width': fontMM * 0.08
+            }, tg);
+            // 튜브 양 끝 살짝 어두운 단면(끼워진 느낌)
+            App.el('rect', { x: x - tw / 2, y: y - th / 2, width: fontMM * 0.18, height: th, rx: fontMM * 0.09, fill: '#cbd5e1' }, tg);
+            App.el('rect', { x: x + tw / 2 - fontMM * 0.18, y: y - th / 2, width: fontMM * 0.18, height: th, rx: fontMM * 0.09, fill: '#cbd5e1' }, tg);
+            const t = App.el('text', {
+              x: x, y: y, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+              'font-size': fontMM, fill: '#111827', 'font-weight': 'bold', 'font-family': 'Consolas, monospace'
+            }, tg);
+            t.textContent = w.label;
+          }
 
           // 행선지 튜브 — 번호 튜브 바로 뒤에 상대 부품 호기번호-단자 표시 (토글 가능)
           if (App.ui && App.ui.showDest !== false) {
@@ -700,8 +703,10 @@
               const tw2 = Math.max(fontMM * 1.6, String(dest).length * fontMM * 0.58 + fontMM * 0.9);
               const gap = fontMM * 0.25;
               const rad = e.ang * Math.PI / 180;
-              const dxo = Math.cos(rad) * (tw / 2 + tw2 / 2 + gap);
-              const dyo = Math.sin(rad) * (tw / 2 + tw2 / 2 + gap);
+              // 번호 튜브가 꺼져 있으면 그 자리(라벨 위치)에 표시
+              const half = showNum ? (tw / 2 + tw2 / 2 + gap) : 0;
+              const dxo = Math.cos(rad) * half;
+              const dyo = Math.sin(rad) * half;
               // 단자에서 더 먼 쪽(번호 튜브 "뒤")을 선택
               const termPt = key === 'a' ? pts[0] : pts[pts.length - 1];
               const cA = { x: x + dxo, y: y + dyo }, cB = { x: x - dxo, y: y - dyo };
@@ -892,17 +897,17 @@
         const hw = Math.max(8, txt.length * fit * 0.6), hh = fit * 1.6;
         App.el('rect', { x: p.x - hw / 2, y: p.y - hh / 2, width: hw, height: hh, fill: 'transparent', 'pointer-events': 'all', 'data-labelfor': c.id, style: 'cursor:move' }, g);
       }
-      // 호기번호(tag) 핸들
+      // 호기번호(tag) 핸들 — 가운데(유형과 자리 교체)
       if (c.tag) {
-        const tf = Math.min(8, c.heightMM * 0.14) * F.ctag;
-        const tlx = cx + (c.tagDx || 0), tly = c.y + Math.min(8, c.heightMM * 0.12) + (c.tagDy || 0);
+        const tf = Math.min(12, c.heightMM * 0.22) * F.ctag;
+        const tlx = cx + (c.tagDx || 0), tly = cy - 2 + (c.tagDy || 0);
         const tp = rotPt(tlx, tly, cx, cy, c.rotation || 0);
         const thw = Math.max(7, String(c.tag).length * tf * 0.6), thh = tf * 1.6;
         App.el('rect', { x: tp.x - thw / 2, y: tp.y - thh / 2, width: thw, height: thh, fill: 'transparent', 'pointer-events': 'all', 'data-tagfor': c.id, style: 'cursor:move' }, g);
       }
-      // 타입 배지 핸들
-      const bf = Math.min(12, c.heightMM * 0.22) * F.ctype;
-      const blx = cx + (c.typeDx || 0), bly = cy - 2 + (c.typeDy || 0);
+      // 타입 배지 핸들 — 상단
+      const bf = Math.min(8, c.heightMM * 0.14) * F.ctype;
+      const blx = cx + (c.typeDx || 0), bly = c.y + Math.min(8, c.heightMM * 0.12) + (c.typeDy || 0);
       const bp = rotPt(blx, bly, cx, cy, c.rotation || 0);
       const bhw = Math.max(8, String(c.type || '').length * bf * 0.6), bhh = bf * 1.6;
       App.el('rect', { x: bp.x - bhw / 2, y: bp.y - bhh / 2, width: bhw, height: bhh, fill: 'transparent', 'pointer-events': 'all', 'data-typefor': c.id, style: 'cursor:move' }, g);

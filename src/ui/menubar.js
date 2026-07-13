@@ -114,6 +114,7 @@
         { check: 'show-names', label: '품명 표시' },
         { check: 'show-stickers', label: '스티커 표시' },
         { check: 'wire-acdc-show', label: '전원(AC/DC) 표시' },
+        { check: 'wire-num-show', label: '라인번호(넘버링) 표시' },
         { check: 'wire-dest-show', label: '행선지 튜브 표시' },
         { check: 'wire-spread', label: '겹선 분리' },
         { check: 'panel-frame', label: '도면 프레임' },

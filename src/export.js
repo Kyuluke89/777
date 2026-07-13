@@ -334,7 +334,7 @@
       });
       const cy = by + bh / 2;
       text('TEXT', bx + 2, cy, 4, (c.label && c.label !== c.partName) ? c.label : (c.partNo || c.partName || '')); // 타이틀 표시
-      if (c.tag) text('TEXT', bx + 2, by + 7, 4, c.tag);
+      if (c.tag) text('TEXT', bx + 2, cy - 6, 5, c.tag); // 호기번호 — 가운데(캔버스와 동일)
       App.terminals.world(c).forEach(function (t) {
         circle('TERMS', t.x, t.y, (t.w || 3.6) / 2);
         if (t.name) text('TERMS', t.x + 2.4, t.y - 2.4, 2.5, t.name);

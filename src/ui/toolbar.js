@@ -221,6 +221,18 @@
     }
 
     // 행선지(상대 호기-단자) 튜브 표시 온/오프 — localStorage 유지
+    // 라인번호(넘버링 튜브) 전체 표시/숨김
+    const wns = $('wire-num-show');
+    try { App.ui.showWireNum = localStorage.getItem('panel-show-wirenum') !== '0'; } catch (e) { App.ui.showWireNum = true; }
+    if (wns) {
+      wns.checked = App.ui.showWireNum !== false;
+      wns.addEventListener('change', function () {
+        App.ui.showWireNum = this.checked;
+        try { localStorage.setItem('panel-show-wirenum', this.checked ? '1' : '0'); } catch (e) {}
+        App.render.all();
+      });
+    }
+
     const wds = $('wire-dest-show');
     try { App.ui.showDest = localStorage.getItem('panel-show-dest') !== '0'; } catch (e) { App.ui.showDest = true; }
     if (wds) {
