@@ -3283,6 +3283,54 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(tmove.movedRow && tmove.savedRow, '드래그로 다른 줄(1단↔2단) 이동');
   assert(tmove.restored, '도구막대 배치 초기화 → 기본 배치 복원');
 
+  // === 나란한 배선 클릭 → 커서에서 가장 가까운 선 선택 (겹선 오선택 수정) ===
+  const wpick = await page.evaluate(() => {
+    App.toolbar.setTool('select');
+    App.ui.selected.clear();
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'wp1', partNo: 'WP', type: 'MC', x: 1500, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wp2', partNo: 'WP', type: 'MC', x: 1700, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wp3', partNo: 'WP', type: 'MC', x: 1540, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'c', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'wp4', partNo: 'WP', type: 'MC', x: 1660, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'd', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      // 두 배선이 2mm 간격으로 나란히 감 → 클릭 영역(6mm)이 서로 겹침
+      s.wires.push(
+        { id: 'wpwA', fromComp: 'wp1', fromTerm: 0, toComp: 'wp2', toTerm: 0, label: 'A1', color: '#111', width: 1.2, corners: null, midY: 1860 },
+        { id: 'wpwB', fromComp: 'wp3', fromTerm: 0, toComp: 'wp4', toTerm: 0, label: 'B1', color: '#16a34a', width: 1.2, corners: null, midY: 1862 }
+      );
+    });
+    App.viewport.centerOn(1615, 1861);
+    App.render.all();
+    const svg = document.getElementById('canvas');
+    function clickAt(wx, wy) {
+      const p = svg.createSVGPoint(); p.x = wx; p.y = wy;
+      const c = p.matrixTransform(svg.getScreenCTM());
+      const target = document.elementFromPoint(c.x, c.y) || svg;
+      const dn = new PointerEvent('pointerdown', { clientX: c.x, clientY: c.y, button: 0, bubbles: true });
+      Object.defineProperty(dn, 'target', { value: target });
+      svg.dispatchEvent(dn);
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: c.x, clientY: c.y, bubbles: true }));
+    }
+    clickAt(1615, 1860); // A 선 위 (B 클릭영역과 겹치는 지점)
+    const pickedA = App.ui.selected.has('wpwA') && !App.ui.selected.has('wpwB');
+    App.ui.selected.clear();
+    App.render.all();
+    clickAt(1615, 1862); // B 선 위
+    const pickedB = App.ui.selected.has('wpwB') && !App.ui.selected.has('wpwA');
+    App.ui.selected.clear();
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id.indexOf('wpw') !== 0);
+      s.components = s.components.filter(c => c.partNo !== 'WP');
+    });
+    const pnl = App.store.get().panel;
+    App.viewport.fitTo(pnl.widthMM, pnl.heightMM);
+    App.render.all();
+    return { pickedA, pickedB };
+  });
+  assert(wpick.pickedA, '나란한 배선: 위쪽 선 클릭 → 그 선만 선택');
+  assert(wpick.pickedB, '나란한 배선: 아래쪽 선 클릭 → 그 선만 선택');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

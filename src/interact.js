@@ -330,7 +330,9 @@
       const mpEl = e.target.closest && e.target.closest('[data-id][data-kind]');
       const mp = App.ui.matchProp;
       if (mpEl) {
-        const mid = mpEl.getAttribute('data-id'), mkind = mpEl.getAttribute('data-kind');
+        let mid = mpEl.getAttribute('data-id');
+        const mkind = mpEl.getAttribute('data-kind');
+        if (mkind === 'wires') mid = nearestWireAt(e.clientX, e.clientY, mid); // 겹선 정확히 집기
         if (mkind === mp.kind && mid !== mp.srcId) {
           App.store.commit(function () {
             const fm = App.store.findById(mid);
@@ -600,7 +602,9 @@
     // 선택 도구
     const node = e.target.closest && e.target.closest('[data-id]');
     if (node) {
-      const id = node.getAttribute('data-id');
+      let id = node.getAttribute('data-id');
+      // 배선은 클릭 영역(6mm)이 겹선끼리 겹치므로 커서에서 가장 가까운 선을 고른다
+      if (node.getAttribute('data-kind') === 'wires') id = nearestWireAt(e.clientX, e.clientY, id);
       if (e.shiftKey) {
         if (App.ui.selected.has(id)) App.ui.selected.delete(id); else App.ui.selected.add(id);
         App.render.all();
@@ -622,6 +626,46 @@
       svg.setPointerCapture(e.pointerId);
     }
   }
+
+  // 점→선분 거리 (mm)
+  function distToSeg(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const L2 = dx * dx + dy * dy;
+    let t = L2 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  }
+
+  // 클릭 지점에 겹쳐 있는 배선들 중 화면상 실제 선(겹선 오프셋 반영)이
+  // 커서에서 가장 가까운 배선 id — 나란히 가는 선을 정확히 집기 위함
+  function nearestWireAt(clientX, clientY, fallbackId) {
+    const stack = document.elementsFromPoint ? document.elementsFromPoint(clientX, clientY) : [];
+    const ids = [];
+    stack.forEach(function (el) {
+      const m = el.closest && el.closest('[data-kind="wires"][data-id]');
+      if (m) {
+        const id = m.getAttribute('data-id');
+        if (ids.indexOf(id) < 0) ids.push(id);
+      }
+    });
+    if (ids.length <= 1) return ids[0] || fallbackId;
+    const wp = App.viewport.clientToWorld(clientX, clientY);
+    const state = App.store.get();
+    const off = (App.ui && App.ui.spreadWires === false) ? null : App.wires.spreadOffsets(state);
+    let best = fallbackId, bestD = Infinity;
+    ids.forEach(function (id) {
+      const w = state.wires.find(function (x) { return x.id === id; });
+      if (!w) return;
+      const pts = App.wires.displayRoute(state, w, off);
+      if (!pts) return;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const d = distToSeg(wp, pts[i], pts[i + 1]);
+        if (d < bestD) { bestD = d; best = id; }
+      }
+    });
+    return best;
+  }
+  Interact.nearestWireAt = nearestWireAt;
 
   function rectFrom(a, b) {
     return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
@@ -961,7 +1005,7 @@
     }
     const wireGrp = pick('[data-kind="wires"]');
     if (wireGrp) {
-      const id = wireGrp.getAttribute('data-id');
+      const id = nearestWireAt(e.clientX, e.clientY, wireGrp.getAttribute('data-id'));
       selectOnly(id);
       addBendAt(id, App.viewport.clientToWorld(e.clientX, e.clientY));
       return;
