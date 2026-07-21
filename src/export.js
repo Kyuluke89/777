@@ -330,6 +330,7 @@
       (c.shapes || []).forEach(function (sh) {
         if (sh.kind === 'rect') rect('PARTS', c.x + sh.x, c.y + sh.y, sh.w, sh.h);
         else if (sh.kind === 'line') line('PARTS', c.x + sh.x1, c.y + sh.y1, c.x + sh.x2, c.y + sh.y2);
+        else if (sh.kind === 'circle') circle('PARTS', c.x + sh.x, c.y + sh.y, sh.r);
         else if (sh.kind === 'text' && sh.text) text('PARTS', c.x + sh.x, c.y + sh.y, sh.size || 5, sh.text);
       });
       const cy = by + bh / 2;

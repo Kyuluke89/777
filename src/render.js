@@ -517,6 +517,12 @@
             stroke: sh.color || '#334155', 'stroke-width': sh.sw || 0.6,
             'stroke-dasharray': App.dashOf(sh.style), 'stroke-linecap': 'round', 'pointer-events': 'none'
           }, grp);
+        } else if (sh.kind === 'circle') {
+          App.el('circle', {
+            cx: c.x + sh.x, cy: c.y + sh.y, r: sh.r, fill: 'none',
+            stroke: sh.color || '#334155', 'stroke-width': sh.sw || 0.6,
+            'stroke-dasharray': App.dashOf(sh.style), 'pointer-events': 'none'
+          }, grp);
         } else if (sh.kind === 'text') {
           const sT = App.el('text', {
             x: c.x + sh.x, y: c.y + sh.y, 'font-size': sh.size || 5,

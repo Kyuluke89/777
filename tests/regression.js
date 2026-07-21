@@ -3705,6 +3705,59 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(typetog.on && typetog.off && typetog.back, '타입(유형) 표시 온오프 (핸들 포함)');
   assert(typetog.tagKept, '타입 꺼도 호기번호는 유지');
 
+  // === 에디터: 원형 그리기 + 도형 크기조절 + Ctrl 복사 ===
+  const shp = await page.evaluate(() => {
+    const $ = id => document.getElementById(id);
+    App.partEditor.open({});
+    $('pe-name-in').value = '도형테스트X';
+    const svg = $('pe-canvas');
+    const ctm = () => svg.getScreenCTM();
+    function pt(x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(ctm()); }
+    function drag(x1, y1, x2, y2, target, ctrl) {
+      const a = pt(x1, y1), b = pt(x2, y2);
+      const dn = new PointerEvent('pointerdown', { clientX: a.x, clientY: a.y, bubbles: true, ctrlKey: !!ctrl });
+      if (target) Object.defineProperty(dn, 'target', { value: target });
+      svg.dispatchEvent(dn);
+      svg.dispatchEvent(new PointerEvent('pointermove', { clientX: b.x, clientY: b.y, bubbles: true, ctrlKey: !!ctrl }));
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: b.x, clientY: b.y, bubbles: true }));
+    }
+    // 1) 원형 그리기: 중심 (30,40) → 반지름 10
+    $('pe-mode-circle').click();
+    drag(30, 40, 40, 40);
+    let circ = svg.querySelector('circle[data-si]');
+    const drew = !!circ && Math.abs(parseFloat(circ.getAttribute('r')) - 10) < 0.6;
+    // 2) 선택 후 크기조절 핸들 드래그 → r 15
+    $('pe-mode-select').click();
+    drag(30, 40, 30, 40, circ); // 클릭 = 선택
+    const handle = svg.querySelector('[data-shresize]');
+    const hasHandle = !!handle;
+    if (handle) drag(40, 40, 45, 40, handle);
+    circ = svg.querySelector('circle[data-si]');
+    const resized = !!circ && Math.abs(parseFloat(circ.getAttribute('r')) - 15) < 0.6;
+    // 3) Ctrl+드래그 복사: 원을 (30,60) 으로 복사
+    circ = svg.querySelector('circle[data-si]');
+    drag(30, 40, 30, 60, circ, true);
+    const copies = svg.querySelectorAll('circle[data-si]').length === 2;
+    // 저장 → 라이브러리에 원형 도형 2개
+    $('pe-save').click();
+    const lp = App.palette.getLibrary().find(p => p.partNo === '도형테스트X');
+    const savedCircles = !!lp && (lp.shapes || []).filter(s => s.kind === 'circle').length === 2;
+    // 배치 렌더: 캔버스에 원 그려짐
+    App.store.commit(s => {
+      s.components.push({ id: 'shc1', partNo: '도형테스트X', partName: '도형테스트X', type: 'ETC', x: 100, y: 100, widthMM: 60, heightMM: 80, rotation: 0, label: '도형테스트X', terminals: 0, term: [], shapes: lp ? App.clone(lp.shapes) : [] });
+    });
+    App.render.all();
+    const drawn = document.querySelectorAll('[data-id="shc1"] circle').length >= 2;
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'shc1'); });
+    App.userlib.remove('도형테스트X');
+    App.palette.reloadUser();
+    return { drew, hasHandle, resized, copies, savedCircles, drawn };
+  });
+  assert(shp.drew, '에디터 원형 그리기 (중심→반지름 드래그)');
+  assert(shp.hasHandle && shp.resized, '도형 크기조절 핸들 (원 반지름 드래그)');
+  assert(shp.copies && shp.savedCircles, 'Ctrl+드래그 도형 복사');
+  assert(shp.drawn, '배치된 부품에 원형 도형 렌더');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

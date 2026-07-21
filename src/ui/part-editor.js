@@ -94,6 +94,13 @@
           stroke: selSh ? '#2563eb' : (sh.color || '#334155'), 'stroke-width': sh.sw || 0.6,
           'stroke-dasharray': App.dashOf(sh.style), 'stroke-linecap': 'round', 'pointer-events': 'none'
         }, peSvg);
+      } else if (sh.kind === 'circle') {
+        el('circle', {
+          cx: sh.x, cy: sh.y, r: sh.r, fill: 'none',
+          stroke: selSh ? '#2563eb' : (sh.color || '#334155'), 'stroke-width': sh.sw || 0.6,
+          'stroke-dasharray': App.dashOf(sh.style), 'pointer-events': 'none'
+        }, peSvg);
+        el('circle', { cx: sh.x, cy: sh.y, r: sh.r, fill: 'none', stroke: 'transparent', 'stroke-width': 4, 'data-si': i, style: 'cursor:move' }, peSvg);
       } else {
         const tx = el('text', {
           x: sh.x, y: sh.y, 'font-size': sh.size || 5,
@@ -102,6 +109,22 @@
         tx.textContent = sh.text || '';
       }
     });
+    // 선택 도형 크기조절 핸들 — 사각: 우하단, 원: 오른쪽, 선: 양 끝점
+    const ssh = st.shapes && st.shapes[st.selShape];
+    if (ssh) {
+      function rh(hx, hy, extra) {
+        el('rect', Object.assign({
+          x: hx - 1.6, y: hy - 1.6, width: 3.2, height: 3.2,
+          fill: '#fff', stroke: '#2563eb', 'stroke-width': 0.6, style: 'cursor:nwse-resize'
+        }, extra), peSvg);
+      }
+      if (ssh.kind === 'rect') rh(ssh.x + ssh.w, ssh.y + ssh.h, { 'data-shresize': st.selShape });
+      else if (ssh.kind === 'circle') rh(ssh.x + ssh.r, ssh.y, { 'data-shresize': st.selShape });
+      else if (ssh.kind === 'line') {
+        rh(ssh.x1, ssh.y1, { 'data-shresize': st.selShape, 'data-shend': '1' });
+        rh(ssh.x2, ssh.y2, { 'data-shresize': st.selShape, 'data-shend': '2' });
+      }
+    }
     // 단자 (원형/사각형)
     st.terms.forEach(function (t, i) {
       const g = el('g', { 'data-ti': i, style: 'cursor:move' }, peSvg);
@@ -183,7 +206,7 @@
           '<button data-shdel="' + i + '" class="text-[11px] text-red-500 px-1">✕</button></div>';
       } else {
         html += '<div class="flex items-center gap-1 flex-wrap">' +
-          '<span class="text-[10px] text-slate-400">' + (sh.kind === 'line' ? '╱' : '▭') + '</span>' +
+          '<span class="text-[10px] text-slate-400">' + (sh.kind === 'line' ? '╱' : sh.kind === 'circle' ? '◯' : '▭') + '</span>' +
           '<select data-shstyle="' + i + '" title="선 스타일" class="px-1 py-0.5 text-[10px] border border-slate-300 rounded" style="flex:1">' + dashSelHtml(sh.style || 'solid') + '</select>' +
           '<input data-shsw="' + i + '" type="number" step="0.2" min="0.2" value="' + (sh.sw || 0.6) + '" title="선 굵기(mm)" class="w-11 px-1 py-0.5 text-[10px] border border-slate-300 rounded text-right"/>' +
           '<input data-shcolor="' + i + '" type="color" value="' + (sh.color || '#334155') + '" class="w-6 h-5 border border-slate-300 rounded"/>' +
@@ -271,6 +294,16 @@
     m.setAttribute('stroke-dasharray', '2 1.5');
   }
 
+  // 원형 미리보기
+  function drawCirclePreview(c0, r) {
+    let m = peSvg.querySelector('#pe-circprev');
+    if (!c0) { if (m) m.remove(); return; }
+    if (!m) m = el('circle', { id: 'pe-circprev' }, peSvg);
+    m.setAttribute('cx', c0.x); m.setAttribute('cy', c0.y); m.setAttribute('r', Math.max(0.1, r));
+    m.setAttribute('fill', 'none'); m.setAttribute('stroke', '#2563eb');
+    m.setAttribute('stroke-width', 0.6); m.setAttribute('stroke-dasharray', '2 1.5');
+  }
+
   function onDown(e) {
     const p = clientToMM(e);
     // 이미지 모서리 리사이즈 핸들
@@ -293,16 +326,36 @@
     if (st.mode2 === 'text') { peG = { type: 'textadd', sp: p }; return; }
     // 선긋기 모드: 드래그로 직선
     if (st.mode2 === 'line') { peG = { type: 'linedraw', sp: p }; return; }
+    // 원형 모드: 중심 → 반지름 드래그
+    if (st.mode2 === 'circle') { peG = { type: 'circledraw', sp: p }; return; }
+    // 도형 크기조절 핸들
+    const rz = e.target.closest && e.target.closest('[data-shresize]');
+    if (rz) {
+      const rsi = +rz.getAttribute('data-shresize');
+      const rsh = st.shapes[rsi];
+      if (rsh) {
+        st.selShape = rsi;
+        peG = { type: 'shaperesize', si: rsi, end: rz.getAttribute('data-shend'), sp: p, o: App.clone(rsh) };
+        return;
+      }
+    }
     // 도형(텍스트/사각) 선택·이동
     const shEl = e.target.closest && e.target.closest('[data-si]');
     if (shEl) {
       const si = +shEl.getAttribute('data-si');
       const sh = st.shapes[si];
       if (sh) {
-        st.selShape = si;
-        peG = sh.kind === 'line'
-          ? { type: 'shapemove', sp: p, si: si, ox: sh.x1, oy: sh.y1, ox2: sh.x2, oy2: sh.y2 }
-          : { type: 'shapemove', sp: p, si: si, ox: sh.x, oy: sh.y };
+        // Ctrl+드래그 = 복사해서 끌기
+        let mi = si, ms = sh;
+        if (e.ctrlKey || e.metaKey) {
+          ms = App.clone(sh);
+          st.shapes.push(ms);
+          mi = st.shapes.length - 1;
+        }
+        st.selShape = mi;
+        peG = ms.kind === 'line'
+          ? { type: 'shapemove', sp: p, si: mi, ox: ms.x1, oy: ms.y1, ox2: ms.x2, oy2: ms.y2 }
+          : { type: 'shapemove', sp: p, si: mi, ox: ms.x, oy: ms.y };
         renderPreview(); renderDrawList();
         return;
       }
@@ -393,6 +446,27 @@
       peG.last = p;
       return;
     }
+    if (peG.type === 'circledraw') {
+      drawCirclePreview(peG.sp, Math.hypot(p.x - peG.sp.x, p.y - peG.sp.y));
+      peG.last = p;
+      return;
+    }
+    if (peG.type === 'shaperesize') {
+      const rs = st.shapes[peG.si];
+      if (rs) {
+        if (rs.kind === 'rect') {
+          rs.w = Math.max(1, Math.round(peG.o.w + (p.x - peG.sp.x)));
+          rs.h = Math.max(1, Math.round(peG.o.h + (p.y - peG.sp.y)));
+        } else if (rs.kind === 'circle') {
+          rs.r = Math.max(0.5, Math.round(Math.hypot(p.x - rs.x, p.y - rs.y) * 2) / 2);
+        } else if (rs.kind === 'line') {
+          if (peG.end === '1') { rs.x1 = Math.round(p.x); rs.y1 = Math.round(p.y); }
+          else { rs.x2 = Math.round(p.x); rs.y2 = Math.round(p.y); }
+        }
+        renderPreview();
+      }
+      return;
+    }
     if (peG.type === 'rectdraw') {
       drawMarquee({ x: Math.min(peG.sp.x, p.x), y: Math.min(peG.sp.y, p.y), w: Math.abs(p.x - peG.sp.x), h: Math.abs(p.y - peG.sp.y) });
       peG.last = p;
@@ -446,6 +520,20 @@
           style: st.shpStyle || 'solid', sw: st.shpSW || 0.6, color: st.shpColor || '#334155'
         });
         st.selShape = st.shapes.length - 1;
+      }
+    }
+    if (peG.type === 'circledraw') {
+      drawCirclePreview(null, 0);
+      if (peG.last) {
+        const r = Math.round(Math.hypot(peG.last.x - peG.sp.x, peG.last.y - peG.sp.y) * 2) / 2;
+        if (r >= 1) {
+          st.shapes = st.shapes || [];
+          st.shapes.push({
+            kind: 'circle', x: Math.round(peG.sp.x), y: Math.round(peG.sp.y), r: r,
+            style: st.shpStyle || 'solid', sw: st.shpSW || 0.6, color: st.shpColor || '#334155'
+          });
+          st.selShape = st.shapes.length - 1;
+        }
       }
     }
     if (peG.type === 'textadd') {
@@ -697,7 +785,7 @@
     };
     // 편집 모드 버튼(선택/단자추가/이미지조절)
     function updateModeUI() {
-      [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect'], ['pe-mode-line', 'line']].forEach(function (pr) {
+      [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect'], ['pe-mode-line', 'line'], ['pe-mode-circle', 'circle']].forEach(function (pr) {
         const b = $(pr[0]); if (!b) return;
         const on = st && st.mode2 === pr[1];
         b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on);
@@ -708,7 +796,7 @@
           : (st.mode2 === 'img' ? 'move' : 'default');
     }
     PE.updateModeUI = updateModeUI;
-    [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect'], ['pe-mode-line', 'line']].forEach(function (pr) {
+    [['pe-mode-select', 'select'], ['pe-mode-add', 'add'], ['pe-mode-img', 'img'], ['pe-mode-text', 'text'], ['pe-mode-rect', 'rect'], ['pe-mode-line', 'line'], ['pe-mode-circle', 'circle']].forEach(function (pr) {
       const b = $(pr[0]);
       if (b) b.onclick = function () {
         if (!st) return;
