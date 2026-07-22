@@ -68,6 +68,12 @@
       const el = $(id);
       if (el) el.addEventListener('change', applyPanel);
     });
+    if ($('panel-field-h')) $('panel-field-h').addEventListener('change', function () {
+      const v = Math.max(50, parseFloat(this.value) || 220);
+      this.value = v;
+      App.store.commit(function (s) { s.panel.fieldH = v; });
+      App.render.all();
+    });
     if ($('panel-field')) $('panel-field').addEventListener('change', function () {
       const on = this.checked;
       App.store.commit(function (s) { s.panel.fieldZone = on; });
@@ -579,6 +585,7 @@
     if ($('panel-h')) $('panel-h').value = p.heightMM;
     if ($('panel-grid')) $('panel-grid').value = p.gridMM;
     if ($('panel-field')) $('panel-field').checked = !!p.fieldZone;
+    if ($('panel-field-h')) $('panel-field-h').value = p.fieldH || 220;
     if ($('panel-frame')) $('panel-frame').checked = !!p.frame;
     if ($('show-names')) $('show-names').checked = p.showNames !== false;
     if ($('show-types')) $('show-types').checked = p.showTypes !== false;

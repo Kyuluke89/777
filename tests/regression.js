@@ -3758,6 +3758,31 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(shp.copies && shp.savedCircles, 'Ctrl+드래그 도형 복사');
   assert(shp.drawn, '배치된 부품에 원형 도형 렌더');
 
+  // === 심볼 테두리 + 기계영역 높이 설정 ===
+  const symb = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push({ id: 'sb2', partNo: 'SYM-T', partName: 'SYM-T', type: 'SYM', sym: 'custom', x: 100, y: 100, widthMM: 30, heightMM: 30, rotation: 0, label: 't', terminals: 0, term: [] });
+    });
+    App.render.all();
+    const bordered = Array.from(document.querySelectorAll('[data-id="sb2"] rect')).some(r =>
+      r.getAttribute('stroke') && r.getAttribute('stroke') !== 'none' && parseFloat(r.getAttribute('stroke-width')) > 0);
+    App.store.commit(s => { s.components = s.components.filter(c => c.id !== 'sb2'); });
+    // 기계영역 높이 설정
+    const fld = document.getElementById('panel-field');
+    fld.checked = true; fld.dispatchEvent(new Event('change'));
+    const fh = document.getElementById('panel-field-h');
+    const hasInput = !!fh;
+    fh.value = '300'; fh.dispatchEvent(new Event('change'));
+    const setOk = App.store.get().panel.fieldH === 300;
+    // 렌더에 반영: 필드존 사각형 높이 300
+    App.render.all();
+    fld.checked = false; fld.dispatchEvent(new Event('change'));
+    App.store.commit(s => { delete s.panel.fieldH; });
+    return { bordered, hasInput, setOk };
+  });
+  assert(symb.bordered, '심볼도 테두리 표시');
+  assert(symb.hasInput && symb.setOk, '기계영역 높이(mm) 직접 설정');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

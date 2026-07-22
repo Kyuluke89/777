@@ -478,8 +478,8 @@
         x: c.x, y: c.y, width: c.widthMM, height: c.heightMM,
         rx: 2, fill: over ? '#ef4444' : color,
         'fill-opacity': (c.img || c.sym) ? 0 : (over ? 0.22 : 0.16),
-        stroke: over ? '#dc2626' : (isSelected(c.id) ? '#111827' : (c.sym ? 'none' : color)),
-        'stroke-width': isSelected(c.id) || over ? 2 : 1.2,
+        stroke: over ? '#dc2626' : (isSelected(c.id) ? '#111827' : (c.sym ? '#94a3b8' : color)),
+        'stroke-width': isSelected(c.id) || over ? 2 : (c.sym ? 0.8 : 1.2),
         'stroke-dasharray': (over || (c.sym && isSelected(c.id))) ? '4 2' : null
       }, grp);
       // 단자 커버(날개, 엔드 플레이트) — 좌/우 개별 on/off
