@@ -3783,6 +3783,58 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(symb.bordered, '심볼도 테두리 표시');
   assert(symb.hasInput && symb.setOk, '기계영역 높이(mm) 직접 설정');
 
+  // === 번호 튜브 한쪽 끝 개별 위치 + 번호 정렬 ===
+  const nalign = await page.evaluate(() => {
+    App.store.commit(s => {
+      s.components.push(
+        { id: 'na1', partNo: 'NA', type: 'MC', x: 1500, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'a', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'na2', partNo: 'NA', type: 'MC', x: 1700, y: 1900, widthMM: 30, heightMM: 40, rotation: 0, label: 'b', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'na3', partNo: 'NA', type: 'MC', x: 1540, y: 1930, widthMM: 30, heightMM: 40, rotation: 0, label: 'c', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] },
+        { id: 'na4', partNo: 'NA', type: 'MC', x: 1660, y: 1930, widthMM: 30, heightMM: 40, rotation: 0, label: 'd', terminals: 1, term: [{ name: '1', rx: 15, ry: 2 }] }
+      );
+      s.wires.push(
+        { id: 'naw1', fromComp: 'na1', fromTerm: 0, toComp: 'na2', toTerm: 0, label: 'N1', color: '#111', width: 1.2, corners: null, midY: 1800 },
+        { id: 'naw2', fromComp: 'na3', fromTerm: 0, toComp: 'na4', toTerm: 0, label: 'N2', color: '#111', width: 1.2, corners: null, midY: 1820 }
+      );
+    });
+    let st = App.store.get();
+    const gi = (App.ui.wireLabelInset != null) ? App.ui.wireLabelInset : App.wires.LABEL_INSET; // 전역 번호 위치
+    // 1) 한쪽(A)만 개별 조절: labelInsetA=50, B는 전역 그대로
+    App.store.commit(s => { s.wires.find(w => w.id === 'naw1').labelInsetA = 50; });
+    st = App.store.get();
+    const w1 = st.wires.find(w => w.id === 'naw1');
+    const e1 = App.wires.endLabels(st, w1);
+    const aMoved = Math.abs(e1.a.y - (1902 - 50)) < 1;   // A 튜브: 단자(1902)에서 50mm 위
+    const bKept = Math.abs(e1.b.y - (1902 - gi)) < 1;    // B 튜브: 전역값 유지
+    // 2) 번호 정렬: 기준 naw1 → naw2 튜브가 같은 y 선상으로
+    App.ui.selected = new Set(['naw1', 'naw2']);
+    App.interact.alignWireLabels();
+    st = App.store.get();
+    const w2 = st.wires.find(w => w.id === 'naw2');
+    const e2 = App.wires.endLabels(st, w2);
+    const e1b = App.wires.endLabels(st, st.wires.find(w => w.id === 'naw1'));
+    // naw2 튜브가 기준(naw1) 튜브 중 가까운 쪽과 같은 y 선상에 정렬됨
+    const onRef = v => Math.abs(v - e1b.a.y) < 1 || Math.abs(v - e1b.b.y) < 1;
+    const alignedA = onRef(e2.a.y);
+    const alignedB = onRef(e2.b.y);
+    const insetSet = w2.labelInsetA != null && w2.labelInsetB != null;
+    const undoL = App.store.undoLabel() === '번호 정렬';
+    // 인스펙터 A/B 입력 존재
+    App.ui.selected = new Set(['naw1']);
+    App.inspector.update();
+    const hasAB = !!document.getElementById('insp-winset-a') && !!document.getElementById('insp-winset-b');
+    App.ui.selected.clear();
+    App.store.commit(s => {
+      s.wires = s.wires.filter(w => w.id.indexOf('naw') !== 0);
+      s.components = s.components.filter(c => c.partNo !== 'NA');
+    });
+    App.inspector.update();
+    return { aMoved, bKept, alignedA, alignedB, insetSet, undoL, hasAB };
+  });
+  assert(nalign.aMoved && nalign.bKept, '번호 튜브 한쪽(A)만 개별 위치 조절 — 반대쪽 유지');
+  assert(nalign.alignedA && nalign.alignedB && nalign.insetSet, '번호 정렬: 선택한 배선 튜브를 기준과 같은 선상에');
+  assert(nalign.undoL && nalign.hasAB, '번호 정렬 undo 라벨 + 인스펙터 A/B 입력');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 

@@ -1237,7 +1237,7 @@
 
   // 속성 복사 (MATCHPROP) — 종류별로 복사되는 속성
   const MATCH_PROPS = {
-    wires: ['label', 'color', 'width', 'sq', 'awg', 'acdc', 'hideTube', 'labelInset'], // 라인번호+프리셋 속성 전부
+    wires: ['label', 'color', 'width', 'sq', 'awg', 'acdc', 'hideTube', 'labelInset', 'labelInsetA', 'labelInsetB'], // 라인번호+프리셋 속성 전부
     components: ['type', 'textVert', 'labelVert', 'typeVert', 'tagVert', 'coverL', 'coverR'],
     ducts: ['widthMM'],
     rails: ['widthMM', 'type'],
@@ -1482,6 +1482,59 @@
   function onKeyUp(e) {
     if (e.key === ' ') App.ui.spaceDown = false;
   }
+
+  // 번호(넘버링 튜브) 정렬 — 선택한 배선들의 튜브를 기준 배선(첫 선택)의 튜브와
+  // 같은 선상(수직 구간이면 같은 y, 수평 구간이면 같은 x)에 정렬. 얼라인처럼 동작.
+  function alignWireLabels() {
+    const ids = Array.from(App.ui.selected);
+    const state = App.store.get();
+    const ws = ids.map(function (i) { return state.wires.find(function (w) { return w.id === i; }); }).filter(Boolean);
+    if (ws.length < 2) { if (App.toolbar) App.toolbar.flash('배선을 2개 이상 선택하세요 (첫 선택이 기준)'); return; }
+
+    function endInfo(pts, which, pos) {
+      const p0 = which === 'a' ? pts[0] : pts[pts.length - 1];       // 단자점
+      const p1 = which === 'a' ? pts[1] : pts[pts.length - 2];       // 첫 꺾임
+      const vert = Math.round(p0.x) === Math.round(p1.x);
+      return { term: p0, next: p1, vert: vert, pos: pos };
+    }
+    const refPts = App.wires.route(state, ws[0]);
+    const refEnds = App.wires.endLabels(state, ws[0]);
+    if (!refPts || refPts.length < 2 || !refEnds) return;
+    const refInfos = [endInfo(refPts, 'a', refEnds.a), endInfo(refPts, 'b', refEnds.b)];
+
+    let n = 0;
+    App.store.commit(function (s) {
+      ws.slice(1).forEach(function (w0) {
+        const w = s.wires.find(function (x) { return x.id === w0.id; });
+        if (!w) return;
+        const pts = App.wires.route(s, w);
+        const ends = App.wires.endLabels(s, w);
+        if (!pts || pts.length < 2 || !ends) return;
+        [['a', 'labelInsetA'], ['b', 'labelInsetB']].forEach(function (pr) {
+          const info = endInfo(pts, pr[0], pr[0] === 'a' ? ends.a : ends.b);
+          const cands = refInfos.filter(function (r) { return r.vert === info.vert; });
+          if (!cands.length) return;
+          const axis = info.vert ? 'y' : 'x';
+          // 기준의 두 끝 중 현재 튜브와 가까운 쪽 좌표에 맞춤
+          let best = null, bd = Infinity;
+          cands.forEach(function (r) {
+            const d0 = Math.abs(r.pos[axis] - info.pos[axis]);
+            if (d0 < bd) { bd = d0; best = r; }
+          });
+          const sign = (info.next[axis] - info.term[axis]) >= 0 ? 1 : -1;
+          const d = (best.pos[axis] - info.term[axis]) * sign;
+          const segLen = Math.abs(info.next[axis] - info.term[axis]);
+          if (d < 2 || d > segLen) return; // 그 좌표가 직선 구간 밖이면 유지
+          w[pr[1]] = Math.round(d * 10) / 10;
+          n++;
+        });
+      });
+    }, { label: '번호 정렬' });
+    App.render.all();
+    if (App.inspector) App.inspector.update();
+    if (App.toolbar) App.toolbar.flash(n ? ('번호 튜브 ' + n + '곳을 기준선에 정렬') : '정렬 가능한 끝이 없습니다 (방향/범위 확인)');
+  }
+  Interact.alignWireLabels = alignWireLabels;
 
   // 그리기 순서(z-order): 선택 항목을 같은 종류 배열의 맨 앞/맨 뒤로 — 렌더는 배열 순서대로 그림
   function zOrder(front) {

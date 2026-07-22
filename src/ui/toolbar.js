@@ -487,6 +487,7 @@
     if ($('act-matchprop')) $('act-matchprop').onclick = function () { App.interact.startMatchProp(); };
     if ($('al-between')) $('al-between').onclick = function () { App.interact.startCenterBetween(); };
     if ($('act-walign')) $('act-walign').onclick = function () { App.interact.startWireAlign(); };
+    if ($('act-numalign')) $('act-numalign').onclick = function () { App.interact.alignWireLabels(); };
     $('act-lock').onclick = function () { App.interact.toggleLock(); };
 
     // 커스텀 부품 만들기 + 내 부품 내보내기/가져오기

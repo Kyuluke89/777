@@ -277,7 +277,9 @@
       // 번호 튜브 — 이 선만 표시/숨김 + 개별 위치(단자에서 떨어진 거리)
       html += row('번호 튜브', '<label class="flex items-center gap-1 text-xs text-slate-600"><input id="insp-wtube" type="checkbox"' + (it.hideTube ? '' : ' checked') + ' /> 표시 (번호+행선지)</label>');
       const gIns = (App.ui && App.ui.wireLabelInset != null) ? App.ui.wireLabelInset : App.wires.LABEL_INSET;
-      html += row('번호 위치', '<input id="insp-winset" type="number" step="1" min="2" value="' + (it.labelInset != null ? it.labelInset : '') + '" placeholder="전역 ' + gIns + '" title="이 선만 번호 튜브가 단자에서 떨어지는 거리(mm). 비우면 전역 슬라이더 따름" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+      html += row('번호 위치', '<input id="insp-winset" type="number" step="1" min="2" value="' + (it.labelInset != null ? it.labelInset : '') + '" placeholder="전역 ' + gIns + '" title="이 선만 번호 튜브가 단자에서 떨어지는 거리(mm, 양쪽 공통). 비우면 전역 슬라이더 따름" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+      html += row('· 시작(A)쪽', '<input id="insp-winset-a" type="number" step="1" min="2" value="' + (it.labelInsetA != null ? it.labelInsetA : '') + '" placeholder="공통 따름" title="시작 단자 쪽 번호 튜브만 거리 조절 (비우면 공통/전역 따름)" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
+      html += row('· 끝(B)쪽', '<input id="insp-winset-b" type="number" step="1" min="2" value="' + (it.labelInsetB != null ? it.labelInsetB : '') + '" placeholder="공통 따름" title="끝 단자 쪽 번호 튜브만 거리 조절 (비우면 공통/전역 따름)" class="w-24 px-2 py-1 text-xs border border-slate-300 rounded text-right" />');
       const fromC = App.store.get().components.find(function (c) { return c.id === it.fromComp; });
       const toC = App.store.get().components.find(function (c) { return c.id === it.toComp; });
       function tname(comp, idx) {
@@ -330,6 +332,17 @@
         });
         App.render.all();
       };
+      [['#insp-winset-a', 'labelInsetA'], ['#insp-winset-b', 'labelInsetB']].forEach(function (pr) {
+        const inp = root.querySelector(pr[0]);
+        if (inp) inp.onchange = function () {
+          const n = parseFloat(inp.value);
+          App.store.commit(function () {
+            const fnd = App.store.findById(id);
+            if (fnd) fnd.item[pr[1]] = isNaN(n) ? null : Math.max(2, n);
+          });
+          App.render.all();
+        };
+      });
       // 프리셋 변경 — 이름 기록 + 속성(색/두께/규격/AWG/전원) 적용
       const wpSel = root.querySelector('#insp-wpreset');
       if (wpSel) wpSel.onchange = function () {

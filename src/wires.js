@@ -497,10 +497,14 @@
     if (!pts || pts.length < 2) return null;
     const L = polyLen(pts);
     const globalInset = (App.ui && App.ui.wireLabelInset != null) ? App.ui.wireLabelInset : W.LABEL_INSET;
-    const inset = (wire && wire.labelInset != null) ? wire.labelInset : globalInset; // 배선별 오버라이드
-    const d = Math.min(inset, L * 0.45);           // 너무 짧으면 안쪽으로 조정
-    const A = pointAlong(pts, d);
-    const B = pointAlong(pts.slice().reverse(), d);
+    const both = (wire && wire.labelInset != null) ? wire.labelInset : globalInset; // 배선별(양쪽 공통) 오버라이드
+    // 양끝 개별 오버라이드 — A(시작)/B(끝) 각각 조절 가능
+    const insetA = (wire && wire.labelInsetA != null) ? wire.labelInsetA : both;
+    const insetB = (wire && wire.labelInsetB != null) ? wire.labelInsetB : both;
+    const dA = Math.min(insetA, L * 0.45);         // 너무 짧으면 안쪽으로 조정
+    const dB = Math.min(insetB, L * 0.45);
+    const A = pointAlong(pts, dA);
+    const B = pointAlong(pts.slice().reverse(), dB);
     return {
       a: { x: A.x, y: A.y, ang: textAng(A.dx, A.dy) },
       b: { x: B.x, y: B.y, ang: textAng(B.dx, B.dy) }

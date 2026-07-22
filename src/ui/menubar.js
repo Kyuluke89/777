@@ -163,6 +163,7 @@
         { id: 'al-between', label: '사이 센터' },
         { sep: true },
         { id: 'act-walign', label: '선 정렬 (기준선 → 상대선)' },
+        { id: 'act-numalign', label: '번호(튜브) 정렬 — 첫 선택이 기준' },
         { id: 'wire-preset-manage', label: '배선 프리셋 관리…' },
       ],
     },
