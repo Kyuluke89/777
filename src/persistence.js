@@ -130,13 +130,32 @@
     input.click();
   };
 
-  // --- IndexedDB 자동저장 ---
+  // --- 자동저장 저장소 ---
+  // http(s): IndexedDB (용량 큼) · file://(더블클릭): localStorage 폴백 —
+  // 파일을 실수로 지워도 브라우저 안 사본으로 복구할 수 있게 어느 환경에서든 켠다.
   const DB_NAME = 'panel-designer';
   const STORE = 'projects';
   const AUTOSAVE_KEY = 'autosave';
   const RECENT_KEY = 'recent';      // 최근 프로젝트 목록 [{name, ts, data}]
   const SNAPSHOTS_KEY = 'snapshots'; // 버전 히스토리 [{ts, data}]
+  const LS_PREFIX = 'panel-store-';  // localStorage 폴백 키 접두사
   let dbPromise = null;
+
+  function idbAvailable() {
+    return (location.protocol === 'http:' || location.protocol === 'https:') && !!global.indexedDB;
+  }
+  function lsAvailable() {
+    try {
+      localStorage.setItem('panel-ls-test', '1');
+      localStorage.removeItem('panel-ls-test');
+      return true;
+    } catch (e) { return false; }
+  }
+
+  P.autosaveAvailable = function () { return idbAvailable() || lsAvailable(); };
+  // localStorage 폴백은 용량이 작으므로 보관 개수를 줄인다
+  function recentMax() { return idbAvailable() ? 10 : 5; }
+  function snapMax() { return idbAvailable() ? 20 : 6; }
 
   function openDB() {
     if (dbPromise) return dbPromise;
@@ -153,26 +172,59 @@
     return dbPromise;
   }
 
-  // key 값 읽기/쓰기 헬퍼 (projects 스토어의 별도 key 사용)
+  // key 값 읽기/쓰기/삭제 — 환경에 맞는 저장소로
   function dbGet(key) {
-    if (!P.autosaveAvailable()) return Promise.resolve(null);
-    return openDB().then(function (db) {
-      return new Promise(function (resolve) {
-        const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(key);
-        req.onsuccess = function () { resolve(req.result || null); };
-        req.onerror = function () { resolve(null); };
-      });
-    }).catch(function () { return null; });
+    if (idbAvailable()) {
+      return openDB().then(function (db) {
+        return new Promise(function (resolve) {
+          const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(key);
+          req.onsuccess = function () { resolve(req.result || null); };
+          req.onerror = function () { resolve(null); };
+        });
+      }).catch(function () { return null; });
+    }
+    try {
+      const raw = localStorage.getItem(LS_PREFIX + key);
+      return Promise.resolve(raw ? JSON.parse(raw) : null);
+    } catch (e) { return Promise.resolve(null); }
   }
   function dbPut(key, val) {
-    if (!P.autosaveAvailable()) return Promise.resolve(false);
-    return openDB().then(function (db) {
-      db.transaction(STORE, 'readwrite').objectStore(STORE).put(val, key);
-      return true;
-    }).catch(function () { return false; });
+    if (idbAvailable()) {
+      return openDB().then(function (db) {
+        db.transaction(STORE, 'readwrite').objectStore(STORE).put(val, key);
+        return true;
+      }).catch(function () { return false; });
+    }
+    try {
+      localStorage.setItem(LS_PREFIX + key, JSON.stringify(val));
+      return Promise.resolve(true);
+    } catch (e) {
+      // 용량 초과: 목록이면 뒤에서부터 줄여가며 재시도 (최신 것 우선 보존)
+      if (Array.isArray(val)) {
+        const trimmed = val.slice();
+        while (trimmed.length > 1) {
+          trimmed.pop();
+          try {
+            localStorage.setItem(LS_PREFIX + key, JSON.stringify(trimmed));
+            return Promise.resolve(true);
+          } catch (e2) { /* 더 줄여서 재시도 */ }
+        }
+      }
+      return Promise.resolve(false);
+    }
+  }
+  function dbDel(key) {
+    if (idbAvailable()) {
+      return openDB().then(function (db) {
+        db.transaction(STORE, 'readwrite').objectStore(STORE).delete(key);
+        return true;
+      }).catch(function () { return false; });
+    }
+    try { localStorage.removeItem(LS_PREFIX + key); } catch (e) {}
+    return Promise.resolve(true);
   }
 
-  // --- 최근 프로젝트 목록 (저장/불러오기 시 기록, 최대 10개) ---
+  // --- 최근 프로젝트 목록 (저장/불러오기 시 기록) ---
   P.pushRecent = function (state) {
     if (!P.autosaveAvailable()) return;
     const name = (state.panel && state.panel.title) || state.name || '제목 없음';
@@ -180,7 +232,7 @@
       list = Array.isArray(list) ? list : [];
       list = list.filter(function (r) { return r.name !== name; }); // 같은 이름은 최신으로 교체
       list.unshift({ name: name, ts: Date.now(), data: App.clone(state) });
-      if (list.length > 10) list.length = 10;
+      if (list.length > recentMax()) list.length = recentMax();
       dbPut(RECENT_KEY, list);
     });
   };
@@ -192,7 +244,6 @@
   // --- 버전 히스토리 (자동 스냅샷) ---
   // 자동저장과 별개로 일정 간격마다 시점 스냅샷을 보관 → 실수해도 과거로 복원 가능
   const SNAP_INTERVAL = 5 * 60 * 1000; // 5분
-  const SNAP_MAX = 20;
   let lastSnapTs = 0;
 
   P.snapshotNow = function (state) {
@@ -201,7 +252,7 @@
     return dbGet(SNAPSHOTS_KEY).then(function (list) {
       list = Array.isArray(list) ? list : [];
       list.unshift({ ts: Date.now(), data: App.clone(state) });
-      if (list.length > SNAP_MAX) list.length = SNAP_MAX;
+      if (list.length > snapMax()) list.length = snapMax();
       return dbPut(SNAPSHOTS_KEY, list);
     });
   };
@@ -217,42 +268,24 @@
     return dbGet(SNAPSHOTS_KEY).then(function (list) { return Array.isArray(list) ? list : []; });
   };
 
-  P.autosaveAvailable = function () {
-    // file:// 에서는 IndexedDB 가 불안정 → http(s) 에서만 사용
-    return location.protocol === 'http:' || location.protocol === 'https:';
-  };
-
   let saveTimer = null;
   P.scheduleAutosave = function (state) {
     if (!P.autosaveAvailable()) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
-      openDB().then(function (db) {
-        const tx = db.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).put(App.clone(state), AUTOSAVE_KEY);
-        maybeSnapshot(state); // 버전 히스토리도 주기적으로 적재
-      }).catch(function () { /* 무시 */ });
+      dbPut(AUTOSAVE_KEY, App.clone(state));
+      maybeSnapshot(state); // 버전 히스토리도 주기적으로 적재
     }, 800);
   };
 
   P.loadAutosave = function () {
     if (!P.autosaveAvailable()) return Promise.resolve(null);
-    return openDB().then(function (db) {
-      return new Promise(function (resolve) {
-        const tx = db.transaction(STORE, 'readonly');
-        const req = tx.objectStore(STORE).get(AUTOSAVE_KEY);
-        req.onsuccess = function () { resolve(req.result || null); };
-        req.onerror = function () { resolve(null); };
-      });
-    }).catch(function () { return null; });
+    return dbGet(AUTOSAVE_KEY);
   };
 
   P.clearAutosave = function () {
     if (!P.autosaveAvailable()) return;
-    openDB().then(function (db) {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).delete(AUTOSAVE_KEY);
-    }).catch(function () {});
+    dbDel(AUTOSAVE_KEY);
   };
 
   // --- 저장 안 된 변경 추적 + 창 닫기 경고 ---

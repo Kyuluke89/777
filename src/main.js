@@ -73,7 +73,7 @@
       const badge = document.getElementById('autosave-badge');
       if (badge) {
         if (App.persistence.autosaveAvailable()) {
-          badge.textContent = '자동저장 켜짐';
+          badge.textContent = '자동저장 켜짐';   // file:// 도 localStorage 폴백으로 저장
           badge.className = 'text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700';
         } else {
           badge.textContent = '자동저장 꺼짐 (파일로 저장하세요)';

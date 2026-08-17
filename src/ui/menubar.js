@@ -269,7 +269,7 @@
 
   function openRecentModal() {
     if (!App.persistence.autosaveAvailable()) {
-      alert('최근 프로젝트 목록은 http(s) 환경(GitHub Pages 등)에서 사용할 수 있습니다.\nfile:// 로 열었을 때는 저장/불러오기를 사용하세요.');
+      alert('이 브라우저에서는 로컬 저장소를 사용할 수 없어 최근 목록이 없습니다.\n저장/불러오기를 사용하세요.');
       return;
     }
     App.persistence.listRecent().then(function (list) {
@@ -401,7 +401,7 @@
 
   function openSnapshotModal() {
     if (!App.persistence.autosaveAvailable()) {
-      alert('버전 히스토리는 http(s) 환경(GitHub Pages 등)에서 사용할 수 있습니다.');
+      alert('이 브라우저에서는 로컬 저장소를 사용할 수 없어 버전 히스토리가 없습니다.');
       return;
     }
     App.persistence.listSnapshots().then(function (list) {

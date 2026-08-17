@@ -3835,6 +3835,36 @@ function assert(cond, msg) { if (!cond) { throw new Error('ASSERT FAIL: ' + msg)
   assert(nalign.alignedA && nalign.alignedB && nalign.insetSet, '번호 정렬: 선택한 배선 튜브를 기준과 같은 선상에');
   assert(nalign.undoL && nalign.hasAB, '번호 정렬 undo 라벨 + 인스펙터 A/B 입력');
 
+  // === file:// 환경에서도 자동저장/최근/스냅샷 (localStorage 폴백) ===
+  const lsav = await page.evaluate(async () => {
+    const avail = App.persistence.autosaveAvailable() === true; // 이 테스트는 file:// 로 실행됨
+    // 최근 목록 폴백
+    App.persistence.pushRecent({ name: '복구테스트', panel: { title: '복구테스트', widthMM: 100, heightMM: 100, gridMM: 10 }, components: [], wires: [], ducts: [], rails: [] });
+    await new Promise(r => setTimeout(r, 60));
+    const recents = await App.persistence.listRecent();
+    const inRecent = recents.some(r => r.name === '복구테스트');
+    const inLS = (localStorage.getItem('panel-store-recent') || '').indexOf('복구테스트') >= 0;
+    // 스냅샷 폴백
+    await App.persistence.snapshotNow();
+    const snaps = await App.persistence.listSnapshots();
+    const hasSnap = snaps.length >= 1;
+    // 자동저장 폴백 (디바운스 800ms 후 localStorage 에 기록)
+    App.store.commit(s => { s.texts.push({ id: 'as1', x: 1, y: 1, text: 'as', size: 8, color: '#000' }); });
+    await new Promise(r => setTimeout(r, 1100));
+    const saved = await App.persistence.loadAutosave();
+    const hasAuto = !!saved && (saved.texts || []).some(t => t.id === 'as1');
+    // 정리
+    App.store.commit(s => { s.texts = s.texts.filter(t => t.id !== 'as1'); });
+    App.persistence.clearAutosave();
+    localStorage.removeItem('panel-store-recent');
+    localStorage.removeItem('panel-store-snapshots');
+    return { avail, inRecent, inLS, hasSnap, hasAuto };
+  });
+  assert(lsav.avail, 'file:// 에서도 자동저장 사용 가능 (localStorage 폴백)');
+  assert(lsav.inRecent && lsav.inLS, 'file:// 최근 프로젝트 목록 기록/조회');
+  assert(lsav.hasSnap, 'file:// 버전 스냅샷 기록/조회');
+  assert(lsav.hasAuto, 'file:// 자동저장 기록 → 복원 데이터 확인');
+
   await page.screenshot({ path: SHOT });
   await browser.close();
 
